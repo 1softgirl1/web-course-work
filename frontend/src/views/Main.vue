@@ -8,6 +8,7 @@ import FAQ from "../components/faq.vue";
 import Footer from "../components/footer.vue";
 import Header from "../components/header.vue";
 
+
 </script>
 
 <template>

@@ -1,5 +1,5 @@
 <script setup>
-import { Heart, Shield, Users, Database } from 'lucide-vue-next'
+import { HeartPlus, Shield, Users, Database } from 'lucide-vue-next'
 
 const features = [
   {
@@ -21,7 +21,7 @@ const features = [
         'Разграничение доступа: полные данные видны только врачам региона пациента',
   },
   {
-    icon: Heart,
+    icon: HeartPlus,
     title: 'Мониторинг здоровья',
     description: 'Отслеживание состояния пациентов и хранение результатов обследований',
   },
