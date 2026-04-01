@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { Heart, Menu, X, LogIn } from 'lucide-vue-next'
-import Button from '../components/ui/button.vue'
+import Button from '../ui/button.vue'
 
 const mobileMenuOpen = ref(false)
 
@@ -24,9 +24,9 @@ const closeMenu = () => {
 
 <template>
   <header class="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur-sm">
-    <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+    <div class=" container mx-auto px-4 sm:px-6 lg:px-8 ">
       <div class="flex h-16 items-center justify-between">
-        <a href="/" class="flex items-center gap-2" @click="closeMenu">
+        <a href="/frontend/public" class="flex items-center gap-2" @click="closeMenu">
           <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500">
             <Heart class="h-5 w-5 text-white" />
           </div>

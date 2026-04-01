@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
 import { RouterLink } from "vue-router"
-import Button from './ui/button.vue'
-import type { Region } from "../data/regions"
-import { REGIONS } from "../data/regions"
+import Button from '../ui/button.vue'
+import type { Region } from "../../data/regions.ts"
+import { REGIONS } from "../../data/regions.ts"
 import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital } from "lucide-vue-next"
-import RegionModal from "@/components/RegionModal.vue"
+import RegionModal from "@/components/main/RegionModal.vue"
 
 const TEXTS = {
   badge: "Медицинский регистр пациентов",

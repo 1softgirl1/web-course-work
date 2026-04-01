@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, defineProps, defineEmits } from "vue"
-import Button from './ui/button.vue'
-import Dialog from './ui/dialog.vue'
+import Button from '../ui/button.vue'
+import Dialog from '../ui/dialog.vue'
 import { MapPin, LucideHospital } from "lucide-vue-next"
-import type { Region } from "../data/regions"
-import { REGIONS } from "../data/regions"
+import type { Region } from "../../data/regions.ts"
+import { REGIONS } from "../../data/regions.ts"
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{

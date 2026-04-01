@@ -26,22 +26,22 @@ import {RouterLink} from "vue-router";
           <h4 class="mb-4 font-semibold text-background">Разделы сайта</h4>
           <ul class="space-y-3">
             <li>
-              <a href="/#about" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/frontend/public#about" class="text-sm text-background/70 transition-colors hover:text-background">
                 О проекте
               </a>
             </li>
             <li>
-              <a href="/#articles" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/frontend/public#articles" class="text-sm text-background/70 transition-colors hover:text-background">
                 Полезные статьи
               </a>
             </li>
             <li>
-              <a href="/#blog" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/frontend/public#blog" class="text-sm text-background/70 transition-colors hover:text-background">
                 Блог
               </a>
             </li>
             <li>
-              <a href="/#faq" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/frontend/public#faq" class="text-sm text-background/70 transition-colors hover:text-background">
                 Частые вопросы
               </a>
             </li>
