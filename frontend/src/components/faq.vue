@@ -53,21 +53,21 @@ const faqs = ref([
 </script>
 
 <template>
-  <section id="faq" class="py-20 lg:py-28 bg-secondary/30">
+  <section id="faq" class="bg-secondary/30 py-12 sm:py-16 lg:py-28">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center mb-12">
-        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-          <HelpCircle class="w-4 h-4" />
+      <div class="mb-10 text-center sm:mb-12">
+        <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+          <HelpCircle class="h-4 w-4" />
           Справка
         </div>
-        <h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-4 text-balance">
+        <h2 class="mb-4 text-2xl font-bold text-foreground sm:text-4xl text-balance">
           Часто задаваемые вопросы
         </h2>
-        <p class="text-lg text-muted-foreground max-w-2xl mx-auto text-pretty">
+        <p class="mx-auto max-w-2xl text-base text-muted-foreground sm:text-lg text-pretty">
           Ответы на наиболее частые вопросы от пациентов и их законных представителей
         </p>
       </div>
-      <div class="max-w-3xl mx-auto space-y-4">
+      <div class="mx-auto max-w-3xl space-y-3 sm:space-y-4">
         <Question
             v-for="(faq, index) in faqs"
             :key="index"

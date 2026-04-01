@@ -25,16 +25,16 @@ const onClose = () => { open.value = false }
     <div v-if="open">
       <!-- Overlay -->
       <div
-          data-slot="dialog-overlay"
-          :class="['fixed inset-0 z-50 bg-black/50 transition-opacity duration-200', overlayClass]"
-          @click="onClose"
+        data-slot="dialog-overlay"
+        :class="['fixed inset-0 z-50 bg-black/50 transition-opacity duration-200', overlayClass]"
+        @click="onClose"
       />
 
       <!-- Content -->
       <div
-          data-slot="dialog-content"
-          :class="[
-          'bg-background fixed top-1/2 left-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border p-6 shadow-lg sm:max-w-lg transition-transform duration-200',
+        data-slot="dialog-content"
+        :class="[
+          'bg-background fixed left-1/2 top-1/2 z-50 grid w-[calc(100%-1rem)] max-w-lg max-h-[calc(100vh-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto rounded-lg border p-4 shadow-lg transition-transform duration-200 sm:w-full sm:p-6',
           contentClass
         ]"
       >
@@ -42,10 +42,10 @@ const onClose = () => { open.value = false }
 
         <!-- Close Button -->
         <button
-            v-if="showCloseButton"
-            data-slot="dialog-close"
-            class="absolute top-4 right-4 opacity-70 hover:opacity-100 focus:ring-2 focus:ring-offset-2 rounded-xs"
-            @click="onClose"
+          v-if="showCloseButton"
+          data-slot="dialog-close"
+          class="absolute right-3 top-3 rounded-xs opacity-70 hover:opacity-100 focus:ring-2 focus:ring-offset-2 sm:right-4 sm:top-4"
+          @click="onClose"
         >
           <XIcon />
           <span class="sr-only">Close</span>

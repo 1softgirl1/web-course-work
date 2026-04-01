@@ -29,14 +29,14 @@ const features = [
 </script>
 
 <template>
-  <section id="about" class="py-20 lg:py-28 bg-background">
+  <section id="about" class="bg-background py-12 sm:py-16 lg:py-28">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
-      <div class="max-w-3xl mx-auto text-center mb-16">
-        <h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-6 text-balance">
+      <div class="mx-auto mb-10 max-w-3xl text-center sm:mb-14 lg:mb-16">
+        <h2 class="mb-4 text-2xl font-bold text-foreground sm:text-4xl sm:mb-6 text-balance">
           О проекте
         </h2>
-        <p class="text-lg text-muted-foreground text-pretty">
+        <p class="text-base text-muted-foreground sm:text-lg text-pretty">
           Регистр создан для систематизации данных о пациентах с патологией выводного отдела правого желудочка
           после перенесённых операций по поводу врождённых пороков сердца. Платформа объединяет пациентов,
           их законных представителей и врачей для улучшения качества наблюдения и лечения.
@@ -44,16 +44,16 @@ const features = [
       </div>
 
       <!-- Features grid -->
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div class="grid gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4 lg:gap-8">
         <div
             v-for="feature in features"
             :key="feature.title"
-            class="text-center"
+            class="rounded-xl border bg-card p-5 text-center sm:p-6"
         >
-          <div class="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <component :is="feature.icon" class="w-7 h-7 text-primary" />
+          <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 sm:h-14 sm:w-14">
+            <component :is="feature.icon" class="h-6 w-6 text-primary sm:h-7 sm:w-7" />
           </div>
-          <h3 class="text-lg font-semibold text-foreground mb-2">{{ feature.title }}</h3>
+          <h3 class="mb-2 text-base font-semibold text-foreground sm:text-lg">{{ feature.title }}</h3>
           <p class="text-sm text-muted-foreground">{{ feature.description }}</p>
         </div>
       </div>

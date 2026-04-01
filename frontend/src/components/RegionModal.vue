@@ -25,15 +25,15 @@ const handleSelect = (region: Region) => {
 </script>
 
 <template>
-  <Dialog v-model="localOpen" class="sm:max-w-lg">
-    <div class="p-4" v-if="localOpen">
-      <div class="flex items-center gap-3 mb-2">
-        <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-          <MapPin class="w-5 h-5 text-primary"/>
+  <Dialog v-model="localOpen" content-class="sm:max-w-lg">
+    <div class="p-1 sm:p-2">
+      <div class="mb-2 flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+          <MapPin class="h-5 w-5 text-primary"/>
         </div>
-        <h3 class="text-xl font-semibold">Выберите ваш регион</h3>
+        <h3 class="text-lg font-semibold sm:text-xl">Выберите ваш регион</h3>
       </div>
-      <p class="text-sm text-muted-foreground mb-4">
+      <p class="mb-4 text-sm text-muted-foreground">
         Выберите регион, чтобы увидеть контактную информацию ближайших клиник.
       </p>
 
@@ -42,12 +42,12 @@ const handleSelect = (region: Region) => {
             v-for="region in REGIONS"
             :key="region.id"
             variant="outline"
-            class="justify-start h-auto py-3 px-4"
+            class="h-auto justify-start px-3 py-3 sm:px-4"
             @click="handleSelect(region)"
         >
-          <LucideHospital class="w-4 h-4 mr-3"/>
-          <div class="text-left">
-            <div class="font-medium">{{ region.name }}</div>
+          <LucideHospital class="mr-3 h-4 w-4 shrink-0"/>
+          <div class="min-w-0 text-left">
+            <div class="font-medium wrap-break-word">{{ region.name }}</div>
             <div class="text-xs">{{ region.clinics.length }} {{ region.clinics.length === 1 ? "клиника" : "клиники" }}</div>
           </div>
         </Button>

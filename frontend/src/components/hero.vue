@@ -50,54 +50,60 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="py-16 lg:py-24">
+  <section class="py-10 sm:py-14 lg:py-24">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="max-w-4xl mx-auto text-center mb-12">
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-8">
-          <ShieldCheck class="w-4 h-4" /> {{ TEXTS.badge }}
+      <div class="mx-auto mb-10 max-w-4xl text-center sm:mb-12">
+        <div class="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary sm:px-4 sm:py-2 sm:text-sm">
+          <ShieldCheck class="h-4 w-4" /> {{ TEXTS.badge }}
         </div>
 
-        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6">{{ TEXTS.title }}</h1>
-        <p class="text-lg sm:text-xl text-muted-foreground mb-6 max-w-3xl mx-auto">{{ TEXTS.subtitle }}</p>
-        <p class="text-base text-foreground font-medium mb-8">{{ TEXTS.cta }}</p>
+        <h1 class="mb-5 text-2xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">{{ TEXTS.title }}</h1>
+        <p class="mx-auto mb-5 max-w-3xl text-base text-muted-foreground sm:text-xl">{{ TEXTS.subtitle }}</p>
+        <p class="mb-7 text-sm font-medium text-foreground sm:mb-8 sm:text-base">{{ TEXTS.cta }}</p>
 
-        <RouterLink to="/login?role=patient">
-          <Button size="lg" class="mb-8"><User class="w-4 h-4 mr-2" /> {{ TEXTS.patientBtn }}</Button>
+        <RouterLink to="/login?role=patient" class="block sm:inline-block">
+          <Button size="lg" class="mb-8 w-full sm:w-auto"><User class="mr-2 h-4 w-4" /> {{ TEXTS.patientBtn }}</Button>
         </RouterLink>
       </div>
 
-      <div v-if="mounted && selectedRegion" class="max-w-4xl mx-auto">
-        <div class="flex items-center justify-between mb-6">
+      <div v-if="mounted && selectedRegion" class="mx-auto max-w-4xl">
+        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
-              <LucideHospital class="w-5 h-5 text-red-500" />
+            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500/10">
+              <LucideHospital class="h-5 w-5 text-red-500" />
             </div>
             <div>
-              <h2 class="text-lg font-semibold">{{ TEXTS.clinicsTitle }}</h2>
+              <h2 class="text-base font-semibold sm:text-lg">{{ TEXTS.clinicsTitle }}</h2>
               <p class="text-sm text-muted-foreground">{{ selectedRegion.name }}</p>
             </div>
           </div>
 
-          <button class="border px-3 py-1 rounded-sm flex items-center gap-2" @click="handleChangeRegionClick">
-            <MapPin class="w-4 h-4" />
-            <span class="text-base font-medium">{{ TEXTS.changeRegion }}</span>
+          <button
+            class="inline-flex w-full items-center justify-center gap-2 rounded-sm border px-3 py-2 sm:w-auto"
+            @click="handleChangeRegionClick"
+          >
+            <MapPin class="h-4 w-4" />
+            <span class="text-sm font-medium sm:text-base">{{ TEXTS.changeRegion }}</span>
           </button>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">
-          <div v-for="(clinic, index) in selectedRegion.clinics" :key="index" class="bg-card border rounded-lg p-5 hover:border-primary/30 transition">
-            <h3 class="font-semibold mb-4">{{ clinic.name }}</h3>
+          <div
+            v-for="(clinic, index) in selectedRegion.clinics"
+            :key="index"
+            class="rounded-lg border bg-card p-4 transition hover:border-primary/30 sm:p-5"
+          >
+            <h3 class="mb-4 text-base font-semibold sm:text-lg">{{ clinic.name }}</h3>
             <div class="space-y-3">
-              <a :href="`tel:${clinic.phone.replace(/\s/g, '')}`" class="flex items-center gap-3 text-sm hover:text-primary"><Phone class="w-4 h-4 text-primary" />{{ clinic.phone }}</a>
-              <a :href="`mailto:${clinic.email}`" class="flex items-center gap-3 text-sm hover:text-primary"><Mail class="w-4 h-4 text-primary" />{{ clinic.email }}</a>
-              <div class="flex items-start gap-3 text-sm"><MapPin class="w-4 h-4 text-primary mt-0.5" />{{ clinic.address }}</div>
+              <a :href="`tel:${clinic.phone.replace(/\s/g, '')}`" class="flex items-center gap-3 text-sm break-all hover:text-primary"><Phone class="h-4 w-4 shrink-0 text-primary" />{{ clinic.phone }}</a>
+              <a :href="`mailto:${clinic.email}`" class="flex items-center gap-3 text-sm break-all hover:text-primary"><Mail class="h-4 w-4 shrink-0 text-primary" />{{ clinic.email }}</a>
+              <div class="flex items-start gap-3 text-sm"><MapPin class="mt-0.5 h-4 w-4 shrink-0 text-primary" />{{ clinic.address }}</div>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Модалка выбора региона -->
     <RegionModal v-if="mounted" v-model:open="openModal" @select="handleRegionSelect" />
   </section>
 </template>
