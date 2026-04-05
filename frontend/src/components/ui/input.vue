@@ -4,9 +4,15 @@ import { cn } from '../../lib/utils'
 
 const props = withDefaults(defineProps<{
   class?: string
+  modelValue?: string | number
 }>(), {
   class: '',
+  modelValue: '',
 })
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: string): void
+}>()
 
 const classes = computed(() =>
   cn(
@@ -17,5 +23,11 @@ const classes = computed(() =>
 </script>
 
 <template>
-  <input data-slot="input" :class="classes" v-bind="$attrs" />
+  <input
+      data-slot="input"
+      :class="classes"
+      :value="props.modelValue"
+      @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      v-bind="$attrs"
+  />
 </template>

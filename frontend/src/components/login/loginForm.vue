@@ -7,9 +7,9 @@ import Button from '@/components/ui/button.vue'
 import { Mail, Lock } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import Field from "@/components/ui/field.vue";
-import FieldLabel from "@/components/ui/field-label.vue";
-import FieldGroup from "@/components/ui/field-group.vue";
+import Field from "@/components/ui/field/field.vue";
+import FieldLabel from "@/components/ui/field/field-label.vue";
+import FieldGroup from "@/components/ui/field/field-group.vue";
 
 const route = useRoute()
 const router = useRouter()

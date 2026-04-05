@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils.ts'
 
 const props = withDefaults(defineProps<{
   for?: string

@@ -22,15 +22,24 @@ const props = withDefaults(defineProps<{
   description: '',
 })
 
+defineSlots<{
+  default?: () => any
+  header?: () => any
+  action?: () => any
+  footer?: () => any
+}>()
+
 const slots = useSlots()
 
-const hasHeader = computed(() => Boolean(slots.header || slots.action || props.title || props.description))
+const hasHeader = computed(() =>
+    Boolean(slots.header || slots.action || props.title || props.description)
+)
 </script>
 
 <template>
   <div
     data-slot="card"
-    :class="cn('bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm', props.class)"
+    :class="cn('bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6  shadow-border shadow-sm', props.class)"
   >
     <div
       v-if="hasHeader"
@@ -55,7 +64,7 @@ const hasHeader = computed(() => Boolean(slots.header || slots.action || props.t
       </slot>
 
       <div
-        v-if="$slots.action"
+          v-if="slots.action"
         data-slot="card-action"
         :class="cn('col-start-2 row-span-2 row-start-1 self-start justify-self-end')"
       >
@@ -68,7 +77,7 @@ const hasHeader = computed(() => Boolean(slots.header || slots.action || props.t
     </div>
 
     <div
-      v-if="$slots.footer"
+        v-if="slots.footer"
       data-slot="card-footer"
       :class="cn('flex items-center px-6 [.border-t]:pt-6', props.footerClass)"
     >

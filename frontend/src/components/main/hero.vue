@@ -3,9 +3,10 @@ import { ref, onMounted } from "vue"
 import { RouterLink } from "vue-router"
 import Button from '../ui/button.vue'
 import type { Region } from "../../data/regions.ts"
-import { REGIONS } from "../../data/regions.ts"
+import { REGIONS, CITY_TO_REGION } from "../../data/regions.ts"
 import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital } from "lucide-vue-next"
-import RegionModal from "@/components/main/RegionModal.vue"
+import RegionModal from "@/components/main/regionModal.vue"
+import RegionConfirmModal from "@/components/main/regionConfirmModal.vue"
 
 const TEXTS = {
   badge: "Медицинский регистр пациентов",
@@ -18,13 +19,118 @@ const TEXTS = {
 }
 
 const selectedRegion = ref<Region | null>(null)
+const detectedRegion = ref<Region | null>(null)
 const mounted = ref(false)
 const openModal = ref(false)
+const openConfirmModal = ref(false)
+const noCardioCenterMessage = ref("")
+
+const normalizeLocationValue = (value: string) => {
+  return value
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/\b(г|гор|город|область|обл|край|республика|р-н|район)\b\.?/g, " ")
+    .replace(/[.,]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+const findRegionByLocationValue = (locationValue: string): Region | null => {
+  const normalizedValue = normalizeLocationValue(locationValue)
+  if (!normalizedValue) {
+    return null
+  }
+
+  const directRegionId = CITY_TO_REGION[normalizedValue]
+  if (directRegionId) {
+    return REGIONS.find(region => region.id === directRegionId) || null
+  }
+
+  for (const [alias, regionId] of Object.entries(CITY_TO_REGION)) {
+    const normalizedAlias = normalizeLocationValue(alias)
+    if (normalizedValue.includes(normalizedAlias) || normalizedAlias.includes(normalizedValue)) {
+      return REGIONS.find(region => region.id === regionId) || null
+    }
+  }
+
+  return null
+}
+
+const findRegionFromGeoData = (address: Record<string, unknown>, displayName: string): Region | null => {
+  const candidates = [
+    address.city,
+    address.town,
+    address.village,
+    address.municipality,
+    address.county,
+    address.state,
+    address.region,
+    address.province,
+    address.city_district,
+    displayName,
+  ]
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue
+    }
+    const region = findRegionByLocationValue(String(candidate))
+    if (region) {
+      return region
+    }
+  }
+
+  return null
+}
+
+const applySelectedRegion = (region: Region) => {
+  selectedRegion.value = region
+  localStorage.setItem("selectedRegion", region.id)
+  noCardioCenterMessage.value = region.clinics.length
+    ? ""
+    : `В регионе ${region.name} пока нет кардиоцентра. Пожалуйста, выберите другой регион.`
+}
+
+const detectRegionByBrowserGeolocation = async (): Promise<Region | null> => {
+  if (!navigator.geolocation) {
+    return null
+  }
+
+  try {
+    const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: false,
+        timeout: 10000,
+        maximumAge: 5 * 60 * 1000,
+      })
+    })
+
+    const lat = position.coords.latitude
+    const lon = position.coords.longitude
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=ru`)
+
+    if (!response.ok) {
+      return null
+    }
+
+    const data = await response.json()
+    const address = data?.address || {}
+    const displayName = String(data?.display_name || "")
+    const region = findRegionFromGeoData(address, displayName)
+
+    if (region) {
+      return region
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
 
 // Обработчик выбора региона из модалки
 const handleRegionSelect = (region: Region) => {
-  selectedRegion.value = region
-  localStorage.setItem("selectedRegion", region.id)
+  applySelectedRegion(region)
   openModal.value = false
 }
 
@@ -33,18 +139,51 @@ const handleChangeRegionClick = () => {
   openModal.value = true
 }
 
-onMounted(() => {
+const handleConfirmDetectedRegion = () => {
+  if (!detectedRegion.value) {
+    openConfirmModal.value = false
+    openModal.value = true
+    return
+  }
+
+  applySelectedRegion(detectedRegion.value)
+  openConfirmModal.value = false
+}
+
+const handleRejectDetectedRegion = () => {
+  openConfirmModal.value = false
+  openModal.value = true
+}
+
+onMounted(async () => {
   mounted.value = true
 
   const defaultRegion = REGIONS.find(r => r.id === "moscow") || REGIONS[0]
-
   const savedRegionId = localStorage.getItem("selectedRegion")
-  if (savedRegionId) {
-    const region = REGIONS.find(r => r.id === savedRegionId)
-    selectedRegion.value = region || defaultRegion
-  } else {
+  const savedRegion = savedRegionId
+    ? REGIONS.find(r => r.id === savedRegionId)
+    : null
+
+  if (savedRegion) {
+    applySelectedRegion(savedRegion)
+    return
+  }
+
+  selectedRegion.value = defaultRegion
+  noCardioCenterMessage.value = defaultRegion.clinics.length
+    ? ""
+    : `В регионе ${defaultRegion.name} пока нет кардиоцентра. Пожалуйста, выберите другой регион.`
+
+  const geoRegion = await detectRegionByBrowserGeolocation()
+  if (geoRegion) {
+    detectedRegion.value = geoRegion
+    openConfirmModal.value = true
+    return
+  }
+
+  if (!savedRegion) {
     selectedRegion.value = defaultRegion
-    openModal.value = true // показать модалку при первом посещении
+    openModal.value = true
   }
 })
 </script>
@@ -87,7 +226,12 @@ onMounted(() => {
           </button>
         </div>
 
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div v-if="noCardioCenterMessage" class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-900">
+          <p class="text-sm">{{ noCardioCenterMessage }}</p>
+          <Button variant="outline" class="mt-3" @click="handleChangeRegionClick">Выбрать другой регион</Button>
+        </div>
+
+        <div v-else class="grid gap-4 sm:grid-cols-2">
           <div
             v-for="(clinic, index) in selectedRegion.clinics"
             :key="index"
@@ -104,6 +248,13 @@ onMounted(() => {
       </div>
     </div>
 
+    <RegionConfirmModal
+      v-if="mounted && detectedRegion"
+      v-model:open="openConfirmModal"
+      :region-name="detectedRegion.name"
+      @confirm="handleConfirmDetectedRegion"
+      @reject="handleRejectDetectedRegion"
+    />
     <RegionModal v-if="mounted" v-model:open="openModal" @select="handleRegionSelect" />
   </section>
 </template>

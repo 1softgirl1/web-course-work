@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { cn } from '@/lib/utils'
+import {cn} from "@/lib/utils.js";
+
 
 const props = withDefaults(defineProps<{
   class?: string
@@ -9,7 +10,7 @@ const props = withDefaults(defineProps<{
 </script>
 
 <template>
-  <div :class="cn('grid gap-2', props.class)">
+  <div :class="cn('grid gap-4', props.class)">
     <slot />
   </div>
 </template>
