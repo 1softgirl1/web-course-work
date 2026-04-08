@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: Patient API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local backend server
+paths:
+  /api/doctor/patients:
+    post:
+      tags: [Patients]
+      operationId: createPatientCard
+      summary: Create patient card
+      description: Creates a patient card from the authenticated doctor context.
+      security:
+        - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePatientRequest'
+      responses:
+        '201':
+          description: Patient card created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedPatientResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Authentication required
+        '403':
+          description: Only a doctor can create a patient card
+    get:
+      tags: [Patients]
+      operationId: listDoctorPatients
+      summary: List patients available to the doctor
+      description: Returns patients from the authenticated doctor's region.
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: Patients list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PatientSummaryResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Only a doctor can list patients
+  /api/patients/{id}:
+    get:
+      tags: [Patients]
+      operationId: getPatientCard
+      summary: Get patient card
+      description: >
+        Returns a patient card in FULL or ANONYMIZED mode depending on the actor role and region access.
+        Patients can access only their own card.
+      security:
+        - basicAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Patient card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientCardResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Patient is trying to access a foreign card
+        '404':
+          description: Patient card not found
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+  schemas:
+    CreateValveRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: string
+        material:
+          type: string
+      required: [name, size, material]
+    CreateOperationParametersRequest:
+      type: object
+      properties:
+        anesthesia:
+          type: string
+        durationMinutes:
+          type: integer
+        deliverySystem:
+          type: string
+      required: [anesthesia, durationMinutes, deliverySystem]
+    CreatePatientRequest:
+      type: object
+      properties:
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        age:
+          type: integer
+        diagnosis:
+          type: string
+        valve:
+          $ref: '#/components/schemas/CreateValveRequest'
+        operationParameters:
+          $ref: '#/components/schemas/CreateOperationParametersRequest'
+        medications:
+          type: string
+      required: [lastName, firstName, age, diagnosis, valve, operationParameters, medications]
+    ValveResponse:
+      type: object
+      properties:
+        name:
+          type: string
+        size:
+          type: string
+        material:
+          type: string
+      required: [name, size, material]
+    OperationParametersResponse:
+      type: object
+      properties:
+        anesthesia:
+          type: string
+        durationMinutes:
+          type: integer
+        deliverySystem:
+          type: string
+      required: [anesthesia, durationMinutes, deliverySystem]
+    CreatedPatientResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        patientCode:
+          type: string
+        temporaryPassword:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        age:
+          type: integer
+        diagnosis:
+          type: string
+        regionId:
+          type: integer
+          format: int64
+        valve:
+          $ref: '#/components/schemas/ValveResponse'
+        operationParameters:
+          $ref: '#/components/schemas/OperationParametersResponse'
+        medications:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, patientCode, temporaryPassword, lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications, createdAt]
+    PatientSummaryResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        patientCode:
+          type: string
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        age:
+          type: integer
+        diagnosis:
+          type: string
+        regionId:
+          type: integer
+          format: int64
+        valve:
+          $ref: '#/components/schemas/ValveResponse'
+        operationParameters:
+          $ref: '#/components/schemas/OperationParametersResponse'
+        medications:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, patientCode, lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications, createdAt]
+    MeasurementResponse:
+      type: object
+      properties:
+        characteristicId:
+          type: integer
+          format: int64
+        characteristicCode:
+          type: string
+        characteristicName:
+          type: string
+        value:
+          type: string
+        unit:
+          type: string
+        comment:
+          type: string
+          nullable: true
+      required: [characteristicId, characteristicCode, characteristicName, value, unit]
+    VitalsHistoryItemResponse:
+      type: object
+      properties:
+        examId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        examDate:
+          type: string
+          format: date
+        comment:
+          type: string
+          nullable: true
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementResponse'
+      required: [examId, title, examDate, measurements]
+    PatientCardResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        viewMode:
+          type: string
+          enum: [FULL, ANONYMIZED]
+        patientCode:
+          type: string
+        lastName:
+          type: string
+          nullable: true
+        firstName:
+          type: string
+          nullable: true
+        middleName:
+          type: string
+          nullable: true
+        regionId:
+          type: integer
+          format: int64
+        regionName:
+          type: string
+        age:
+          type: integer
+        diagnosis:
+          type: string
+        valve:
+          $ref: '#/components/schemas/ValveResponse'
+        operationParameters:
+          $ref: '#/components/schemas/OperationParametersResponse'
+        medications:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        vitalsHistory:
+          type: array
+          items:
+            $ref: '#/components/schemas/VitalsHistoryItemResponse'
+      required: [id, viewMode, patientCode, regionId, regionName, age, diagnosis, valve, operationParameters, medications, createdAt, vitalsHistory]

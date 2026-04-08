@@ -10,9 +10,12 @@
 
 - `POST /api/doctor/patients` — создание карточки пациента врачом
 - `GET /api/doctor/patients` — список пациентов региона врача
+- `GET /api/patients/{id}` — получение карточки пациента с role-based уровнем детализации
 
 ## Содержание
 
 - [database.md](database.md) — описание структуры базы данных, таблиц, полей и связей
 - [migration.md](migration.md) — описание Flyway-миграций и назначения каждой из них
 - [patient-endpoints.md](patient-endpoints.md) — краткое описание backend endpoint-ов создания пациента и списка пациентов региона врача
+- [patient-openapi.yaml](patient-openapi.yaml) — OpenAPI-описание patient endpoint-ов
+

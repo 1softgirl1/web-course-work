@@ -26,6 +26,12 @@ class PatientProfileEntity(
     val region: RegionEntity,
     @Column(name = "patient_code", nullable = false, unique = true)
     val patientCode: String,
+    @Column(name = "last_name", nullable = false)
+    val lastName: String,
+    @Column(name = "first_name", nullable = false)
+    val firstName: String,
+    @Column(name = "middle_name")
+    val middleName: String? = null,
     @Column(name = "age", nullable = false)
     val age: Int,
     @Column(name = "diagnosis", nullable = false)

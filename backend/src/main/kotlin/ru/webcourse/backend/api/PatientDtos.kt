@@ -8,6 +8,11 @@ import jakarta.validation.constraints.Positive
 import java.time.LocalDateTime
 
 data class CreatePatientRequest(
+    @field:NotBlank
+    val lastName: String,
+    @field:NotBlank
+    val firstName: String,
+    val middleName: String? = null,
     @field:Min(0)
     @field:Max(150)
     val age: Int,
@@ -43,6 +48,9 @@ data class CreatedPatientResponse(
     val id: Long,
     val patientCode: String,
     val temporaryPassword: String,
+    val lastName: String,
+    val firstName: String,
+    val middleName: String?,
     val age: Int,
     val diagnosis: String,
     val regionId: Long,
@@ -55,6 +63,9 @@ data class CreatedPatientResponse(
 data class PatientSummaryResponse(
     val id: Long,
     val patientCode: String,
+    val lastName: String,
+    val firstName: String,
+    val middleName: String?,
     val age: Int,
     val diagnosis: String,
     val regionId: Long,
@@ -74,4 +85,44 @@ data class OperationParametersResponse(
     val anesthesia: String,
     val durationMinutes: Int,
     val deliverySystem: String,
+)
+
+enum class PatientCardViewMode {
+    FULL,
+    ANONYMIZED,
+}
+
+data class PatientCardResponse(
+    val id: Long,
+    val viewMode: PatientCardViewMode,
+    val patientCode: String,
+    val lastName: String?,
+    val firstName: String?,
+    val middleName: String?,
+    val regionId: Long,
+    val regionName: String,
+    val age: Int,
+    val diagnosis: String,
+    val valve: ValveResponse,
+    val operationParameters: OperationParametersResponse,
+    val medications: String,
+    val createdAt: LocalDateTime,
+    val vitalsHistory: List<VitalsHistoryItemResponse>,
+)
+
+data class VitalsHistoryItemResponse(
+    val examId: Long,
+    val title: String,
+    val examDate: String,
+    val comment: String?,
+    val measurements: List<MeasurementResponse>,
+)
+
+data class MeasurementResponse(
+    val characteristicId: Long,
+    val characteristicCode: String,
+    val characteristicName: String,
+    val value: String,
+    val unit: String,
+    val comment: String?,
 )

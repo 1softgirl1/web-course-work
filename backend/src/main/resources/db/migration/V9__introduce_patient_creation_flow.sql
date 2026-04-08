@@ -1,14 +1,14 @@
 alter table users rename column email to login;
 
 alter table patient_profiles
-    drop column last_name,
-    drop column first_name,
-    drop column middle_name,
     drop column birth_date,
     drop column phone;
 
 alter table patient_profiles
     add column patient_code varchar(50) not null,
+    alter column last_name set not null,
+    alter column first_name set not null,
+    alter column middle_name drop not null,
     add column age integer not null,
     add column diagnosis text not null,
     add column valve_name varchar(255) not null,
