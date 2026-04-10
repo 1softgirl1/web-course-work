@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.Positive
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 data class CreatePatientRequest(
@@ -18,6 +19,8 @@ data class CreatePatientRequest(
     val age: Int,
     @field:NotBlank
     val diagnosis: String,
+    @field:Positive
+    val regionId: Long,
     @field:Valid
     val valve: ValveRequest,
     @field:Valid
@@ -69,10 +72,19 @@ data class PatientSummaryResponse(
     val age: Int,
     val diagnosis: String,
     val regionId: Long,
+    val status: PatientMonitoringStatus,
     val valve: ValveResponse,
     val operationParameters: OperationParametersResponse,
     val medications: String,
     val createdAt: LocalDateTime,
+    val lastExaminationAt: LocalDate?,
+)
+
+data class PatientListResponse(
+    val items: List<PatientSummaryResponse>,
+    val page: Int,
+    val limit: Int,
+    val total: Long,
 )
 
 data class ValveResponse(
@@ -90,6 +102,12 @@ data class OperationParametersResponse(
 enum class PatientCardViewMode {
     FULL,
     ANONYMIZED,
+}
+
+enum class PatientMonitoringStatus {
+    GREEN,
+    YELLOW,
+    RED,
 }
 
 data class PatientCardResponse(

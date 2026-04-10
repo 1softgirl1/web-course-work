@@ -6,14 +6,42 @@ servers:
   - url: http://localhost:8080
     description: Local backend server
 paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Login
+      description: >
+        Authenticates either a doctor or a patient and returns a JWT access token.
+        If the login contains '@', the backend treats it as a doctor email.
+        Otherwise the backend treats it as a patient code.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Invalid credentials
+        '403':
+          description: User account is inactive or access is forbidden
   /api/doctor/patients:
     post:
       tags: [Patients]
       operationId: createPatientCard
       summary: Create patient card
-      description: Creates a patient card from the authenticated doctor context.
+      description: Creates a patient card from the authenticated doctor context using the region provided in the request.
       security:
-        - basicAuth: []
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -37,18 +65,38 @@ paths:
       tags: [Patients]
       operationId: listDoctorPatients
       summary: List patients available to the doctor
-      description: Returns patients from the authenticated doctor's region.
+      description: >
+        Returns a paginated list of patients from the authenticated doctor's region.
+        Each patient has a computed status based on the date of the latest examination:
+        GREEN for less than 3 months, YELLOW for 3-6 months, RED for more than 6 months.
+        The default ordering is RED first, then YELLOW, then GREEN.
       security:
-        - basicAuth: []
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          description: Zero-based page number.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - in: query
+          name: limit
+          required: false
+          description: Number of patients per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
       responses:
         '200':
-          description: Patients list
+          description: Paginated patients list
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/PatientSummaryResponse'
+                $ref: '#/components/schemas/PatientListResponse'
         '401':
           description: Authentication required
         '403':
@@ -62,7 +110,7 @@ paths:
         Returns a patient card in FULL or ANONYMIZED mode depending on the actor role and region access.
         Patients can access only their own card.
       security:
-        - basicAuth: []
+        - bearerAuth: []
       parameters:
         - in: path
           name: id
@@ -83,12 +131,163 @@ paths:
           description: Patient is trying to access a foreign card
         '404':
           description: Patient card not found
+    patch:
+      tags: [Patients]
+      operationId: updatePatientCard
+      summary: Edit patient card (Planned)
+      description: >
+        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
+        Updates the patient card.
+        A regular doctor can edit only patients from the doctor's own region.
+        A doctor with extended permissions can edit any patient in the system.
+        If a regular doctor tries to edit a patient from another region, the API returns 403.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePatientRequest'
+      responses:
+        '200':
+          description: Patient card updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientCardResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Authentication required
+        '403':
+          description: Access denied for patient card update
+        '404':
+          description: Patient card not found
+  /api/patients/{id}/examinations:
+    post:
+      tags: [Examinations]
+      operationId: addPatientExamination
+      summary: Add patient examination record (Planned)
+      description: >
+        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
+        Creates a new examination record for the patient with the measurement date and a set of measured values.
+        Existing records are not overwritten. The examination history remains append-only.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExaminationRequest'
+      responses:
+        '201':
+          description: Examination record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExaminationResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Authentication required
+        '403':
+          description: Access denied for patient examination update
+        '404':
+          description: Patient card not found
+    get:
+      tags: [Examinations]
+      operationId: listPatientExaminations
+      summary: Get patient examination records (Planned)
+      description: >
+        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
+        Returns the full examination history for the patient in chronological order.
+        Each examination record is stored separately and the history is not overwritten.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Examination history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExaminationListResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Access denied for patient examination history
+        '404':
+          description: Patient card not found
 components:
   securitySchemes:
-    basicAuth:
+    bearerAuth:
       type: http
-      scheme: basic
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
+    LoginRequest:
+      type: object
+      properties:
+        login:
+          type: string
+        password:
+          type: string
+      required: [login, password]
+    AuthUserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        role:
+          type: string
+          enum: [PATIENT, DOCTOR, DOCTOR_EXTENDED]
+        displayName:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        patientCode:
+          type: string
+          nullable: true
+      required: [id, role, displayName]
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresAt:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/AuthUserResponse'
+      required: [accessToken, tokenType, expiresAt, user]
     CreateValveRequest:
       type: object
       properties:
@@ -123,13 +322,67 @@ components:
           type: integer
         diagnosis:
           type: string
+        regionId:
+          type: integer
+          format: int64
         valve:
           $ref: '#/components/schemas/CreateValveRequest'
         operationParameters:
           $ref: '#/components/schemas/CreateOperationParametersRequest'
         medications:
           type: string
-      required: [lastName, firstName, age, diagnosis, valve, operationParameters, medications]
+      required: [lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications]
+    UpdatePatientRequest:
+      type: object
+      properties:
+        lastName:
+          type: string
+        firstName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        age:
+          type: integer
+        diagnosis:
+          type: string
+        regionId:
+          type: integer
+          format: int64
+        valve:
+          $ref: '#/components/schemas/CreateValveRequest'
+        operationParameters:
+          $ref: '#/components/schemas/CreateOperationParametersRequest'
+        medications:
+          type: string
+      required: [lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications]
+    CreateExaminationMeasurementRequest:
+      type: object
+      properties:
+        characteristicCode:
+          type: string
+        value:
+          type: string
+        comment:
+          type: string
+          nullable: true
+      required: [characteristicCode, value]
+    CreateExaminationRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        examDate:
+          type: string
+          format: date
+        comment:
+          type: string
+          nullable: true
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateExaminationMeasurementRequest'
+      required: [title, examDate, measurements]
     ValveResponse:
       type: object
       properties:
@@ -206,6 +459,9 @@ components:
         regionId:
           type: integer
           format: int64
+        status:
+          type: string
+          enum: [GREEN, YELLOW, RED]
         valve:
           $ref: '#/components/schemas/ValveResponse'
         operationParameters:
@@ -215,7 +471,26 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, patientCode, lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications, createdAt]
+        lastExaminationAt:
+          type: string
+          format: date
+          nullable: true
+      required: [id, patientCode, lastName, firstName, age, diagnosis, regionId, status, valve, operationParameters, medications, createdAt]
+    PatientListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientSummaryResponse'
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+          format: int64
+      required: [items, page, limit, total]
     MeasurementResponse:
       type: object
       properties:
@@ -253,6 +528,33 @@ components:
           items:
             $ref: '#/components/schemas/MeasurementResponse'
       required: [examId, title, examDate, measurements]
+    ExaminationResponse:
+      type: object
+      properties:
+        examId:
+          type: integer
+          format: int64
+        title:
+          type: string
+        examDate:
+          type: string
+          format: date
+        comment:
+          type: string
+          nullable: true
+        measurements:
+          type: array
+          items:
+            $ref: '#/components/schemas/MeasurementResponse'
+      required: [examId, title, examDate, measurements]
+    ExaminationListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExaminationResponse'
+      required: [items]
     PatientCardResponse:
       type: object
       properties:
@@ -296,3 +598,4 @@ components:
           items:
             $ref: '#/components/schemas/VitalsHistoryItemResponse'
       required: [id, viewMode, patientCode, regionId, regionName, age, diagnosis, valve, operationParameters, medications, createdAt, vitalsHistory]
+

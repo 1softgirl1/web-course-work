@@ -30,10 +30,19 @@ class UserEntity(
 enum class UserRole {
     ADMIN,
     DOCTOR,
+    DOCTOR_EXTENDED,
     PATIENT,
+
+    ;
+
+    fun isDoctor(): Boolean = this == DOCTOR || this == DOCTOR_EXTENDED
 }
 
 enum class UserStatus {
     ACTIVE,
     INACTIVE,
+
+    ;
+
+    fun isActive(): Boolean = this == ACTIVE
 }

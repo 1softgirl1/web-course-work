@@ -5,18 +5,21 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
+import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.crypto.password.PasswordEncoder
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic
 import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
 import org.springframework.test.web.servlet.post
+import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.testcontainers.containers.PostgreSQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import ru.webcourse.backend.config.ActorPrincipal
+import ru.webcourse.backend.config.JwtService
 import ru.webcourse.backend.domain.DoctorProfileEntity
 import ru.webcourse.backend.domain.UserEntity
 import ru.webcourse.backend.domain.UserRole
@@ -38,6 +41,10 @@ import kotlin.test.assertTrue
 class PatientControllerIntegrationTest {
 
     companion object {
+        private const val DOCTOR_EMAIL = "doctor1@example.com"
+        private const val SECOND_DOCTOR_EMAIL = "doctor2@example.com"
+        private const val HEAD_DOCTOR_EMAIL = "head-doctor@example.com"
+        private const val DOCTOR_WITHOUT_PROFILE_EMAIL = "doctor-without-profile@example.com"
         private const val DOCTOR_PASSWORD = "doctor-password"
         private const val PATIENT_PASSWORD = "patient-password"
 
@@ -79,6 +86,9 @@ class PatientControllerIntegrationTest {
     @Autowired
     private lateinit var jdbcTemplate: JdbcTemplate
 
+    @Autowired
+    private lateinit var jwtService: JwtService
+
     @BeforeEach
     fun cleanDatabase() {
         patientProfileRepository.deleteAll()
@@ -87,11 +97,131 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
+    fun doctorCanLoginByEmailAndReceiveJwt() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": "$DOCTOR_EMAIL",
+                  "password": "$DOCTOR_PASSWORD"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.accessToken") { isString() }
+            jsonPath("$.tokenType") { value("Bearer") }
+            jsonPath("$.user.role") { value(UserRole.DOCTOR.name) }
+            jsonPath("$.user.email") { value(DOCTOR_EMAIL) }
+        }
+    }
+
+    @Test
+    fun patientCanLoginByPatientCodeAndReceiveJwt() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": "${created.patientCode}",
+                  "password": "${created.temporaryPassword}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.accessToken") { isString() }
+            jsonPath("$.tokenType") { value("Bearer") }
+            jsonPath("$.user.role") { value(UserRole.PATIENT.name) }
+            jsonPath("$.user.patientCode") { value(created.patientCode) }
+        }
+    }
+
+    @Test
+    fun loginReturns401ForInvalidDoctorCredentials() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": "$DOCTOR_EMAIL",
+                  "password": "wrong-password"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun loginReturns401ForInvalidPatientCredentials() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": "${created.patientCode}",
+                  "password": "wrong-password"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun inactiveUserGets403OnLogin() {
+        userRepository.save(
+            UserEntity(
+                login = "inactive-doctor@example.com",
+                passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
+                role = UserRole.DOCTOR,
+                status = UserStatus.INACTIVE,
+            )
+        )
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": "inactive-doctor@example.com",
+                  "password": "$DOCTOR_PASSWORD"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun doctorExtendedRoleCanUseDoctorEndpoints() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        val accessToken = login(HEAD_DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        val payload = jwtService.parseAccessToken(accessToken)
+        assertEquals(UserRole.DOCTOR_EXTENDED.name, payload.role)
+        assertEquals(HEAD_DOCTOR_EMAIL, payload.login)
+
+        mockMvc.post("/api/doctor/patients") {
+            with(bearer(accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateRequest()
+        }.andExpect {
+            status { isCreated() }
+        }
+    }
+
+    @Test
     fun doctorCanCreatePatientAndSeeItInAccessibleList() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
         val createResponse = mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest()
         }.andExpect {
@@ -125,25 +255,30 @@ class PatientControllerIntegrationTest {
         assertEquals("Transfemoral", patients.single().operationDeliverySystem)
 
         mockMvc.get("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
-            jsonPath("$[0].patientCode") { value(patientCode) }
-            jsonPath("$[0].lastName") { value("Petrov") }
-            jsonPath("$[0].firstName") { value("Petr") }
-            jsonPath("$[0].middleName") { value("Petrovich") }
-            jsonPath("$[0].temporaryPassword") { doesNotExist() }
-            jsonPath("$[0].operationParameters.deliverySystem") { value("Transfemoral") }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.total") { value(1) }
+            jsonPath("$.page") { value(0) }
+            jsonPath("$.limit") { value(20) }
+            jsonPath("$.items[0].patientCode") { value(patientCode) }
+            jsonPath("$.items[0].lastName") { value("Petrov") }
+            jsonPath("$.items[0].firstName") { value("Petr") }
+            jsonPath("$.items[0].middleName") { value("Petrovich") }
+            jsonPath("$.items[0].temporaryPassword") { doesNotExist() }
+            jsonPath("$.items[0].operationParameters.deliverySystem") { value("Transfemoral") }
+            jsonPath("$.items[0].status") { value("RED") }
         }
     }
 
     @Test
     fun patientCannotCreateCardWithoutDoctorAccess() {
-        createDoctor(login = "doctor-1")
-        createPatientUser()
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("patient-1", PATIENT_PASSWORD))
+            with(patientBearer(created.patientCode, created.temporaryPassword))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest()
         }.andExpect {
@@ -155,7 +290,7 @@ class PatientControllerIntegrationTest {
     fun doctorWithoutProfileCannotUsePatientEndpoints() {
         userRepository.save(
             UserEntity(
-                login = "doctor-without-profile",
+                login = DOCTOR_WITHOUT_PROFILE_EMAIL,
                 passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
                 role = UserRole.DOCTOR,
                 status = UserStatus.ACTIVE,
@@ -163,7 +298,7 @@ class PatientControllerIntegrationTest {
         )
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-without-profile", DOCTOR_PASSWORD))
+            with(bearer(issueTestToken(DOCTOR_WITHOUT_PROFILE_EMAIL, DOCTOR_PASSWORD)))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest()
         }.andExpect {
@@ -171,38 +306,38 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.get("/api/doctor/patients") {
-            with(httpBasic("doctor-without-profile", DOCTOR_PASSWORD))
+            with(bearer(issueTestToken(DOCTOR_WITHOUT_PROFILE_EMAIL, DOCTOR_PASSWORD)))
         }.andExpect {
             status { isNotFound() }
         }
     }
 
     @Test
-    fun createPatientUsesAuthenticatedDoctorRegion() {
-        createDoctor(login = "doctor-1", regionId = 2L)
+    fun createPatientUsesRequestedRegion() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 2L)
 
         val createResponse = mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
-            content = validCreateRequest()
+            content = validCreateRequest(regionId = 1L)
         }.andExpect {
             status { isCreated() }
-            jsonPath("$.regionId") { value(2) }
+            jsonPath("$.regionId") { value(1) }
         }.andReturn()
 
         val patientCode = extractJsonString(createResponse.response.contentAsString, "patientCode")
-        val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(2L).single()
+        val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
 
         assertEquals(patientCode, profile.patientCode)
-        assertEquals(2L, profile.region.id)
+        assertEquals(1L, profile.region.id)
     }
 
     @Test
     fun createPatientAllowsMissingMiddleName() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
         val createResponse = mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(middleName = null)
         }.andExpect {
@@ -218,10 +353,10 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun createPatientReturns400ForInvalidPayload() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(age = -1)
         }.andExpect {
@@ -229,7 +364,7 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(durationMinutes = 0)
         }.andExpect {
@@ -237,7 +372,7 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(diagnosis = "   ")
         }.andExpect {
@@ -245,7 +380,7 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(lastName = "   ")
         }.andExpect {
@@ -253,7 +388,7 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.post("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validCreateRequest(firstName = "   ")
         }.andExpect {
@@ -263,11 +398,11 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun creatingSeveralPatientsGeneratesUniqueCodesAndListsBoth() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
-        val first = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        val first = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val second = createPatientThroughApi(
-            login = "doctor-1",
+            login = DOCTOR_EMAIL,
             body = validCreateRequest(diagnosis = "Mitral regurgitation")
         )
 
@@ -281,18 +416,19 @@ class PatientControllerIntegrationTest {
         assertTrue(userRepository.existsByLogin(second.patientCode))
 
         mockMvc.get("/api/doctor/patients") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
-            jsonPath("$.length()") { value(2) }
+            jsonPath("$.items.length()") { value(2) }
+            jsonPath("$.total") { value(2) }
         }
     }
 
     @Test
     fun createdPatientCodeMatchesUserLoginAndProfileCode() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
         val storedUser = userRepository.findByLogin(created.patientCode)
 
@@ -303,7 +439,7 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun unauthenticatedRequestIsRejected() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
         mockMvc.post("/api/doctor/patients") {
             contentType = MediaType.APPLICATION_JSON
@@ -314,43 +450,147 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
-    fun doctorFromSameRegionCanSeePatientCreatedByAnotherDoctor() {
-        createDoctor(login = "doctor-1")
-        createDoctor(login = "doctor-2")
+    fun doctorPatientListRejectsUnauthenticatedRequest() {
+        createDoctor(login = DOCTOR_EMAIL)
 
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        mockMvc.get("/api/doctor/patients")
+            .andExpect {
+                status { isUnauthorized() }
+            }
+    }
+
+    @Test
+    fun patientCannotAccessDoctorPatientList() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
         mockMvc.get("/api/doctor/patients") {
-            with(httpBasic("doctor-2", DOCTOR_PASSWORD))
+            with(patientBearer(created.patientCode, created.temporaryPassword))
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun doctorPatientListRejectsInvalidBearerToken() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.get("/api/doctor/patients") {
+            with(bearer("invalid-token"))
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun doctorFromSameRegionCanSeePatientCreatedByAnotherDoctor() {
+        createDoctor(login = DOCTOR_EMAIL)
+        createDoctor(login = SECOND_DOCTOR_EMAIL)
+
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.get("/api/doctor/patients") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
-            jsonPath("$[0].patientCode") { value(created.patientCode) }
+            jsonPath("$.items[0].patientCode") { value(created.patientCode) }
         }
     }
 
     @Test
     fun doctorFromAnotherRegionDoesNotSeePatientsFromDifferentRegion() {
-        createDoctor(login = "doctor-1", regionId = 1L)
-        createDoctor(login = "doctor-2", regionId = 2L)
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
 
-        createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
         mockMvc.get("/api/doctor/patients") {
-            with(httpBasic("doctor-2", DOCTOR_PASSWORD))
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
-            jsonPath("$.length()") { value(0) }
+            jsonPath("$.items.length()") { value(0) }
+            jsonPath("$.total") { value(0) }
+        }
+    }
+
+    @Test
+    fun doctorPatientListSupportsPaginationAndComputesStatusFromLatestExamDate() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        val redPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Red", firstName = "Patient")
+        )
+        val yellowPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Yellow", firstName = "Patient")
+        )
+        val greenPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Green", firstName = "Patient")
+        )
+
+        seedExaminationWithDate(redPatient.id, LocalDate.now().minusMonths(7))
+        seedExaminationWithDate(yellowPatient.id, LocalDate.now().minusMonths(4))
+        seedExaminationWithDate(greenPatient.id, LocalDate.now().minusMonths(1))
+
+        mockMvc.get("/api/doctor/patients?page=0&limit=2") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items.length()") { value(2) }
+            jsonPath("$.page") { value(0) }
+            jsonPath("$.limit") { value(2) }
+            jsonPath("$.total") { value(3) }
+            jsonPath("$.items[0].status") { value("RED") }
+            jsonPath("$.items[0].patientCode") { value(redPatient.patientCode) }
+            jsonPath("$.items[0].lastExaminationAt") { value(LocalDate.now().minusMonths(7).toString()) }
+            jsonPath("$.items[1].status") { value("YELLOW") }
+            jsonPath("$.items[1].patientCode") { value(yellowPatient.patientCode) }
+        }
+
+        mockMvc.get("/api/doctor/patients?page=1&limit=2") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.items[0].status") { value("GREEN") }
+            jsonPath("$.items[0].patientCode") { value(greenPatient.patientCode) }
+            jsonPath("$.items[0].lastExaminationAt") { value(LocalDate.now().minusMonths(1).toString()) }
+        }
+    }
+
+    @Test
+    fun doctorPatientListRejectsInvalidPaginationParameters() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.get("/api/doctor/patients?page=-1&limit=20") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.get("/api/doctor/patients?page=0&limit=0") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.get("/api/doctor/patients?page=0&limit=101") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
         }
     }
 
     @Test
     fun patientCanViewOwnCardAndVitalsHistory() {
-        createDoctor(login = "doctor-1")
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         seedExaminationWithMeasurements(created.id)
 
         mockMvc.get("/api/patients/${created.id}") {
-            with(httpBasic(created.patientCode, created.temporaryPassword))
+            with(patientBearer(created.patientCode, created.temporaryPassword))
         }.andExpect {
             status { isOk() }
             jsonPath("$.viewMode") { value("FULL") }
@@ -370,15 +610,15 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun patientCannotViewAnotherPatientsCard() {
-        createDoctor(login = "doctor-1")
-        val firstPatient = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createDoctor(login = DOCTOR_EMAIL)
+        val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val secondPatient = createPatientThroughApi(
-            login = "doctor-1",
+            login = DOCTOR_EMAIL,
             body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr")
         )
 
         mockMvc.get("/api/patients/${secondPatient.id}") {
-            with(httpBasic(firstPatient.patientCode, firstPatient.temporaryPassword))
+            with(patientBearer(firstPatient.patientCode, firstPatient.temporaryPassword))
         }.andExpect {
             status { isForbidden() }
         }
@@ -386,13 +626,13 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun doctorFromSameRegionGetsFullPatientCard() {
-        createDoctor(login = "doctor-1", regionId = 1L)
-        createDoctor(login = "doctor-2", regionId = 1L)
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         seedExaminationWithMeasurements(created.id)
 
         mockMvc.get("/api/patients/${created.id}") {
-            with(httpBasic("doctor-2", DOCTOR_PASSWORD))
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
             jsonPath("$.viewMode") { value("FULL") }
@@ -406,13 +646,13 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun doctorFromAnotherRegionGetsAnonymizedPatientCard() {
-        createDoctor(login = "doctor-1", regionId = 1L)
-        createDoctor(login = "doctor-2", regionId = 2L)
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         seedExaminationWithMeasurements(created.id)
 
         val response = mockMvc.get("/api/patients/${created.id}") {
-            with(httpBasic("doctor-2", DOCTOR_PASSWORD))
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
             jsonPath("$.viewMode") { value("ANONYMIZED") }
@@ -429,10 +669,10 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun getPatientCardReturns404WhenPatientDoesNotExist() {
-        createDoctor(login = "doctor-1")
+        createDoctor(login = DOCTOR_EMAIL)
 
         mockMvc.get("/api/patients/999999") {
-            with(httpBasic("doctor-1", DOCTOR_PASSWORD))
+            with(doctorBearer(DOCTOR_EMAIL))
         }.andExpect {
             status { isNotFound() }
         }
@@ -440,8 +680,8 @@ class PatientControllerIntegrationTest {
 
     @Test
     fun unauthenticatedGetPatientCardIsRejected() {
-        createDoctor(login = "doctor-1")
-        val created = createPatientThroughApi(login = "doctor-1", body = validCreateRequest())
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
         mockMvc.get("/api/patients/${created.id}")
             .andExpect {
@@ -449,14 +689,19 @@ class PatientControllerIntegrationTest {
             }
     }
 
-    private fun createDoctor(login: String, regionId: Long = 1L): DoctorProfileEntity {
+    private fun createDoctor(
+        login: String,
+        regionId: Long = 1L,
+        role: UserRole = UserRole.DOCTOR,
+        status: UserStatus = UserStatus.ACTIVE,
+    ): DoctorProfileEntity {
         val region = regionRepository.findById(regionId).orElseThrow()
         val doctorUser = userRepository.save(
             UserEntity(
                 login = login,
                 passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
-                role = UserRole.DOCTOR,
-                status = UserStatus.ACTIVE,
+                role = role,
+                status = status,
             )
         )
 
@@ -472,15 +717,70 @@ class PatientControllerIntegrationTest {
         )
     }
 
-    private fun createPatientUser() {
+    private fun createPatientUser(
+        login: String = "patient-1",
+        status: UserStatus = UserStatus.ACTIVE,
+    ) {
         userRepository.save(
             UserEntity(
-                login = "patient-1",
+                login = login,
                 passwordHash = passwordEncoder.encode(PATIENT_PASSWORD)!!,
                 role = UserRole.PATIENT,
-                status = UserStatus.ACTIVE,
+                status = status,
             )
         )
+    }
+
+    private fun bearer(token: String): RequestPostProcessor = RequestPostProcessor { request ->
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer $token")
+        request
+    }
+
+    private fun doctorBearer(
+        login: String,
+        password: String = DOCTOR_PASSWORD,
+    ): RequestPostProcessor = bearer(issueTestToken(login, password))
+
+    private fun patientBearer(
+        patientCode: String,
+        password: String,
+    ): RequestPostProcessor = bearer(issueTestToken(patientCode, password))
+
+    private fun issueTestToken(
+        login: String,
+        password: String,
+    ): String {
+        val user = userRepository.findByLogin(login)
+            ?: error("User with login=$login was not found")
+        check(passwordEncoder.matches(password, user.passwordHash)) {
+            "Password mismatch for user $login"
+        }
+
+        return jwtService.generateAccessToken(
+            ActorPrincipal(
+                id = user.id,
+                login = user.login,
+                passwordHash = user.passwordHash,
+                role = user.role.name,
+                status = user.status,
+            )
+        ).token
+    }
+
+    private fun login(login: String, password: String): String {
+        val response = mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "login": ${jsonString(login)},
+                  "password": ${jsonString(password)}
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }.andReturn()
+
+        return extractJsonString(response.response.contentAsString, "accessToken")
     }
 
     private fun createPatientThroughApi(
@@ -488,7 +788,7 @@ class PatientControllerIntegrationTest {
         body: String,
     ): CreatedPatientPayload {
         val response = mockMvc.post("/api/doctor/patients") {
-            with(httpBasic(login, DOCTOR_PASSWORD))
+            with(doctorBearer(login))
             contentType = MediaType.APPLICATION_JSON
             content = body
         }.andExpect {
@@ -503,7 +803,10 @@ class PatientControllerIntegrationTest {
         )
     }
 
-    private fun seedExaminationWithMeasurements(patientId: Long) {
+    private fun seedExaminationWithMeasurements(
+        patientId: Long,
+        examDate: LocalDate = LocalDate.parse("2026-04-08"),
+    ) {
         val examinationId = jdbcTemplate.queryForObject(
             """
             insert into examinations (patient_id, title, exam_date, comment)
@@ -513,7 +816,7 @@ class PatientControllerIntegrationTest {
             Long::class.javaObjectType,
             patientId,
             "Follow-up",
-            LocalDate.parse("2026-04-08"),
+            examDate,
             "Stable condition"
         ) ?: error("Failed to create examination for patient $patientId")
 
@@ -552,12 +855,17 @@ class PatientControllerIntegrationTest {
         )
     }
 
+    private fun seedExaminationWithDate(patientId: Long, examDate: LocalDate) {
+        seedExaminationWithMeasurements(patientId, examDate)
+    }
+
     private fun validCreateRequest(
         lastName: String = "Petrov",
         firstName: String = "Petr",
         middleName: String? = "Petrovich",
         age: Int = 54,
         diagnosis: String = "Aortic valve stenosis",
+        regionId: Long = 1L,
         durationMinutes: Int = 185,
     ): String = """
         {
@@ -566,6 +874,7 @@ class PatientControllerIntegrationTest {
           "middleName": ${jsonNullableString(middleName)},
           "age": $age,
           "diagnosis": ${jsonString(diagnosis)},
+          "regionId": $regionId,
           "valve": {
             "name": "MedValve",
             "size": "27",

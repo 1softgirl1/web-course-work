@@ -10,6 +10,8 @@ import ru.webcourse.backend.api.MeasurementResponse
 import ru.webcourse.backend.api.OperationParametersResponse
 import ru.webcourse.backend.api.PatientCardResponse
 import ru.webcourse.backend.api.PatientCardViewMode
+import ru.webcourse.backend.api.PatientListResponse
+import ru.webcourse.backend.api.PatientMonitoringStatus
 import ru.webcourse.backend.api.PatientSummaryResponse
 import ru.webcourse.backend.api.ValveResponse
 import ru.webcourse.backend.api.VitalsHistoryItemResponse
@@ -23,13 +25,16 @@ import ru.webcourse.backend.domain.UserStatus
 import ru.webcourse.backend.repository.DoctorProfileRepository
 import ru.webcourse.backend.repository.ExaminationRepository
 import ru.webcourse.backend.repository.PatientProfileRepository
+import ru.webcourse.backend.repository.RegionRepository
 import ru.webcourse.backend.repository.UserRepository
+import java.time.LocalDate
 
 @Service
 class PatientService(
     private val doctorProfileRepository: DoctorProfileRepository,
     private val examinationRepository: ExaminationRepository,
     private val patientProfileRepository: PatientProfileRepository,
+    private val regionRepository: RegionRepository,
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
     private val credentialsGenerator: PatientCredentialsGenerator,
@@ -40,7 +45,9 @@ class PatientService(
         actor: ActorPrincipal?,
         request: CreatePatientRequest,
     ): CreatedPatientResponse {
-        val doctor = requireAuthenticatedDoctor(actor)
+        requireAuthenticatedDoctor(actor)
+        val region = regionRepository.findById(request.regionId)
+            .orElseThrow { NotFoundException("Region with id=${request.regionId} was not found") }
 
         val patientCode = credentialsGenerator.generatePatientCode()
         val generatedPassword = credentialsGenerator.generatePassword()
@@ -58,7 +65,7 @@ class PatientService(
 
         val patient = PatientProfileEntity(
             user = patientUser,
-            region = doctor.region,
+            region = region,
             patientCode = patientCode,
             lastName = request.lastName.trim(),
             firstName = request.firstName.trim(),
@@ -81,11 +88,44 @@ class PatientService(
     @Transactional(readOnly = true)
     fun listPatients(
         actor: ActorPrincipal?,
-    ): List<PatientSummaryResponse> {
+        page: Int,
+        limit: Int,
+    ): PatientListResponse {
         val doctor = requireAuthenticatedDoctor(actor)
+        val patients = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(doctor.region.id)
+        val latestExamDatesByPatientId = if (patients.isEmpty()) {
+            emptyMap()
+        } else {
+            examinationRepository.findLatestExamDatesByPatientIds(patients.map { it.id })
+                .associate { it.patientId to it.lastExamDate }
+        }
 
-        return patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(doctor.region.id)
-            .map { it.toSummaryResponse() }
+        val sortedPatients = patients
+            .map { patient ->
+                val lastExaminationAt = latestExamDatesByPatientId[patient.id]
+                PatientListItem(
+                    summary = patient.toSummaryResponse(
+                        status = lastExaminationAt.toMonitoringStatus(),
+                        lastExaminationAt = lastExaminationAt,
+                    ),
+                    lastExaminationAt = lastExaminationAt,
+                )
+            }
+            .sortedWith(
+                compareBy<PatientListItem> { it.summary.status.sortOrder }
+                    .thenBy { it.lastExaminationAt }
+                    .thenByDescending { it.summary.createdAt }
+            )
+
+        val fromIndex = (page * limit).coerceAtMost(sortedPatients.size)
+        val toIndex = (fromIndex + limit).coerceAtMost(sortedPatients.size)
+
+        return PatientListResponse(
+            items = sortedPatients.subList(fromIndex, toIndex).map { it.summary },
+            page = page,
+            limit = limit,
+            total = sortedPatients.size.toLong(),
+        )
     }
 
     @Transactional(readOnly = true)
@@ -97,9 +137,12 @@ class PatientService(
             ?: throw NotFoundException("Patient with id=$patientId was not found")
         val examinations = examinationRepository.findAllByPatientIdOrderByExamDateDescIdDesc(patientId)
 
-        return when (actor?.role) {
-            UserRole.PATIENT.name -> buildCardForPatient(patient, examinations, actor)
-            UserRole.DOCTOR.name -> buildCardForDoctor(patient, examinations, actor)
+        val actorRole = actor?.role?.let(UserRole::valueOf)
+            ?: throw AccessDeniedException("Only doctors and patients can access patient cards")
+
+        return when {
+            actorRole == UserRole.PATIENT -> buildCardForPatient(patient, examinations, actor)
+            actorRole.isDoctor() -> buildCardForDoctor(patient, examinations, actor)
             else -> throw AccessDeniedException("Only doctors and patients can access patient cards")
         }
     }
@@ -107,7 +150,7 @@ class PatientService(
     private fun requireAuthenticatedDoctor(
         actor: ActorPrincipal?,
     ): DoctorProfileEntity {
-        val doctorActor = actor?.takeIf { it.role == UserRole.DOCTOR.name }
+        val doctorActor = actor?.takeIf { UserRole.valueOf(it.role).isDoctor() }
             ?: throw AccessDeniedException("Only doctors can manage patient cards")
 
         return doctorProfileRepository.findByUserId(doctorActor.id)
@@ -173,7 +216,10 @@ class PatientService(
         createdAt = createdAt,
     )
 
-    private fun PatientProfileEntity.toSummaryResponse() = PatientSummaryResponse(
+    private fun PatientProfileEntity.toSummaryResponse(
+        status: PatientMonitoringStatus,
+        lastExaminationAt: LocalDate?,
+    ) = PatientSummaryResponse(
         id = id,
         patientCode = patientCode,
         lastName = lastName,
@@ -182,10 +228,12 @@ class PatientService(
         age = age,
         diagnosis = diagnosis,
         regionId = region.id,
+        status = status,
         valve = valveResponse(),
         operationParameters = operationParametersResponse(),
         medications = medications,
         createdAt = createdAt,
+        lastExaminationAt = lastExaminationAt,
     )
 
     private fun PatientProfileEntity.toCardResponse(
@@ -238,4 +286,32 @@ class PatientService(
             )
         },
     )
+
+    private fun LocalDate?.toMonitoringStatus(referenceDate: LocalDate = LocalDate.now()): PatientMonitoringStatus {
+        if (this == null) return PatientMonitoringStatus.RED
+
+        val daysSinceLastExam = java.time.temporal.ChronoUnit.DAYS.between(this, referenceDate)
+        return when {
+            daysSinceLastExam < GREEN_THRESHOLD_DAYS -> PatientMonitoringStatus.GREEN
+            daysSinceLastExam <= YELLOW_THRESHOLD_DAYS -> PatientMonitoringStatus.YELLOW
+            else -> PatientMonitoringStatus.RED
+        }
+    }
+
+    private val PatientMonitoringStatus.sortOrder: Int
+        get() = when (this) {
+            PatientMonitoringStatus.RED -> 0
+            PatientMonitoringStatus.YELLOW -> 1
+            PatientMonitoringStatus.GREEN -> 2
+        }
+
+    private data class PatientListItem(
+        val summary: PatientSummaryResponse,
+        val lastExaminationAt: LocalDate?,
+    )
+
+    private companion object {
+        const val GREEN_THRESHOLD_DAYS = 91L
+        const val YELLOW_THRESHOLD_DAYS = 183L
+    }
 }

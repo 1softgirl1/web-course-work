@@ -7,7 +7,9 @@ import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import ru.webcourse.backend.service.InvalidCredentialsException
 import ru.webcourse.backend.service.NotFoundException
+import jakarta.validation.ConstraintViolationException
 import java.time.OffsetDateTime
 
 @RestControllerAdvice
@@ -20,6 +22,10 @@ class ApiExceptionHandler {
     @ExceptionHandler(AccessDeniedException::class)
     fun handleAccessDenied(exception: AccessDeniedException): ResponseEntity<ApiErrorResponse> =
         buildError(HttpStatus.FORBIDDEN, exception.message ?: "Access denied")
+
+    @ExceptionHandler(InvalidCredentialsException::class)
+    fun handleInvalidCredentials(exception: InvalidCredentialsException): ResponseEntity<ApiErrorResponse> =
+        buildError(HttpStatus.UNAUTHORIZED, exception.message ?: "Invalid credentials")
 
     @ExceptionHandler(MethodArgumentNotValidException::class)
     fun handleValidation(exception: MethodArgumentNotValidException): ResponseEntity<ApiErrorResponse> {
@@ -35,6 +41,16 @@ class ApiExceptionHandler {
             details = details,
         )
     }
+
+    @ExceptionHandler(ConstraintViolationException::class)
+    fun handleConstraintViolation(exception: ConstraintViolationException): ResponseEntity<ApiErrorResponse> =
+        buildError(
+            status = HttpStatus.BAD_REQUEST,
+            message = "Validation failed",
+            details = exception.constraintViolations.map { violation ->
+                "${violation.propertyPath}: ${violation.message}"
+            },
+        )
 
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalState(exception: IllegalStateException): ResponseEntity<ApiErrorResponse> =
