@@ -11,7 +11,7 @@ const props = withDefaults(defineProps<{
 <template>
   <thead
     data-slot="table-header"
-    :class="cn('[&_tr]:border-b', props.class)"
+    :class="cn('[&_tr]:border-b bg-muted/50', props.class)"
     v-bind="$attrs"
   >
     <slot />

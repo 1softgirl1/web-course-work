@@ -5,8 +5,8 @@ import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
 import Field from "@/components/ui/field/field.vue";
 import FieldLabel from "@/components/ui/field/field-label.vue";
-import { CheckCircle, Heart } from "lucide-vue-next"
-import { useExaminationStore } from '../../stores/examinationStore'
+import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
+import { useExaminationStore } from '../../stores/examinationStore.ts'
 
 const submitted = ref(false)
 const examDate = ref("")
@@ -55,27 +55,35 @@ const handleSubmit = (e: Event) => {
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
     <!-- Успешная отправка -->
-    <Card v-if="submitted" class="max-w-xl mx-auto">
-      <div class="p-8 text-center">
+    <Card v-if="submitted" class="max-w-xl flex items-center">
+      <div class="p-8 text-center ">
         <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
           <CheckCircle class="w-8 h-8 text-green-600" />
         </div>
         <h2 class="text-xl font-semibold text-foreground mb-2">Обследование успешно загружено</h2>
-        <p class="text-muted-foreground mb-6">
-          Данные отправлены и будут рассмотрены лечащим врачом.
-        </p>
         <Button @click="resetForm">
-          Загрузить ещё
+          Добавить еще
         </Button>
       </div>
     </Card>
 
     <!-- Форма загрузки -->
     <div v-else>
+
       <div class="mb-6">
-        <h1 class="text-2xl font-bold text-foreground">Загрузить обследование</h1>
-        <p class="text-muted-foreground">Заполните форму и прикрепите результаты обследования</p>
+        <div class="flex items-s gap-4 mb-2">
+          <router-link to="/doctor/myPatients">
+            <Undo2 class="mt-1"></Undo2>
+          </router-link>
+          <div>
+            <h1 class="text-2xl font-bold text-foreground">Загрузить обследование</h1>
+            <p class="text-muted-foreground">Внесите данные о результатах обследования</p>
+          </div>
+        </div>
       </div>
+
+
+
 
       <Card class="max-w-3xl" >
 

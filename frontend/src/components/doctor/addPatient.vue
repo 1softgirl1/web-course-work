@@ -155,7 +155,6 @@ const handleSubmit = (e: Event) => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <!-- Успешная отправка -->
     <Card v-if="submitted" class="max-w-xl flex items-center">
       <div class="p-8 text-center ">
         <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">

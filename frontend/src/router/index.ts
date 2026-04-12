@@ -8,9 +8,8 @@ import Doctor from "../views/Doctor.vue";
 import myCard from "../components/patient/myCard.vue";
 import doctorPatientCard from "../components/doctor/patientCard.vue";
 
-import ask from "../components/patient/ask.vue";
 import Examination from "../components/patient/examination.vue";
-import uploadExamination from "../components/patient/uploadExamination.vue";
+import uploadExamination from "../components/doctor/uploadExamination.vue";
 import myPatients from "../components/doctor/myPatients.vue";
 import allPatients from "../components/doctor/allPatients.vue"
 import addPatient from "../components/doctor/addPatient.vue"
@@ -27,8 +26,6 @@ const routes = [
         children: [
             { path: 'myCard/:code?', component: myCard },
             { path: 'examinations', component: Examination },
-            { path: 'upload', component: uploadExamination },
-            { path: 'ask', component: ask },
         ],
     },
 
@@ -41,6 +38,7 @@ const routes = [
             { path: 'myPatients/addPatient', component: addPatient },
             { path: 'allPatients', component: allPatients },
             { path: 'patientCard/:code', component: doctorPatientCard },
+            { path: 'patientCard/:code/addExamination', component: uploadExamination }
 
         ],
     },

@@ -6,7 +6,6 @@ import {
   Heart,
   User,
   FileText,
-  Upload,
   LogOut,
   Menu,
   X,
@@ -26,7 +25,6 @@ const sidebarOpen = ref(false)
 const navigation = [
   { name: "Моя карточка", href: "/patient/myCard", icon: User },
   { name: "Обследования", href: "/patient/examinations", icon: FileText },
-  { name: "Загрузить обследование", href: "/patient/upload", icon: Upload },
 ]
 
 // methods

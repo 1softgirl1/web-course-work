@@ -44,7 +44,7 @@ const valveLabel = computed(() => {
 <template>
   <div class="space-y-6">
     <Card
-      class="lg:col-span-2 lg:w-6xl"
+      class="w-full max-w-none"
       title="Персональные данные"
       description="Основная информация о пациенте"
     >
@@ -113,7 +113,7 @@ const valveLabel = computed(() => {
     </Card>
 
     <Card
-      class="lg:col-span-2 lg:w-6xl"
+      class="w-full max-w-none"
       title="Медицинская информация"
       description="Диагноз, операции и медикаменты"
     >

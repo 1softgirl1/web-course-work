@@ -3,9 +3,11 @@ import { ref } from 'vue'
 import Card from "@/components/ui/card.vue"
 import Button from "@/components/ui/button.vue"
 import Dialog from '@/components/ui/dialog.vue'
+import ExaminationTabe from '@/components/patient/examinationTabe.vue'
 
-import { FileText, Calendar, Eye } from "lucide-vue-next"
+import {FileText, Calendar, Eye, Download, Plus} from "lucide-vue-next"
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
+import Badge from "@/components/ui/badge.vue";
 
 const { examinations } = useExaminationStore()
 const selectedExam = ref<Examination | null>(null)
@@ -26,6 +28,8 @@ const openDetails = (exam: Examination) => {
         <h1 class="text-2xl font-bold text-foreground">Обследования</h1>
         <p class="text-muted-foreground">История всех пройденных обследований</p>
       </div>
+
+
     </div>
 
     <!-- Список обследований -->
@@ -33,7 +37,7 @@ const openDetails = (exam: Examination) => {
       <Card
           v-for="exam in examinations"
           :key="exam.id"
-          class="hover:border-primary/30 transition-colorsx lg:h-25 "
+          class="hover:border-primary/30 transition-colorsx lg:h-25  "
       >
       <div >
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
@@ -69,11 +73,25 @@ const openDetails = (exam: Examination) => {
       </Card>
     </div>
 
+    <div class="mt-8 w-full">
+      <ExaminationTabe />
+    </div>
+
+
     <Dialog v-model="isDetailsOpen" content-class="sm:max-w-4xl">
       <div v-if="selectedExam" class="space-y-4">
+
         <div>
-          <h3 class="text-lg font-semibold text-foreground">Обследование #{{ selectedExam.id }}</h3>
-          <p class="text-sm text-muted-foreground">{{ selectedExam.date }} · Врач: {{ selectedExam.doctor }}</p>
+          <div class="flex items-center gap-2 mb-1">
+            <h3 class="text-lg font-semibold text-foreground ">Обследование #{{ selectedExam.id }}
+            </h3>
+            <Badge variant="outline">
+              {{ selectedExam.date }}
+            </Badge>
+          </div>
+
+          <p class="text-sm text-muted-foreground">
+             Врач: {{ selectedExam.doctor }}</p>
           <p class="text-sm text-muted-foreground mt-1">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
         </div>
 
