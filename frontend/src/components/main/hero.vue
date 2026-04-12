@@ -2,8 +2,8 @@
 import { ref, onMounted } from "vue"
 import { RouterLink } from "vue-router"
 import Button from '../ui/button.vue'
-import type { Region } from "../../data/regions.ts"
-import { REGIONS, CITY_TO_REGION } from "../../data/regions.ts"
+import type { Region } from "../../stores/regionsStore.ts"
+import { RegionsStore, CITY_TO_REGION } from "../../stores/regionsStore.ts"
 import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital, Stethoscope } from "lucide-vue-next"
 import RegionModal from "@/components/main/regionModal.vue"
 import RegionConfirmModal from "@/components/main/regionConfirmModal.vue"
@@ -44,13 +44,13 @@ const findRegionByLocationValue = (locationValue: string): Region | null => {
 
   const directRegionId = CITY_TO_REGION[normalizedValue]
   if (directRegionId) {
-    return REGIONS.find(region => region.id === directRegionId) || null
+    return RegionsStore.find(region => region.id === directRegionId) || null
   }
 
   for (const [alias, regionId] of Object.entries(CITY_TO_REGION)) {
     const normalizedAlias = normalizeLocationValue(alias)
     if (normalizedValue.includes(normalizedAlias) || normalizedAlias.includes(normalizedValue)) {
-      return REGIONS.find(region => region.id === regionId) || null
+      return RegionsStore.find(region => region.id === regionId) || null
     }
   }
 
@@ -159,10 +159,10 @@ const handleRejectDetectedRegion = () => {
 onMounted(async () => {
   mounted.value = true
 
-  const defaultRegion = REGIONS.find(r => r.id === "moscow") || REGIONS[0]
+  const defaultRegion = RegionsStore.find(r => r.id === "moscow") || RegionsStore[0]
   const savedRegionId = localStorage.getItem("selectedRegion")
   const savedRegion = savedRegionId
-    ? REGIONS.find(r => r.id === savedRegionId)
+    ? RegionsStore.find(r => r.id === savedRegionId)
     : null
 
   if (savedRegion) {

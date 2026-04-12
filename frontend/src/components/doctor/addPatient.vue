@@ -13,7 +13,7 @@ import SelectTrigger from "@/components/ui/select/selectTrigger.vue";
 import SelectValue from "@/components/ui/select/selectValue.vue";
 import SelectContent from "@/components/ui/select/selectContent.vue";
 import SelectItem from "@/components/ui/select/selectItem.vue";
-import { REGIONS } from '@/data/regions'
+import { RegionsStore } from '@/stores/regionsStore.ts'
 import Badge from "@/components/ui/badge.vue";
 import { usePatientStore } from '@/stores/patientStore'
 
@@ -45,7 +45,7 @@ const createEmptyOperation = (): OperationItem => ({
 })
 
 const operations = ref<OperationItem[]>([createEmptyOperation()])
-const medications = ref<string[]>([""])
+const medications = ref("")
 
 const patientStore = usePatientStore()
 
@@ -59,18 +59,6 @@ const removeOperation = (index: number) => {
     return
   }
   operations.value.splice(index, 1)
-}
-
-const addMedication = () => {
-  medications.value.push("")
-}
-
-const removeMedication = (index: number) => {
-  if (medications.value.length === 1) {
-    medications.value[0] = ""
-    return
-  }
-  medications.value.splice(index, 1)
 }
 
 const getOperationProgress = (operation: OperationItem): number => {
@@ -104,7 +92,7 @@ const resetForm = () => {
   valveSize.value = ""
   valveMaterial.value = ""
   operations.value = [createEmptyOperation()]
-  medications.value = [""]
+  medications.value = ""
   createdPatientCode.value = ""
   createdPatientPassword.value = ""
 }
@@ -139,6 +127,8 @@ const handleSubmit = (e: Event) => {
     return item.name && item.anesthesia && item.duration && item.deliverySystem
   })
 
+  const filledMedications = medications.value.trim()
+
   const { patient, password } = patientStore.addPatient({
     lastName: lastName.value,
     firstName: firstName.value,
@@ -146,14 +136,21 @@ const handleSubmit = (e: Event) => {
     birthDate: birthDate.value,
     region: region.value,
     diagnosis: diagnosis.value,
+    operations: filledOperations,
+    medications: filledMedications,
+    valve: {
+      name: valveName.value.trim(),
+      size: valveSize.value.trim(),
+      material: valveMaterial.value.trim(),
+    },
   })
-
-  patient.operations = filledOperations.length
 
   createdPatientCode.value = patient.code
   createdPatientPassword.value = password
   submitted.value = true
 }
+
+
 </script>
 
 <template>
@@ -249,7 +246,7 @@ const handleSubmit = (e: Event) => {
                   <SelectValue placeholder="Выберите регион" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="item in REGIONS" :key="item.id" :value="item.name">
+                  <SelectItem v-for="item in RegionsStore" :key="item.id" :value="item.name">
                     {{ item.name }}
                   </SelectItem>
                 </SelectContent>
@@ -335,20 +332,10 @@ const handleSubmit = (e: Event) => {
           </div>
 
           <div class="space-y-3">
-            <div class="flex items-center justify-between">
+            <Field>
               <FieldLabel>Список медикаментов</FieldLabel>
-              <Button type="button" variant="outline" size="sm" @click="addMedication">
-                <Plus class="w-4 h-4 mr-1" />
-                Добавить препарат
-              </Button>
-            </div>
-
-            <div v-for="index in medications.length" :key="`med-${index}`" class="flex gap-2">
-              <Input v-model="medications[index - 1]" placeholder="Название препарата" />
-              <Button type="button" variant="outline" class="text-muted-foreground hover:text-destructive" size="icon" @click="removeMedication(index - 1)">
-                <Trash2 class="w-4 h-4" />
-              </Button>
-            </div>
+              <Input v-model="medications" placeholder="Например: Бисопролол 2.5 мг, Аспирин 75 мг" />
+            </Field>
           </div>
 
           <Button type="submit" class="w-full" size="lg">

@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue"
+import { onMounted, ref, watch } from "vue"
 import { useRoute } from "vue-router"
 
 import {
@@ -28,8 +28,56 @@ const navigation = [
 
 ]
 
+const DOCTOR_MENU_ACTIVE_KEY = "doctorMenuActive"
+
+const saveActiveHref = (href) => {
+  if (typeof window === "undefined") return
+  localStorage.setItem(DOCTOR_MENU_ACTIVE_KEY, href)
+}
+
+const getSavedActiveHref = () => {
+  if (typeof window === "undefined") return ""
+  const savedHref = localStorage.getItem(DOCTOR_MENU_ACTIVE_KEY)
+  const isKnownHref = navigation.some(item => item.href === savedHref)
+  return isKnownHref ? savedHref : ""
+}
+
+const resolveActiveHref = () => {
+  if (route.path.startsWith("/doctor/allPatients")) return "/doctor/allPatients"
+  if (route.path.startsWith("/doctor/myPatients")) return "/doctor/myPatients"
+
+  if (route.path.startsWith("/doctor/patientCard/")) {
+    if (route.query.from === "allPatients") return "/doctor/allPatients"
+    if (route.query.from === "myPatients") return "/doctor/myPatients"
+  }
+
+  return getSavedActiveHref() || "/doctor/myPatients"
+}
+
+const activeHref = ref(resolveActiveHref())
+const selectedRegionName = 'Кемерово'
+
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  localStorage.setItem('selectedRegion', 'kemerovo')
+})
+
+watch(
+  () => route.fullPath,
+  () => {
+    activeHref.value = resolveActiveHref()
+    saveActiveHref(activeHref.value)
+  },
+  { immediate: true }
+)
+
+const setActivePage = (href) => {
+  activeHref.value = href
+  saveActiveHref(href)
+}
+
 // methods
-const isActive = (href) => route.path === href || route.path.startsWith(`${href}/`)
+const isActive = (href) => activeHref.value === href
 </script>
 
 <template>
@@ -89,9 +137,10 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
             </div>
             <div>
               <p class="font-medium text-foreground text-sm">Борискова Д.В.</p>
-              <p class="text-xs font-medium text-muted-foreground">Кемерово</p>
+              <p class="text-xs font-medium text-muted-foreground">{{ selectedRegionName }}</p>
             </div>
           </div>
+
         </div>
 
         <!-- Navigation -->
@@ -100,7 +149,7 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
               v-for="item in navigation"
               :key="item.name"
               :to="item.href"
-              @click="sidebarOpen = false"
+              @click="setActivePage(item.href); sidebarOpen = false"
               :class="
               cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',

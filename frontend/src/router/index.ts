@@ -6,6 +6,7 @@ import Login from "../views/Login.vue";
 import Patient from "../views/Patient.vue";
 import Doctor from "../views/Doctor.vue";
 import myCard from "../components/patient/myCard.vue";
+import doctorPatientCard from "../components/doctor/patientCard.vue";
 
 import ask from "../components/patient/ask.vue";
 import Examination from "../components/patient/examination.vue";
@@ -24,7 +25,7 @@ const routes = [
         path: '/patient',
         component: Patient,
         children: [
-            { path: 'myCard', component: myCard },
+            { path: 'myCard/:code?', component: myCard },
             { path: 'examinations', component: Examination },
             { path: 'upload', component: uploadExamination },
             { path: 'ask', component: ask },
@@ -35,9 +36,11 @@ const routes = [
         path: '/doctor',
         component: Doctor,
         children: [
+            { path: '', redirect: '/doctor/myPatients' },
             { path: 'myPatients', component: myPatients },
             { path: 'myPatients/addPatient', component: addPatient },
             { path: 'allPatients', component: allPatients },
+            { path: 'patientCard/:code', component: doctorPatientCard },
 
         ],
     },

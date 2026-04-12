@@ -3,8 +3,8 @@ import { ref, watch, defineProps, defineEmits } from "vue"
 import Button from '../ui/button.vue'
 import Dialog from '../ui/dialog.vue'
 import { MapPin, LucideHospital } from "lucide-vue-next"
-import type { Region } from "../../data/regions.ts"
-import { REGIONS } from "../../data/regions.ts"
+import type { Region } from "../../stores/regionsStore.ts"
+import { RegionsStore } from "../../stores/regionsStore.ts"
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{
@@ -39,7 +39,7 @@ const handleSelect = (region: Region) => {
 
       <div class="grid gap-2">
         <Button
-            v-for="region in REGIONS"
+            v-for="region in RegionsStore"
             :key="region.id"
             variant="outline"
             class="h-auto justify-start px-3 py-3 sm:px-4"

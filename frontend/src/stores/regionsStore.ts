@@ -11,7 +11,7 @@ export interface Region {
     clinics: Clinic[]
 }
 
-export const REGIONS: Region[] = [
+export const RegionsStore: Region[] = [
     {
         id: "moscow",
         name: "Москва",

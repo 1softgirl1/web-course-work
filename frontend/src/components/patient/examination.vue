@@ -3,10 +3,8 @@ import Card from "@/components/ui/card.vue"
 import Button from "@/components/ui/button.vue"
 
 import { FileText, Calendar, Eye } from "lucide-vue-next"
-import { useRouter } from "vue-router"
 import { useExaminationStore } from '@/stores/examinationStore'
 
-const router = useRouter()
 const { examinations } = useExaminationStore()
 
 </script>
