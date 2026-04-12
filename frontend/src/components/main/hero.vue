@@ -4,7 +4,7 @@ import { RouterLink } from "vue-router"
 import Button from '../ui/button.vue'
 import type { Region } from "../../data/regions.ts"
 import { REGIONS, CITY_TO_REGION } from "../../data/regions.ts"
-import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital } from "lucide-vue-next"
+import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital, Stethoscope } from "lucide-vue-next"
 import RegionModal from "@/components/main/regionModal.vue"
 import RegionConfirmModal from "@/components/main/regionConfirmModal.vue"
 
@@ -14,6 +14,7 @@ const TEXTS = {
   subtitle: "Получите удобный доступ к хранению медицинских данных и обследований при врожденных пороках сердца — в единой системе для пациентов, представителей и врачей.",
   cta: "Запишитесь в клинику или свяжитесь с нами, чтобы получить доступ к личному кабинету.",
   patientBtn: "Вход для пациентов",
+  doctorBtn: "Вход для врача",
   clinicsTitle: "Клиники в вашем регионе",
   changeRegion: "Изменить регион",
 }
@@ -200,9 +201,17 @@ onMounted(async () => {
         <p class="mx-auto mb-5 max-w-3xl text-base text-muted-foreground sm:text-xl">{{ TEXTS.subtitle }}</p>
         <p class="mb-7 text-sm font-medium text-foreground sm:mb-8 sm:text-base">{{ TEXTS.cta }}</p>
 
-        <RouterLink to="/login?role=patient" class="block sm:inline-block">
-          <Button size="lg" class="mb-8 w-full sm:w-auto"><User class="mr-2 h-4 w-4" /> {{ TEXTS.patientBtn }}</Button>
-        </RouterLink>
+        <div class="gap-4 sm:flex sm:justify-center">
+
+          <RouterLink to="/login?role=doctor" class="block sm:inline-block">
+            <Button variant="outline" size="lg" class=" mb-8 w-full sm:w-auto"><Stethoscope class="mr-2 h-4 w-4" /> {{ TEXTS.doctorBtn }}</Button>
+          </RouterLink>
+
+          <RouterLink to="/login?role=patient" class="block sm:inline-block">
+            <Button   size="lg" class="mb-8 w-full sm:w-auto"><User class="mr-2 h-4 w-4" /> {{ TEXTS.patientBtn }}</Button>
+          </RouterLink>
+        </div>
+
       </div>
 
       <div v-if="mounted && selectedRegion" class="mx-auto max-w-4xl">

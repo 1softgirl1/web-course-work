@@ -1,10 +1,11 @@
 <script setup lang="ts">
 
-import Menu from "@/components/patient/menu.vue";
+import MyCard from "@/components/patient/myCard.vue";
 </script>
 
 <template>
-  <Menu/>
+  <MyCard></MyCard>
+
 </template>
 
 <style scoped>

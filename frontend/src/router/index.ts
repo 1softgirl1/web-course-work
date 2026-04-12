@@ -4,12 +4,15 @@ import About from '../components/main/about.vue'
 import Faq from "../components/main/faq.vue";
 import Login from "../views/Login.vue";
 import Patient from "../views/Patient.vue";
+import Doctor from "../views/Doctor.vue";
 import myCard from "../components/patient/myCard.vue";
 
 import ask from "../components/patient/ask.vue";
 import Examination from "../components/patient/examination.vue";
 import uploadExamination from "../components/patient/uploadExamination.vue";
-
+import myPatients from "../components/doctor/myPatients.vue";
+import allPatients from "../components/doctor/allPatients.vue"
+import addPatient from "../components/doctor/addPatient.vue"
 
 const routes = [
     { path: '/', component: Main },
@@ -25,6 +28,17 @@ const routes = [
             { path: 'examinations', component: Examination },
             { path: 'upload', component: uploadExamination },
             { path: 'ask', component: ask },
+        ],
+    },
+
+    {
+        path: '/doctor',
+        component: Doctor,
+        children: [
+            { path: 'myPatients', component: myPatients },
+            { path: 'myPatients/addPatient', component: addPatient },
+            { path: 'allPatients', component: allPatients },
+
         ],
     },
 

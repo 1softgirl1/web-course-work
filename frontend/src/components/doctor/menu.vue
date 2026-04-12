@@ -4,13 +4,12 @@ import { useRoute } from "vue-router"
 
 import {
   Heart,
-  User,
-  FileText,
-  Upload,
+  Users,
+  Stethoscope,
+  Globe,
   LogOut,
   Menu,
   X,
-
 } from "lucide-vue-next"
 
 import Button from '@/components/ui/button.vue'
@@ -24,9 +23,9 @@ const sidebarOpen = ref(false)
 
 // navigation
 const navigation = [
-  { name: "Моя карточка", href: "/patient/myCard", icon: User },
-  { name: "Обследования", href: "/patient/examinations", icon: FileText },
-  { name: "Загрузить обследование", href: "/patient/upload", icon: Upload },
+  { name: "Мои пациенты", href: "/doctor/myPatients", icon: Users },
+  { name: "Все пациенты", href: "/doctor/allPatients", icon: Globe },
+
 ]
 
 // methods
@@ -38,7 +37,7 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
     <!-- Mobile Header -->
     <header class="lg:hidden sticky top-0 z-50 bg-card border-b border-border px-4 py-3">
       <div class="flex items-center justify-between">
-        <router-link to="/patient" class="flex items-center gap-2">
+        <router-link to="/doctor" class="flex items-center gap-2">
           <div class="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center">
             <Heart class="w-4 h-4 text-white" />
           </div>
@@ -71,13 +70,13 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
       >
         <!-- Logo -->
         <div class="p-6 border-b border-border hidden lg:block">
-          <router-link to="/patient" class="flex items-center gap-2">
+          <router-link to="/doctor" class="flex items-center gap-2">
             <div class="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center">
               <Heart class="w-5 h-5 text-white" />
             </div>
             <div>
               <span class="font-semibold text-foreground block ">КардиоРеестр</span>
-              <span class="font-medium text-muted-foreground text-sm">Кабинет пациента</span>
+              <span class="font-medium text-muted-foreground text-sm">Кабинет врача</span>
             </div>
           </router-link>
         </div>
@@ -86,11 +85,11 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
         <div class="p-4 border-b border-border">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <User class="w-5 h-5 text-primary" />
+              <Stethoscope class="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p class="font-medium text-foreground text-sm">Иванов Иван</p>
-              <p class="text-xs font-medium text-muted-foreground">Код: 2024-0001</p>
+              <p class="font-medium text-foreground text-sm">Борискова Д.В.</p>
+              <p class="text-xs font-medium text-muted-foreground">Кемерово</p>
             </div>
           </div>
         </div>

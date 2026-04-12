@@ -15,6 +15,8 @@ import SelectContent from "@/components/ui/select/selectContent.vue";
 import SelectItem from "@/components/ui/select/selectItem.vue";
 import { useExaminationStore } from '../../stores/examinationStore'
 
+
+
 // Типы обследований
 const examTypes = [
   "ЭхоКГ",

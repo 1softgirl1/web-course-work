@@ -1,0 +1,362 @@
+<script setup lang="ts" >
+import { ref } from "vue"
+import Card from "@/components/ui/card.vue";
+import Input from '@/components/ui/input.vue'
+import Button from '@/components/ui/button.vue'
+import Select from '@/components/ui/select/select.vue'
+
+
+import Field from "@/components/ui/field/field.vue";
+import FieldLabel from "@/components/ui/field/field-label.vue";
+import { CheckCircle, User, Undo2, Plus, Trash2 } from "lucide-vue-next"
+import SelectTrigger from "@/components/ui/select/selectTrigger.vue";
+import SelectValue from "@/components/ui/select/selectValue.vue";
+import SelectContent from "@/components/ui/select/selectContent.vue";
+import SelectItem from "@/components/ui/select/selectItem.vue";
+import { REGIONS } from '@/data/regions'
+import Badge from "@/components/ui/badge.vue";
+import { usePatientStore } from '@/stores/patientStore'
+
+const submitted = ref(false)
+const lastName = ref("")
+const firstName = ref("")
+const middleName = ref("")
+const birthDate = ref("")
+const region = ref("")
+const diagnosis = ref("")
+const valveName = ref("")
+const valveSize = ref("")
+const valveMaterial = ref("")
+const createdPatientCode = ref("")
+const createdPatientPassword = ref("")
+
+interface OperationItem {
+  name: string
+  anesthesia: string
+  duration: string
+  deliverySystem: string
+}
+
+const createEmptyOperation = (): OperationItem => ({
+  name: "",
+  anesthesia: "",
+  duration: "",
+  deliverySystem: "",
+})
+
+const operations = ref<OperationItem[]>([createEmptyOperation()])
+const medications = ref<string[]>([""])
+
+const patientStore = usePatientStore()
+
+const addOperation = () => {
+  operations.value.push(createEmptyOperation())
+}
+
+const removeOperation = (index: number) => {
+  if (operations.value.length === 1) {
+    operations.value[0] = createEmptyOperation()
+    return
+  }
+  operations.value.splice(index, 1)
+}
+
+const addMedication = () => {
+  medications.value.push("")
+}
+
+const removeMedication = (index: number) => {
+  if (medications.value.length === 1) {
+    medications.value[0] = ""
+    return
+  }
+  medications.value.splice(index, 1)
+}
+
+const getOperationProgress = (operation: OperationItem): number => {
+  const values = [operation.name, operation.anesthesia, operation.duration, operation.deliverySystem]
+  return values.filter(value => value.trim()).length
+}
+
+const getOperationStatusLabel = (operation: OperationItem): string => {
+  const progress = getOperationProgress(operation)
+  if (progress === 0) return 'Не заполнено'
+  if (progress < 4) return 'Заполняется'
+  return 'Заполнено'
+}
+
+const getOperationStatusClass = (operation: OperationItem): string => {
+  const progress = getOperationProgress(operation)
+  if (progress === 0) return 'bg-muted text-muted-foreground'
+  if (progress < 4) return 'bg-yellow-100 text-yellow-800'
+  return 'bg-green-100 text-green-700'
+}
+
+const resetForm = () => {
+  submitted.value = false
+  lastName.value = ""
+  firstName.value = ""
+  middleName.value = ""
+  birthDate.value = ""
+  region.value = ""
+  diagnosis.value = ""
+  valveName.value = ""
+  valveSize.value = ""
+  valveMaterial.value = ""
+  operations.value = [createEmptyOperation()]
+  medications.value = [""]
+  createdPatientCode.value = ""
+  createdPatientPassword.value = ""
+}
+
+const handleSubmit = (e: Event) => {
+  e.preventDefault()
+
+  if (!lastName.value.trim() || !firstName.value.trim() || !birthDate.value || !region.value || !diagnosis.value) {
+    alert('Заполните обязательные поля: фамилию, имя, дату рождения, регион и диагноз')
+    return
+  }
+
+  const normalizedOperations = operations.value
+    .map(item => ({
+      name: item.name.trim(),
+      anesthesia: item.anesthesia.trim(),
+      duration: item.duration.trim(),
+      deliverySystem: item.deliverySystem.trim(),
+    }))
+
+  const hasPartiallyFilledOperation = normalizedOperations.some(item => {
+    const values = [item.name, item.anesthesia, item.duration, item.deliverySystem]
+    return values.some(Boolean) && values.some(value => !value)
+  })
+
+  if (hasPartiallyFilledOperation) {
+    alert('Заполните все параметры операции или удалите незаполненную запись')
+    return
+  }
+
+  const filledOperations = normalizedOperations.filter(item => {
+    return item.name && item.anesthesia && item.duration && item.deliverySystem
+  })
+
+  const { patient, password } = patientStore.addPatient({
+    lastName: lastName.value,
+    firstName: firstName.value,
+    middleName: middleName.value,
+    birthDate: birthDate.value,
+    region: region.value,
+    diagnosis: diagnosis.value,
+  })
+
+  patient.operations = filledOperations.length
+
+  createdPatientCode.value = patient.code
+  createdPatientPassword.value = password
+  submitted.value = true
+}
+</script>
+
+<template>
+  <div class="p-4 sm:p-6 lg:p-8">
+    <!-- Успешная отправка -->
+    <Card v-if="submitted" class="max-w-xl flex items-center">
+      <div class="p-8 text-center ">
+        <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle class="w-8 h-8 text-green-600" />
+        </div>
+        <h2 class="text-xl font-semibold text-foreground mb-2">Пациент успешно создан</h2>
+        <div class="flex flex-col items-center text-muted-foreground mb-6 gap-1">
+          <div class="flex gap-4">
+            <p class="text-muted-foreground">
+              Код пациента:
+            </p>
+            <Badge variant="outline" class="text-sm font-medium" >
+              {{ createdPatientCode }}
+            </Badge>
+          </div>
+          <div class="flex gap-4">
+            <p class="text-muted-foreground">
+              Пароль пациента:
+            </p>
+            <p class="text-foreground font-medium">{{ createdPatientPassword }}</p>
+          </div>
+        </div>
+        <Button @click="resetForm">
+          Добавить еще
+        </Button>
+      </div>
+    </Card>
+
+    <!-- Форма загрузки -->
+    <div v-else>
+      <div class="mb-6">
+        <div class="flex items-s gap-4 mb-2">
+          <router-link to="/doctor/myPatients">
+            <Undo2 class="mt-1"></Undo2>
+          </router-link>
+          <div>
+            <h1 class="text-2xl font-bold text-foreground">Добавить пациента</h1>
+            <p class="text-muted-foreground">Добавьте информацию о новом пациенте</p>
+          </div>
+        </div>
+      </div>
+
+      <Card class="max-w-3xl" >
+
+        <template #header>
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <User class="w-5 h-5 text-primary" />
+            </div>
+            <div class="flex-col ">
+              <div class="font-semibold leading-none ">
+                Новый пациент
+              </div>
+              <div class="text-sm text-muted-foreground">
+                Укажите данные о новом пациенте
+              </div>
+            </div>
+          </div>
+        </template>
+
+
+
+        <form @submit.prevent="handleSubmit" class="space-y-4">
+          <Field>
+            <FieldLabel>Фамилия *</FieldLabel>
+            <Input v-model="lastName" placeholder="Фамилия" required />
+          </Field>
+
+          <Field>
+            <FieldLabel>Имя *</FieldLabel>
+            <Input v-model="firstName" placeholder="Имя" required />
+          </Field>
+
+          <Field>
+            <FieldLabel>Отчество</FieldLabel>
+            <Input v-model="middleName" placeholder="Отчество (при наличии)" />
+          </Field>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel>Дата рождения *</FieldLabel>
+              <Input v-model="birthDate" type="date" required />
+            </Field>
+            <Field>
+              <FieldLabel>Регион *</FieldLabel>
+              <Select v-model="region">
+                <SelectTrigger>
+                  <SelectValue placeholder="Выберите регион" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in REGIONS" :key="item.id" :value="item.name">
+                    {{ item.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel>Диагноз *</FieldLabel>
+            <Input v-model="diagnosis" placeholder="Диагноз" required />
+          </Field>
+
+          <div class="space-y-4">
+            <div class="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
+              <div>
+                <FieldLabel>Перенесенные операции</FieldLabel>
+                <p class="text-xs text-muted-foreground mt-1">Добавьте одну или несколько операций пациента</p>
+              </div>
+              <Button type="button" variant="outline" size="sm" @click="addOperation">
+                <Plus class="w-4 h-4 mr-1" />
+                Добавить операцию
+              </Button>
+            </div>
+
+            <Card v-for="(operation, index) in operations" :key="index" class="overflow-hidden border border-border/80 shadow-none">
+              <div class="flex items-center justify-between border-b border-border bg-card px-4 py-3">
+                <div class="flex items-center gap-2">
+                  <div class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                    {{ index + 1 }}
+                  </div>
+                  <p class="text-sm font-medium">Операция</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="rounded-full px-2 py-1 text-xs font-medium" :class="getOperationStatusClass(operation)">
+                    {{ getOperationStatusLabel(operation) }}
+                  </span>
+                  <Button type="button" variant="outline" size="sm" class="text-muted-foreground hover:text-destructive" @click="removeOperation(index)">
+                    <Trash2 class="w-4 h-4" />
+                </Button>
+                </div>
+              </div>
+
+              <div class="bg-muted/20 p-4 space-y-3">
+                <Field>
+                  <FieldLabel>Название операции</FieldLabel>
+                  <Input v-model="operation.name" placeholder="Например: Протезирование клапана" />
+                </Field>
+
+                <div class="grid sm:grid-cols-3 gap-3">
+                  <Field>
+                    <FieldLabel>Наркоз</FieldLabel>
+                    <Input v-model="operation.anesthesia" placeholder="Общий / местный" />
+                  </Field>
+                  <Field>
+                    <FieldLabel>Продолжительность</FieldLabel>
+                    <Input v-model="operation.duration" placeholder="Например: 2 часа" />
+                  </Field>
+                  <Field>
+                    <FieldLabel>Система доставки</FieldLabel>
+                    <Input v-model="operation.deliverySystem" placeholder="Например: Катетерная" />
+                  </Field>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          <div class="space-y-3">
+            <FieldLabel>Характеристики клапана</FieldLabel>
+            <div class="grid sm:grid-cols-3 gap-3">
+              <Field>
+                <FieldLabel>Название</FieldLabel>
+                <Input v-model="valveName" placeholder="Название клапана" />
+              </Field>
+              <Field>
+                <FieldLabel>Размер</FieldLabel>
+                <Input v-model="valveSize" placeholder="Размер" />
+              </Field>
+              <Field>
+                <FieldLabel>Материал</FieldLabel>
+                <Input v-model="valveMaterial" placeholder="Материал" />
+              </Field>
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <FieldLabel>Список медикаментов</FieldLabel>
+              <Button type="button" variant="outline" size="sm" @click="addMedication">
+                <Plus class="w-4 h-4 mr-1" />
+                Добавить препарат
+              </Button>
+            </div>
+
+            <div v-for="index in medications.length" :key="`med-${index}`" class="flex gap-2">
+              <Input v-model="medications[index - 1]" placeholder="Название препарата" />
+              <Button type="button" variant="outline" class="text-muted-foreground hover:text-destructive" size="icon" @click="removeMedication(index - 1)">
+                <Trash2 class="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          <Button type="submit" class="w-full" size="lg">
+            Добавить пациента
+          </Button>
+        </form>
+
+      </Card>
+    </div>
+  </div>
+</template>

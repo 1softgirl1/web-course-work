@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import Menu from "@/components/patient/menu.vue";
+import Menu from "@/components/doctor/menu.vue";
 </script>
 
 <template>
