@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
+import Badge from '@/components/ui/badge.vue'
 import Dialog from '@/components/ui/dialog.vue'
 import {Undo2, Calendar, FileText, Eye, Plus} from 'lucide-vue-next'
 import { usePatientStore } from '@/stores/patientStore'
@@ -54,8 +55,25 @@ const goBackToList = () => {
   router.push(backNavigation.value)
 }
 
+const parseExamDate = (value: string): Date | null => {
+  const [day, month, year] = value.split('.').map(Number)
+  if (!day || !month || !year) return null
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
 const patientExaminations = computed(() => {
-  return examinations
+  return [...examinations].sort((a, b) => {
+    const aTime = parseExamDate(a.date)?.getTime() ?? 0
+    const bTime = parseExamDate(b.date)?.getTime() ?? 0
+
+    if (bTime !== aTime) return bTime - aTime
+    return b.id - a.id
+  })
+})
+
+const latestExamId = computed<number | null>(() => {
+  return patientExaminations.value.length > 0 ? patientExaminations.value[0].id : null
 })
 
 const openDetails = (exam: Examination) => {
@@ -81,7 +99,7 @@ const addExaminationPath = computed(() => {
           <h1 class="text-2xl font-bold text-foreground">Карточка пациента</h1>
           <p class="text-muted-foreground">Персональные данные и медицинская информация</p>
         </div>
-        <div class="ml-auto flex items-end gap-2">
+        <div v-if="patientData && canShowPatientFullName" class="ml-auto flex items-end gap-2">
           <router-link :to="addExaminationPath">
             <Button variant="default">
               <Plus class="w-4 h-4 mr-2" />
@@ -125,6 +143,7 @@ const addExaminationPath = computed(() => {
                     <h3 class="font-semibold text-foreground truncate">
                       Обследование #{{ exam.id }}
                     </h3>
+                    <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                   </div>
                   <p class="text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
                 </div>

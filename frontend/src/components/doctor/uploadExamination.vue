@@ -1,5 +1,6 @@
 <script setup lang="ts" >
-import { ref } from "vue"
+import { computed, ref } from "vue"
+import { useRoute } from 'vue-router'
 import Card from "@/components/ui/card.vue";
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
@@ -9,6 +10,7 @@ import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
 import { useExaminationStore } from '../../stores/examinationStore.ts'
 
 const submitted = ref(false)
+const route = useRoute()
 const examDate = ref("")
 const doctor = ref("")
 const conclusion = ref("")
@@ -16,6 +18,11 @@ const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
 const { addExamination } = useExaminationStore()
 
 const indicatorLabels = Array.from({ length: 50 }, (_, index) => `Показатель ${index + 1}`)
+
+const backToPatientCardPath = computed(() => {
+  const code = typeof route.params.code === 'string' ? route.params.code : ''
+  return code ? `/doctor/patientCard/${code}` : '/doctor/myPatients'
+})
 
 const resetForm = () => {
   submitted.value = false
@@ -72,7 +79,7 @@ const handleSubmit = (e: Event) => {
 
       <div class="mb-6">
         <div class="flex items-s gap-4 mb-2">
-          <router-link to="/doctor/myPatients">
+          <router-link :to="backToPatientCardPath">
             <Undo2 class="mt-1"></Undo2>
           </router-link>
           <div>

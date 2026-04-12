@@ -1,17 +1,38 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import Card from "@/components/ui/card.vue"
 import Button from "@/components/ui/button.vue"
 import Dialog from '@/components/ui/dialog.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
 
-import {FileText, Calendar, Eye, Download, Plus} from "lucide-vue-next"
+import {FileText, Calendar, Eye} from "lucide-vue-next"
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
 import Badge from "@/components/ui/badge.vue";
 
 const { examinations } = useExaminationStore()
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
+
+const parseExamDate = (value: string): Date | null => {
+  const [day, month, year] = value.split('.').map(Number)
+  if (!day || !month || !year) return null
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+const sortedExaminations = computed<Examination[]>(() => {
+  return [...examinations].sort((a, b) => {
+    const aTime = parseExamDate(a.date)?.getTime() ?? 0
+    const bTime = parseExamDate(b.date)?.getTime() ?? 0
+
+    if (bTime !== aTime) return bTime - aTime
+    return b.id - a.id
+  })
+})
+
+const latestExamId = computed<number | null>(() => {
+  return sortedExaminations.value.length > 0 ? sortedExaminations.value[0].id : null
+})
 
 const openDetails = (exam: Examination) => {
   selectedExam.value = exam
@@ -35,7 +56,7 @@ const openDetails = (exam: Examination) => {
     <!-- Список обследований -->
     <div class="space-y-4">
       <Card
-          v-for="exam in examinations"
+          v-for="exam in sortedExaminations"
           :key="exam.id"
           class="hover:border-primary/30 transition-colorsx lg:h-25  "
       >
@@ -52,6 +73,7 @@ const openDetails = (exam: Examination) => {
                   <h3 class="font-semibold text-foreground truncate ">
                     Обследование #{{ exam.id }}
                   </h3>
+                  <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                 </div>
                 <p class="text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
               </div>
