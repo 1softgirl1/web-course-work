@@ -2,67 +2,64 @@ import { reactive } from 'vue'
 
 export interface Examination {
   id: number
-  type: string
   date: string
   doctor: string
-  clinic: string
+  conclusion: string
+  indicators: number[]
   status: string
-  hasFile: boolean
 }
 
 export interface NewExamination {
-  type: string
   date: string
   doctor: string
-  clinic: string
-  hasFile: boolean
+  conclusion: string
+  indicators: number[]
+}
+
+const createIndicators = (startValue: number): number[] => {
+  return Array.from({ length: 50 }, (_, index) => startValue + index)
 }
 
 const initialExaminations: Examination[] = [
   {
     id: 1,
-    type: "ЭхоКГ",
     date: "10.03.2026",
     doctor: "Петрова А.В.",
-    clinic: "НМИЦ им. В.А. Алмазова",
+    conclusion: "Стабильное состояние, рекомендовано плановое наблюдение.",
+    indicators: createIndicators(10),
     status: "Новое",
-    hasFile: true,
   },
   {
     id: 2,
-    type: "МРТ сердца",
     date: "15.02.2026",
     doctor: "Сидоров В.И.",
-    clinic: "НМИЦ им. В.А. Алмазова",
+    conclusion: "Положительная динамика, продолжить текущую терапию.",
+    indicators: createIndicators(20),
     status: "Просмотрено",
-    hasFile: true,
   },
   {
     id: 3,
-    type: "ЭКГ",
     date: "10.02.2026",
     doctor: "Петрова А.В.",
-    clinic: "Поликлиника №5",
+    conclusion: "Требуется контроль показателей через 3 месяца.",
+    indicators: createIndicators(30),
     status: "Просмотрено",
-    hasFile: true,
   },
   {
     id: 4,
-    type: "Холтеровское мониторирование",
     date: "05.01.2026",
     doctor: "Козлова М.Н.",
-    clinic: "НМИЦ им. В.А. Алмазова",
+    conclusion: "Без признаков ухудшения, наблюдение в стандартном режиме.",
+    indicators: createIndicators(40),
     status: "Просмотрено",
-    hasFile: true,
   },
   {
     id: 5,
-    type: "Анализ крови",
     date: "05.01.2026",
     doctor: "Петрова А.В.",
-    clinic: "Поликлиника №5",
+    conclusion: "Рекомендована коррекция медикаментозной терапии.",
+    indicators: createIndicators(50),
     status: "Просмотрено",
-    hasFile: true,
   },
 ]
 
