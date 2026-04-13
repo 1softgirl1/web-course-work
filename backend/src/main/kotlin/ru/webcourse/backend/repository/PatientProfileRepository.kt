@@ -10,6 +10,18 @@ interface PatientProfileRepository : JpaRepository<PatientProfileEntity, Long> {
     @EntityGraph(attributePaths = ["region"])
     fun findAllByRegionIdOrderByCreatedAtDesc(regionId: Long): List<PatientProfileEntity>
 
+    @EntityGraph(attributePaths = ["region"])
+    @Query(
+        """
+        select p
+        from PatientProfileEntity p
+        where (:regionId is null or p.region.id = :regionId)
+        """
+    )
+    fun findAllForDoctorList(
+        @Param("regionId") regionId: Long?,
+    ): List<PatientProfileEntity>
+
     @EntityGraph(attributePaths = ["user", "region"])
     @Query("select p from PatientProfileEntity p where p.id = :id")
     fun findDetailedById(@Param("id") id: Long): PatientProfileEntity?

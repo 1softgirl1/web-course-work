@@ -66,13 +66,24 @@ paths:
       operationId: listDoctorPatients
       summary: List patients available to the doctor
       description: >
-        Returns a paginated list of patients from the authenticated doctor's region.
-        Each patient has a computed status based on the date of the latest examination:
+        Returns a paginated list of patients available to the authenticated doctor.
+        scope=own returns only the doctor's own region with visible names.
+        scope=all returns patients from all regions with anonymized names
+        (lastName, firstName, middleName are null), and supports regionId and diagnosis filters.
+        Each patient has a computed status based on the latest examination date:
         GREEN for less than 3 months, YELLOW for 3-6 months, RED for more than 6 months.
         The default ordering is RED first, then YELLOW, then GREEN.
       security:
         - bearerAuth: []
       parameters:
+        - in: query
+          name: scope
+          required: false
+          description: Listing mode. own = doctor's region with names, all = all regions with anonymized names.
+          schema:
+            type: string
+            enum: [own, all]
+            default: own
         - in: query
           name: page
           required: false
@@ -90,6 +101,20 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
+        - in: query
+          name: regionId
+          required: false
+          description: Optional region filter. Primarily useful with scope=all.
+          schema:
+            type: integer
+            format: int64
+            minimum: 1
+        - in: query
+          name: diagnosis
+          required: false
+          description: Optional case-insensitive diagnosis substring filter.
+          schema:
+            type: string
       responses:
         '200':
           description: Paginated patients list
@@ -97,6 +122,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PatientListResponse'
+              examples:
+                ownPatients:
+                  summary: Patients from doctor's region
+                  value:
+                    items:
+                      - id: 3
+                        patientCode: PT-DEMO-003
+                        lastName: Volkov
+                        firstName: Andrey
+                        middleName: Olegovich
+                        birthDate: '1959-11-02'
+                        diagnosis: Postoperative observation
+                        regionId: 1
+                        status: RED
+                        valve:
+                          name: Abbott Portico
+                          size: 27 mm
+                          material: Bioprosthetic
+                        operationParameters:
+                          anesthesia: General anesthesia
+                          durationMinutes: 135
+                          deliverySystem: Transfemoral
+                        medications: Warfarin 2.5 mg daily
+                        createdAt: '2026-01-20T14:45:00'
+                        lastExaminationAt: '2025-09-01'
+                    page: 0
+                    limit: 20
+                    total: 3
+                allPatientsAnonymized:
+                  summary: All regions with anonymized names
+                  value:
+                    items:
+                      - id: 5
+                        patientCode: PT-DEMO-005
+                        lastName: null
+                        firstName: null
+                        middleName: null
+                        birthDate: '1976-12-04'
+                        diagnosis: Valve replacement follow-up
+                        regionId: 3
+                        status: YELLOW
+                        valve:
+                          name: CoreValve
+                          size: 29 mm
+                          material: Bioprosthetic
+                        operationParameters:
+                          anesthesia: General anesthesia
+                          durationMinutes: 160
+                          deliverySystem: Transaortic
+                        medications: Clopidogrel 75 mg daily
+                        createdAt: '2026-03-15T16:20:00'
+                        lastExaminationAt: '2026-01-05'
+                    page: 0
+                    limit: 20
+                    total: 5
         '401':
           description: Authentication required
         '403':
@@ -134,13 +214,13 @@ paths:
     patch:
       tags: [Patients]
       operationId: updatePatientCard
-      summary: Edit patient card (Planned)
+      summary: Edit patient card
       description: >
-        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
         Updates the patient card.
         A regular doctor can edit only patients from the doctor's own region.
         A doctor with extended permissions can edit any patient in the system.
         If a regular doctor tries to edit a patient from another region, the API returns 403.
+        The doctor can update all patient card fields and the patient password, but cannot change the patient login.
       security:
         - bearerAuth: []
       parameters:
@@ -175,11 +255,13 @@ paths:
     post:
       tags: [Examinations]
       operationId: addPatientExamination
-      summary: Add patient examination record (Planned)
+      summary: Add patient examination record
       description: >
-        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
         Creates a new examination record for the patient with the measurement date and a set of measured values.
         Existing records are not overwritten. The examination history remains append-only.
+        A regular doctor can add an examination only for a patient from the doctor's own region.
+        A doctor with extended permissions can add an examination for any patient.
+        Duplicate characteristicCode values inside one request are rejected.
       security:
         - bearerAuth: []
       parameters:
@@ -209,15 +291,16 @@ paths:
         '403':
           description: Access denied for patient examination update
         '404':
-          description: Patient card not found
+          description: Patient card or characteristic was not found
     get:
       tags: [Examinations]
       operationId: listPatientExaminations
-      summary: Get patient examination records (Planned)
+      summary: Get patient examination records
       description: >
-        Planned endpoint. Reserved for a future backend stage and not yet implemented in the current runtime.
         Returns the full examination history for the patient in chronological order.
         Each examination record is stored separately and the history is not overwritten.
+        Patients can access only their own examination history.
+        Doctors can read examination history for patients from any region.
       security:
         - bearerAuth: []
       parameters:
@@ -318,8 +401,9 @@ components:
         middleName:
           type: string
           nullable: true
-        age:
-          type: integer
+        birthDate:
+          type: string
+          format: date
         diagnosis:
           type: string
         regionId:
@@ -331,7 +415,7 @@ components:
           $ref: '#/components/schemas/CreateOperationParametersRequest'
         medications:
           type: string
-      required: [lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications]
+      required: [lastName, firstName, birthDate, diagnosis, regionId, valve, operationParameters, medications]
     UpdatePatientRequest:
       type: object
       properties:
@@ -342,27 +426,30 @@ components:
         middleName:
           type: string
           nullable: true
-        age:
-          type: integer
+        birthDate:
+          type: string
+          format: date
         diagnosis:
           type: string
         regionId:
           type: integer
           format: int64
+        medications:
+          type: string
         valve:
           $ref: '#/components/schemas/CreateValveRequest'
         operationParameters:
           $ref: '#/components/schemas/CreateOperationParametersRequest'
-        medications:
+        password:
           type: string
-      required: [lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications]
+          minLength: 6
     CreateExaminationMeasurementRequest:
       type: object
       properties:
         characteristicCode:
           type: string
         value:
-          type: string
+          type: number
         comment:
           type: string
           nullable: true
@@ -420,8 +507,9 @@ components:
         middleName:
           type: string
           nullable: true
-        age:
-          type: integer
+        birthDate:
+          type: string
+          format: date
         diagnosis:
           type: string
         regionId:
@@ -436,7 +524,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, patientCode, temporaryPassword, lastName, firstName, age, diagnosis, regionId, valve, operationParameters, medications, createdAt]
+      required: [id, patientCode, temporaryPassword, lastName, firstName, birthDate, diagnosis, regionId, valve, operationParameters, medications, createdAt]
     PatientSummaryResponse:
       type: object
       properties:
@@ -447,13 +535,16 @@ components:
           type: string
         lastName:
           type: string
+          nullable: true
         firstName:
           type: string
+          nullable: true
         middleName:
           type: string
           nullable: true
-        age:
-          type: integer
+        birthDate:
+          type: string
+          format: date
         diagnosis:
           type: string
         regionId:
@@ -475,7 +566,7 @@ components:
           type: string
           format: date
           nullable: true
-      required: [id, patientCode, lastName, firstName, age, diagnosis, regionId, status, valve, operationParameters, medications, createdAt]
+      required: [id, patientCode, birthDate, diagnosis, regionId, status, valve, operationParameters, medications, createdAt]
     PatientListResponse:
       type: object
       properties:
@@ -580,8 +671,9 @@ components:
           format: int64
         regionName:
           type: string
-        age:
-          type: integer
+        birthDate:
+          type: string
+          format: date
         diagnosis:
           type: string
         valve:
@@ -597,5 +689,5 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VitalsHistoryItemResponse'
-      required: [id, viewMode, patientCode, regionId, regionName, age, diagnosis, valve, operationParameters, medications, createdAt, vitalsHistory]
+      required: [id, viewMode, patientCode, regionId, regionName, birthDate, diagnosis, valve, operationParameters, medications, createdAt, vitalsHistory]
 

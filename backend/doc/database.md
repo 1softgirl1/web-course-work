@@ -55,7 +55,7 @@
 - `region_id` — регион пациента;
 - `patient_code` — уникальный код пациента;
 - `last_name`, `first_name`, `middle_name` — ФИО пациента, где `middle_name` остается необязательным;
-- `age` — возраст на момент создания карточки;
+- `birth_date` — дата рождения пациента;
 - `diagnosis` — диагноз;
 - `valve_name`, `valve_size`, `valve_material` — характеристики клапана;
 - `operation_anesthesia`, `operation_duration_minutes`, `operation_delivery_system` — параметры операции;

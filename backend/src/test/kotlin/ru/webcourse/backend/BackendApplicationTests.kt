@@ -83,7 +83,6 @@ class BackendApplicationTests {
             select conname
             from pg_constraint
             where conname in (
-                'chk_patient_profiles_age',
                 'chk_patient_profiles_operation_duration',
                 'uq_patient_profiles_patient_code'
             )
@@ -92,7 +91,6 @@ class BackendApplicationTests {
         ).toSet()
 
         assertTrue("uq_patient_profiles_patient_code" in constraintNames)
-        assertTrue("chk_patient_profiles_age" in constraintNames)
         assertTrue("chk_patient_profiles_operation_duration" in constraintNames)
 
         val patientProfileColumns = jdbcTemplate.queryForList(
@@ -108,9 +106,11 @@ class BackendApplicationTests {
         assertTrue("last_name" in patientProfileColumns)
         assertTrue("first_name" in patientProfileColumns)
         assertTrue("middle_name" in patientProfileColumns)
+        assertTrue("birth_date" in patientProfileColumns)
         assertTrue("operation_delivery_system" in patientProfileColumns)
         assertTrue("previous_operations" !in patientProfileColumns)
         assertTrue("doctor_id" !in patientProfileColumns)
+        assertTrue("age" !in patientProfileColumns)
 
         val characteristicsColumns = jdbcTemplate.queryForList(
             """

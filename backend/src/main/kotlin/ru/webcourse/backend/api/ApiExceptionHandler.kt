@@ -1,9 +1,11 @@
 package ru.webcourse.backend.api
 
+import io.swagger.v3.oas.annotations.media.Schema
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.validation.FieldError
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -52,6 +54,18 @@ class ApiExceptionHandler {
             },
         )
 
+    @ExceptionHandler(HttpMessageNotReadableException::class)
+    fun handleUnreadableMessage(exception: HttpMessageNotReadableException): ResponseEntity<ApiErrorResponse> =
+        buildError(
+            status = HttpStatus.BAD_REQUEST,
+            message = "Validation failed",
+            details = listOf(exception.mostSpecificCause.message ?: "Malformed request body"),
+        )
+
+    @ExceptionHandler(IllegalArgumentException::class)
+    fun handleIllegalArgument(exception: IllegalArgumentException): ResponseEntity<ApiErrorResponse> =
+        buildError(HttpStatus.BAD_REQUEST, exception.message ?: "Validation failed")
+
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalState(exception: IllegalStateException): ResponseEntity<ApiErrorResponse> =
         buildError(HttpStatus.INTERNAL_SERVER_ERROR, exception.message ?: "Internal error")
@@ -71,10 +85,16 @@ class ApiExceptionHandler {
     )
 }
 
+@Schema(description = "Standard API error response.")
 data class ApiErrorResponse(
+    @field:Schema(description = "HTTP status code.", example = "400")
     val status: Int,
+    @field:Schema(description = "HTTP reason phrase.", example = "Bad Request")
     val error: String,
+    @field:Schema(description = "Human-readable error message.", example = "Validation failed")
     val message: String,
+    @field:Schema(description = "Optional validation or domain-specific details.")
     val details: List<String>,
+    @field:Schema(description = "Timestamp when the error response was generated.", example = "2026-04-13T12:00:00+07:00")
     val timestamp: OffsetDateTime,
 )

@@ -2,7 +2,6 @@ create table examination_characteristics (
     examination_id bigint not null,
     characteristic_id bigint not null,
     value numeric(12, 2) not null,
-    unit varchar(50),
     comment text,
     primary key (examination_id, characteristic_id),
     constraint fk_exam_characteristics_exam

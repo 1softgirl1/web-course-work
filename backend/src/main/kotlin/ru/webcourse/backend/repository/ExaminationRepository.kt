@@ -11,6 +11,9 @@ interface ExaminationRepository : JpaRepository<ExaminationEntity, Long> {
     @EntityGraph(attributePaths = ["measurements", "measurements.characteristic"])
     fun findAllByPatientIdOrderByExamDateDescIdDesc(patientId: Long): List<ExaminationEntity>
 
+    @EntityGraph(attributePaths = ["measurements", "measurements.characteristic"])
+    fun findAllByPatientIdOrderByExamDateAscIdAsc(patientId: Long): List<ExaminationEntity>
+
     @Query(
         """
         select e.patient.id as patientId, max(e.examDate) as lastExamDate

@@ -46,7 +46,7 @@ class JwtAuthenticationFilter(
         }
 
         if (!user.status.isActive()) {
-            response.sendError(HttpStatus.FORBIDDEN.value(), "User is inactive")
+            forbidden(response, "User is inactive")
             return
         }
 
@@ -69,7 +69,33 @@ class JwtAuthenticationFilter(
 
     private fun unauthorized(response: HttpServletResponse, message: String) {
         SecurityContextHolder.clearContext()
-        response.sendError(HttpStatus.UNAUTHORIZED.value(), message)
+        writeError(response, HttpStatus.UNAUTHORIZED, message)
+    }
+
+    private fun forbidden(response: HttpServletResponse, message: String) {
+        SecurityContextHolder.clearContext()
+        writeError(response, HttpStatus.FORBIDDEN, message)
+    }
+
+    private fun writeError(
+        response: HttpServletResponse,
+        status: HttpStatus,
+        message: String,
+    ) {
+        response.status = status.value()
+        response.contentType = "application/json"
+        response.characterEncoding = Charsets.UTF_8.name()
+        val escapedMessage = message
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+
+        response.writer.write(
+            """
+            {"status":${status.value()},"error":"${status.reasonPhrase}","message":"$escapedMessage","details":[],"timestamp":"${java.time.OffsetDateTime.now()}"}
+            """.trimIndent()
+        )
     }
 
     companion object {

@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToOne
 import jakarta.persistence.Table
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 @Entity
@@ -32,8 +33,8 @@ class PatientProfileEntity(
     val firstName: String,
     @Column(name = "middle_name")
     val middleName: String? = null,
-    @Column(name = "age", nullable = false)
-    val age: Int,
+    @Column(name = "birth_date", nullable = false)
+    val birthDate: LocalDate,
     @Column(name = "diagnosis", nullable = false)
     val diagnosis: String,
     @Column(name = "valve_name", nullable = false)

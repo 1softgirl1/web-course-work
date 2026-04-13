@@ -4,8 +4,11 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import ru.webcourse.backend.api.CreateExaminationRequest
 import ru.webcourse.backend.api.CreatePatientRequest
 import ru.webcourse.backend.api.CreatedPatientResponse
+import ru.webcourse.backend.api.ExaminationListResponse
+import ru.webcourse.backend.api.ExaminationResponse
 import ru.webcourse.backend.api.MeasurementResponse
 import ru.webcourse.backend.api.OperationParametersResponse
 import ru.webcourse.backend.api.PatientCardResponse
@@ -13,24 +16,30 @@ import ru.webcourse.backend.api.PatientCardViewMode
 import ru.webcourse.backend.api.PatientListResponse
 import ru.webcourse.backend.api.PatientMonitoringStatus
 import ru.webcourse.backend.api.PatientSummaryResponse
+import ru.webcourse.backend.api.UpdatePatientRequest
 import ru.webcourse.backend.api.ValveResponse
 import ru.webcourse.backend.api.VitalsHistoryItemResponse
 import ru.webcourse.backend.config.ActorPrincipal
 import ru.webcourse.backend.domain.DoctorProfileEntity
+import ru.webcourse.backend.domain.ExaminationCharacteristicEntity
+import ru.webcourse.backend.domain.ExaminationCharacteristicId
 import ru.webcourse.backend.domain.ExaminationEntity
 import ru.webcourse.backend.domain.PatientProfileEntity
 import ru.webcourse.backend.domain.UserEntity
 import ru.webcourse.backend.domain.UserRole
 import ru.webcourse.backend.domain.UserStatus
+import ru.webcourse.backend.repository.CharacteristicRepository
 import ru.webcourse.backend.repository.DoctorProfileRepository
 import ru.webcourse.backend.repository.ExaminationRepository
 import ru.webcourse.backend.repository.PatientProfileRepository
 import ru.webcourse.backend.repository.RegionRepository
 import ru.webcourse.backend.repository.UserRepository
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Service
 class PatientService(
+    private val characteristicRepository: CharacteristicRepository,
     private val doctorProfileRepository: DoctorProfileRepository,
     private val examinationRepository: ExaminationRepository,
     private val patientProfileRepository: PatientProfileRepository,
@@ -70,7 +79,7 @@ class PatientService(
             lastName = request.lastName.trim(),
             firstName = request.firstName.trim(),
             middleName = request.middleName?.trim()?.takeIf { it.isNotBlank() },
-            age = request.age,
+            birthDate = request.birthDate,
             diagnosis = request.diagnosis.trim(),
             valveName = request.valve.name.trim(),
             valveSize = request.valve.size.trim(),
@@ -90,9 +99,24 @@ class PatientService(
         actor: ActorPrincipal?,
         page: Int,
         limit: Int,
+        scope: String,
+        regionId: Long?,
+        diagnosis: String?,
     ): PatientListResponse {
         val doctor = requireAuthenticatedDoctor(actor)
-        val patients = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(doctor.region.id)
+        val normalizedScope = normalizeListScope(scope)
+        val includeNames = normalizedScope == LIST_SCOPE_OWN
+        val effectiveRegionId = when (normalizedScope) {
+            LIST_SCOPE_OWN -> doctor.region.id
+            LIST_SCOPE_ALL -> regionId
+            else -> error("Unsupported scope")
+        }
+        val effectiveDiagnosis = diagnosis?.trim()?.takeIf { it.isNotBlank() }
+        val patients = patientProfileRepository.findAllForDoctorList(
+            regionId = effectiveRegionId,
+        ).filter { patient ->
+            effectiveDiagnosis == null || patient.diagnosis.contains(effectiveDiagnosis, ignoreCase = true)
+        }
         val latestExamDatesByPatientId = if (patients.isEmpty()) {
             emptyMap()
         } else {
@@ -105,6 +129,7 @@ class PatientService(
                 val lastExaminationAt = latestExamDatesByPatientId[patient.id]
                 PatientListItem(
                     summary = patient.toSummaryResponse(
+                        includeNames = includeNames,
                         status = lastExaminationAt.toMonitoringStatus(),
                         lastExaminationAt = lastExaminationAt,
                     ),
@@ -133,24 +158,154 @@ class PatientService(
         patientId: Long,
         actor: ActorPrincipal?,
     ): PatientCardResponse {
-        val patient = patientProfileRepository.findDetailedById(patientId)
-            ?: throw NotFoundException("Patient with id=$patientId was not found")
-        val examinations = examinationRepository.findAllByPatientIdOrderByExamDateDescIdDesc(patientId)
+        val patient = findPatient(patientId)
+        val examinations = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
 
-        val actorRole = actor?.role?.let(UserRole::valueOf)
-            ?: throw AccessDeniedException("Only doctors and patients can access patient cards")
-
-        return when {
-            actorRole == UserRole.PATIENT -> buildCardForPatient(patient, examinations, actor)
-            actorRole.isDoctor() -> buildCardForDoctor(patient, examinations, actor)
+        return when (actor.userRole()) {
+            UserRole.PATIENT -> buildCardForPatient(patient, examinations, actor)
+            UserRole.DOCTOR,
+            UserRole.DOCTOR_EXTENDED,
+            -> buildCardForDoctor(patient, examinations, actor)
             else -> throw AccessDeniedException("Only doctors and patients can access patient cards")
         }
     }
 
+    @Transactional
+    fun addExamination(
+        patientId: Long,
+        actor: ActorPrincipal?,
+        request: CreateExaminationRequest,
+    ): ExaminationResponse {
+        val patient = findPatient(patientId)
+        requireDoctorCanModifyPatient(patient, actor)
+
+        val duplicateCodes = request.measurements
+            .map { it.characteristicCode.trim() }
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it > 1 }
+            .keys
+            .sorted()
+        if (duplicateCodes.isNotEmpty()) {
+            throw IllegalArgumentException(
+                "Duplicate characteristicCode values are not allowed: ${duplicateCodes.joinToString(",")}"
+            )
+        }
+
+        val requestedCodes = request.measurements
+            .map { it.characteristicCode.trim() }
+            .distinct()
+        val characteristicsByCode = characteristicRepository.findAllByCodeIn(requestedCodes)
+            .associateBy { it.code }
+        val missingCodes = requestedCodes.filterNot(characteristicsByCode::containsKey)
+        if (missingCodes.isNotEmpty()) {
+            throw NotFoundException("Characteristics with codes=${missingCodes.joinToString(",")} were not found")
+        }
+
+        val examination = examinationRepository.saveAndFlush(
+            ExaminationEntity(
+                patient = patient,
+                title = request.title.trim(),
+                examDate = request.examDate,
+                comment = request.comment?.trim()?.takeIf { it.isNotBlank() },
+            )
+        )
+
+        examination.measurements.addAll(
+            request.measurements.map { measurement ->
+                val characteristic = characteristicsByCode.getValue(measurement.characteristicCode.trim())
+                ExaminationCharacteristicEntity(
+                    id = ExaminationCharacteristicId(
+                        examinationId = examination.id,
+                        characteristicId = characteristic.id,
+                    ),
+                    examination = examination,
+                    characteristic = characteristic,
+                    value = measurement.value,
+                    comment = measurement.comment?.trim()?.takeIf { it.isNotBlank() },
+                )
+            }
+        )
+
+        return examinationRepository.saveAndFlush(examination).toExaminationResponse()
+    }
+
+    @Transactional(readOnly = true)
+    fun listExaminations(
+        patientId: Long,
+        actor: ActorPrincipal?,
+    ): ExaminationListResponse {
+        val patient = findPatient(patientId)
+        requireCanReadExaminations(patient, actor)
+
+        return ExaminationListResponse(
+            items = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
+                .map { it.toExaminationResponse() },
+        )
+    }
+
+    @Transactional
+    fun updatePatientCard(
+        patientId: Long,
+        actor: ActorPrincipal?,
+        request: UpdatePatientRequest,
+    ): PatientCardResponse {
+        val patient = findPatient(patientId)
+        requireDoctorCanModifyPatient(patient, actor)
+        validatePatchRequest(request)
+
+        val updatedRegion = request.regionId?.let { regionId ->
+            regionRepository.findById(regionId)
+                .orElseThrow { NotFoundException("Region with id=$regionId was not found") }
+        } ?: patient.region
+        val updatedUser = userRepository.save(
+            patient.updatedUser(request.password, passwordEncoder)
+        )
+
+        val updatedPatient = patientProfileRepository.saveAndFlush(
+            PatientProfileEntity(
+                id = patient.id,
+                user = updatedUser,
+                region = updatedRegion,
+                patientCode = patient.patientCode,
+                lastName = request.lastName?.trimNonBlank("lastName") ?: patient.lastName,
+                firstName = request.firstName?.trimNonBlank("firstName") ?: patient.firstName,
+                middleName = when (request.middleName) {
+                    null -> patient.middleName
+                    else -> request.middleName.trim().takeIf { it.isNotBlank() }
+                },
+                birthDate = request.birthDate ?: patient.birthDate,
+                diagnosis = request.diagnosis?.trimNonBlank("diagnosis") ?: patient.diagnosis,
+                valveName = request.valve?.name?.trimNonBlank("valve.name") ?: patient.valveName,
+                valveSize = request.valve?.size?.trimNonBlank("valve.size") ?: patient.valveSize,
+                valveMaterial = request.valve?.material?.trimNonBlank("valve.material") ?: patient.valveMaterial,
+                operationAnesthesia = request.operationParameters?.anesthesia?.trimNonBlank("operationParameters.anesthesia")
+                    ?: patient.operationAnesthesia,
+                operationDurationMinutes = request.operationParameters?.durationMinutes
+                    ?: patient.operationDurationMinutes,
+                operationDeliverySystem = request.operationParameters?.deliverySystem?.trimNonBlank("operationParameters.deliverySystem")
+                    ?: patient.operationDeliverySystem,
+                medications = request.medications?.trimNonBlank("medications") ?: patient.medications,
+                createdAt = patient.createdAt,
+            )
+        )
+
+        val examinations = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
+        return updatedPatient.toCardResponse(
+            viewMode = PatientCardViewMode.FULL,
+            includeNames = true,
+            examinations = examinations,
+        )
+    }
+
+    private fun findPatient(patientId: Long): PatientProfileEntity =
+        patientProfileRepository.findDetailedById(patientId)
+            ?: throw NotFoundException("Patient with id=$patientId was not found")
+
     private fun requireAuthenticatedDoctor(
         actor: ActorPrincipal?,
     ): DoctorProfileEntity {
-        val doctorActor = actor?.takeIf { UserRole.valueOf(it.role).isDoctor() }
+        val doctorActor = actor?.takeIf { it.userRole().isDoctor() }
             ?: throw AccessDeniedException("Only doctors can manage patient cards")
 
         return doctorProfileRepository.findByUserId(doctorActor.id)
@@ -160,11 +315,46 @@ class PatientService(
     private fun requireAuthenticatedPatientProfile(
         actor: ActorPrincipal?,
     ): PatientProfileEntity {
-        val patientActor = actor?.takeIf { it.role == UserRole.PATIENT.name }
+        val patientActor = actor?.takeIf { it.userRole() == UserRole.PATIENT }
             ?: throw AccessDeniedException("Only patients can access their own patient cards")
 
         return patientProfileRepository.findDetailedByUserId(patientActor.id)
             ?: throw NotFoundException("Patient profile for user id=${patientActor.id} was not found")
+    }
+
+    private fun requireDoctorCanModifyPatient(
+        patient: PatientProfileEntity,
+        actor: ActorPrincipal?,
+    ): DoctorProfileEntity {
+        val doctor = requireAuthenticatedDoctor(actor)
+        val role = actor.userRole()
+        if (role == UserRole.DOCTOR_EXTENDED) {
+            return doctor
+        }
+        if (doctor.region.id != patient.region.id) {
+            throw AccessDeniedException("Doctors can modify only patients from their own region")
+        }
+        return doctor
+    }
+
+    private fun requireCanReadExaminations(
+        patient: PatientProfileEntity,
+        actor: ActorPrincipal?,
+    ) {
+        when (actor.userRole()) {
+            UserRole.PATIENT -> {
+                val actorPatient = requireAuthenticatedPatientProfile(actor)
+                if (actorPatient.id != patient.id) {
+                    throw AccessDeniedException("Patients can access only their own examinations")
+                }
+            }
+
+            UserRole.DOCTOR,
+            UserRole.DOCTOR_EXTENDED,
+            -> requireAuthenticatedDoctor(actor)
+
+            else -> throw AccessDeniedException("Only doctors and patients can access examinations")
+        }
     }
 
     private fun buildCardForPatient(
@@ -200,6 +390,65 @@ class PatientService(
         )
     }
 
+    private fun validatePatchRequest(request: UpdatePatientRequest) {
+        if (
+            request.lastName == null &&
+            request.firstName == null &&
+            request.middleName == null &&
+            request.birthDate == null &&
+            request.diagnosis == null &&
+            request.regionId == null &&
+            request.medications == null &&
+            request.valve == null &&
+            request.operationParameters == null &&
+            request.password == null
+        ) {
+            throw IllegalArgumentException("At least one editable field must be provided")
+        }
+
+        request.lastName?.trimNonBlank("lastName")
+        request.firstName?.trimNonBlank("firstName")
+        request.diagnosis?.trimNonBlank("diagnosis")
+        request.medications?.trimNonBlank("medications")
+        request.valve?.apply {
+            name.trimNonBlank("valve.name")
+            size.trimNonBlank("valve.size")
+            material.trimNonBlank("valve.material")
+        }
+        request.operationParameters?.apply {
+            anesthesia.trimNonBlank("operationParameters.anesthesia")
+            deliverySystem.trimNonBlank("operationParameters.deliverySystem")
+        }
+        request.password?.trimNonBlank("password")
+    }
+
+    private fun String.trimNonBlank(fieldName: String): String =
+        trim().takeIf { it.isNotBlank() }
+            ?: throw IllegalArgumentException("$fieldName must not be blank")
+
+    private fun PatientProfileEntity.updatedUser(
+        rawPassword: String?,
+        passwordEncoder: PasswordEncoder,
+    ): UserEntity {
+        val updatedPasswordHash = rawPassword?.trimNonBlank("password")?.let { password ->
+            requireNotNull(passwordEncoder.encode(password)) {
+                "Password encoder returned null hash"
+            }
+        } ?: user.passwordHash
+
+        return UserEntity(
+            id = user.id,
+            login = user.login,
+            passwordHash = updatedPasswordHash,
+            role = user.role,
+            status = user.status,
+        )
+    }
+
+    private fun ActorPrincipal?.userRole(): UserRole =
+        this?.role?.let(UserRole::valueOf)
+            ?: throw AccessDeniedException("Authentication is required")
+
     private fun PatientProfileEntity.toCreatedResponse(generatedPassword: String) = CreatedPatientResponse(
         id = id,
         patientCode = patientCode,
@@ -207,7 +456,7 @@ class PatientService(
         lastName = lastName,
         firstName = firstName,
         middleName = middleName,
-        age = age,
+        birthDate = birthDate,
         diagnosis = diagnosis,
         regionId = region.id,
         valve = valveResponse(),
@@ -217,15 +466,16 @@ class PatientService(
     )
 
     private fun PatientProfileEntity.toSummaryResponse(
+        includeNames: Boolean,
         status: PatientMonitoringStatus,
         lastExaminationAt: LocalDate?,
     ) = PatientSummaryResponse(
         id = id,
         patientCode = patientCode,
-        lastName = lastName,
-        firstName = firstName,
-        middleName = middleName,
-        age = age,
+        lastName = lastName.takeIf { includeNames },
+        firstName = firstName.takeIf { includeNames },
+        middleName = middleName.takeIf { includeNames },
+        birthDate = birthDate,
         diagnosis = diagnosis,
         regionId = region.id,
         status = status,
@@ -249,7 +499,7 @@ class PatientService(
         middleName = middleName.takeIf { includeNames },
         regionId = region.id,
         regionName = region.name,
-        age = age,
+        birthDate = birthDate,
         diagnosis = diagnosis,
         valve = valveResponse(),
         operationParameters = operationParametersResponse(),
@@ -275,7 +525,19 @@ class PatientService(
         title = title,
         examDate = examDate.toString(),
         comment = comment,
-        measurements = measurements.sortedBy { it.characteristic.code }.map { measurement ->
+        measurements = toMeasurementResponses(),
+    )
+
+    private fun ExaminationEntity.toExaminationResponse() = ExaminationResponse(
+        examId = id,
+        title = title,
+        examDate = examDate.toString(),
+        comment = comment,
+        measurements = toMeasurementResponses(),
+    )
+
+    private fun ExaminationEntity.toMeasurementResponses(): List<MeasurementResponse> =
+        measurements.sortedBy { it.characteristic.code }.map { measurement ->
             MeasurementResponse(
                 characteristicId = measurement.characteristic.id,
                 characteristicCode = measurement.characteristic.code,
@@ -284,13 +546,12 @@ class PatientService(
                 unit = measurement.characteristic.unit,
                 comment = measurement.comment,
             )
-        },
-    )
+        }
 
     private fun LocalDate?.toMonitoringStatus(referenceDate: LocalDate = LocalDate.now()): PatientMonitoringStatus {
         if (this == null) return PatientMonitoringStatus.RED
 
-        val daysSinceLastExam = java.time.temporal.ChronoUnit.DAYS.between(this, referenceDate)
+        val daysSinceLastExam = ChronoUnit.DAYS.between(this, referenceDate)
         return when {
             daysSinceLastExam < GREEN_THRESHOLD_DAYS -> PatientMonitoringStatus.GREEN
             daysSinceLastExam <= YELLOW_THRESHOLD_DAYS -> PatientMonitoringStatus.YELLOW
@@ -311,7 +572,13 @@ class PatientService(
     )
 
     private companion object {
+        const val LIST_SCOPE_OWN = "own"
+        const val LIST_SCOPE_ALL = "all"
         const val GREEN_THRESHOLD_DAYS = 91L
         const val YELLOW_THRESHOLD_DAYS = 183L
     }
+
+    private fun normalizeListScope(scope: String): String =
+        scope.trim().lowercase().takeIf { it == LIST_SCOPE_OWN || it == LIST_SCOPE_ALL }
+            ?: throw IllegalArgumentException("scope must be either 'own' or 'all'")
 }

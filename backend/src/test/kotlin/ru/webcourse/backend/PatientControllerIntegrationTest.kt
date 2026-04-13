@@ -1,5 +1,6 @@
 package ru.webcourse.backend
 
+import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -13,6 +14,7 @@ import org.springframework.test.context.DynamicPropertyRegistry
 import org.springframework.test.context.DynamicPropertySource
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.get
+import org.springframework.test.web.servlet.patch
 import org.springframework.test.web.servlet.post
 import org.springframework.test.web.servlet.request.RequestPostProcessor
 import org.testcontainers.containers.PostgreSQLContainer
@@ -232,6 +234,7 @@ class PatientControllerIntegrationTest {
             jsonPath("$.firstName") { value("Petr") }
             jsonPath("$.middleName") { value("Petrovich") }
             jsonPath("$.diagnosis") { value("Aortic valve stenosis") }
+            jsonPath("$.birthDate") { value("1971-01-15") }
             jsonPath("$.regionId") { value(1) }
             jsonPath("$.operationParameters.deliverySystem") { value("Transfemoral") }
         }.andReturn()
@@ -358,7 +361,7 @@ class PatientControllerIntegrationTest {
         mockMvc.post("/api/doctor/patients") {
             with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
-            content = validCreateRequest(age = -1)
+            content = validCreateRequest(birthDate = "3026-01-15")
         }.andExpect {
             status { isBadRequest() }
         }
@@ -514,6 +517,116 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
+    fun doctorCanListAllPatientsAcrossRegionsWithAnonymizedNames() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+
+        val ownPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Own", firstName = "Patient", regionId = 1L)
+        )
+        val foreignPatient = createPatientThroughApi(
+            login = SECOND_DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Foreign", firstName = "Patient", regionId = 2L)
+        )
+
+        seedExaminationWithDate(ownPatient.id, LocalDate.now().minusMonths(1))
+        seedExaminationWithDate(foreignPatient.id, LocalDate.now().minusMonths(5))
+
+        mockMvc.get("/api/doctor/patients?scope=all") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.total") { value(2) }
+            jsonPath("$.items.length()") { value(2) }
+            jsonPath("$.items[0].lastName") { value(nullValue()) }
+            jsonPath("$.items[0].firstName") { value(nullValue()) }
+            jsonPath("$.items[0].middleName") { value(nullValue()) }
+            jsonPath("$.items[0].patientCode") { isString() }
+            jsonPath("$.items[0].diagnosis") { isString() }
+            jsonPath("$.items[0].regionId") { isNumber() }
+            jsonPath("$.items[0].status") { isString() }
+            jsonPath("$.items[0].lastExaminationAt") { isString() }
+            jsonPath("$.items[1].lastName") { value(nullValue()) }
+            jsonPath("$.items[1].firstName") { value(nullValue()) }
+            jsonPath("$.items[1].middleName") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun doctorCanFilterAllPatientsByRegionAndDiagnosis() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+
+        createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(
+                lastName = "Alpha",
+                firstName = "One",
+                diagnosis = "Aortic valve stenosis",
+                regionId = 1L
+            )
+        )
+        createPatientThroughApi(
+            login = SECOND_DOCTOR_EMAIL,
+            body = validCreateRequest(
+                lastName = "Beta",
+                firstName = "Two",
+                diagnosis = "Mitral regurgitation",
+                regionId = 2L
+            )
+        )
+        createPatientThroughApi(
+            login = SECOND_DOCTOR_EMAIL,
+            body = validCreateRequest(
+                lastName = "Gamma",
+                firstName = "Three",
+                diagnosis = "Aortic valve stenosis",
+                regionId = 2L
+            )
+        )
+
+        mockMvc.get("/api/doctor/patients?scope=all&regionId=2&diagnosis=stenosis") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.total") { value(1) }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.items[0].regionId") { value(2) }
+            jsonPath("$.items[0].diagnosis") { value("Aortic valve stenosis") }
+            jsonPath("$.items[0].lastName") { value(nullValue()) }
+            jsonPath("$.items[0].firstName") { value(nullValue()) }
+            jsonPath("$.items[0].middleName") { value(nullValue()) }
+        }
+    }
+
+    @Test
+    fun ownScopeStillShowsOnlyOwnRegionWithNames() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+
+        createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Own", firstName = "Patient", regionId = 1L)
+        )
+        createPatientThroughApi(
+            login = SECOND_DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Foreign", firstName = "Patient", regionId = 2L)
+        )
+
+        mockMvc.get("/api/doctor/patients?scope=own") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.total") { value(1) }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.items[0].lastName") { value("Own") }
+            jsonPath("$.items[0].firstName") { value("Patient") }
+            jsonPath("$.items[0].regionId") { value(1) }
+        }
+    }
+
+    @Test
     fun doctorPatientListSupportsPaginationAndComputesStatusFromLatestExamDate() {
         createDoctor(login = DOCTOR_EMAIL)
 
@@ -577,6 +690,12 @@ class PatientControllerIntegrationTest {
         }
 
         mockMvc.get("/api/doctor/patients?page=0&limit=101") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.get("/api/doctor/patients?scope=weird&page=0&limit=20") {
             with(doctorBearer(DOCTOR_EMAIL))
         }.andExpect {
             status { isBadRequest() }
@@ -665,6 +784,340 @@ class PatientControllerIntegrationTest {
         assertTrue(body.contains("\"lastName\":null"))
         assertTrue(body.contains("\"firstName\":null"))
         assertTrue(body.contains("\"middleName\":null"))
+    }
+
+    @Test
+    fun doctorCanAddExaminationForPatientFromOwnRegion() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest()
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.title") { value("Control check") }
+            jsonPath("$.examDate") { value("2026-04-10") }
+            jsonPath("$.measurements.length()") { value(2) }
+            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.measurements[0].value") { value("120.5") }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanAddExaminationForPatientFromAnotherRegion() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 2L, role = UserRole.DOCTOR_EXTENDED)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest()
+        }.andExpect {
+            status { isCreated() }
+        }
+    }
+
+    @Test
+    fun doctorFromAnotherRegionCannotAddExamination() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest()
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun patientCannotAddExamination() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(patientBearer(created.patientCode, created.temporaryPassword))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest()
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun addExaminationReturns404ForUnknownCharacteristic() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest(characteristicCode = "metric_99")
+        }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun addExaminationReturns400ForInvalidPayload() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "title": "Control check",
+                  "examDate": "2026-04-10",
+                  "measurements": []
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "title": "Control check",
+                  "examDate": "2026-04-10",
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_01",
+                      "value": "oops"
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun addExaminationReturns400ForDuplicateCharacteristicCodes() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "title": "Control check",
+                  "examDate": "2026-04-10",
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_01",
+                      "value": 120.5
+                    },
+                    {
+                      "characteristicCode": "metric_01",
+                      "value": 121.0
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+            jsonPath("$.message") { value("Duplicate characteristicCode values are not allowed: metric_01") }
+        }
+    }
+
+    @Test
+    fun patientCanListOwnExaminationsInChronologicalOrder() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        seedExaminationWithMeasurements(created.id, LocalDate.parse("2026-04-08"))
+        seedExaminationWithMeasurements(created.id, LocalDate.parse("2026-04-10"))
+
+        mockMvc.get("/api/patients/${created.id}/examinations") {
+            with(patientBearer(created.patientCode, created.temporaryPassword))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items.length()") { value(2) }
+            jsonPath("$.items[0].examDate") { value("2026-04-08") }
+            jsonPath("$.items[1].examDate") { value("2026-04-10") }
+        }
+    }
+
+    @Test
+    fun patientCannotListAnotherPatientsExaminations() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        val secondPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr")
+        )
+
+        mockMvc.get("/api/patients/${secondPatient.id}/examinations") {
+            with(patientBearer(firstPatient.patientCode, firstPatient.temporaryPassword))
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun doctorCanListExaminationsFromAnotherRegionReadOnly() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        seedExaminationWithMeasurements(created.id)
+
+        mockMvc.get("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.items[0].measurements[0].characteristicCode") { value("metric_01") }
+        }
+    }
+
+    @Test
+    fun unauthenticatedExaminationListIsRejected() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.get("/api/patients/${created.id}/examinations")
+            .andExpect {
+                status { isUnauthorized() }
+            }
+    }
+
+    @Test
+    fun doctorCanPatchPatientFieldsAndPasswordExceptLogin() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(
+                lastName = "Updated",
+                firstName = "Patient",
+                birthDate = "1965-05-20",
+                diagnosis = "Updated diagnosis",
+                regionId = 2L,
+                medications = "Clopidogrel",
+                valveName = "UpdatedValve",
+                valveSize = "29",
+                valveMaterial = "Mechanical",
+                operationAnesthesia = "Updated anesthesia",
+                operationDurationMinutes = 210,
+                operationDeliverySystem = "Transapical",
+                password = "new-secret-password"
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.viewMode") { value("FULL") }
+            jsonPath("$.lastName") { value("Updated") }
+            jsonPath("$.firstName") { value("Patient") }
+            jsonPath("$.birthDate") { value("1965-05-20") }
+            jsonPath("$.regionId") { value(2) }
+            jsonPath("$.medications") { value("Clopidogrel") }
+            jsonPath("$.diagnosis") { value("Updated diagnosis") }
+            jsonPath("$.valve.name") { value("UpdatedValve") }
+            jsonPath("$.valve.size") { value("29") }
+            jsonPath("$.valve.material") { value("Mechanical") }
+            jsonPath("$.operationParameters.anesthesia") { value("Updated anesthesia") }
+            jsonPath("$.operationParameters.durationMinutes") { value(210) }
+            jsonPath("$.operationParameters.deliverySystem") { value("Transapical") }
+        }
+
+        val storedUser = userRepository.findByLogin(created.patientCode)
+        assertNotNull(storedUser)
+        assertEquals(created.patientCode, storedUser.login)
+        assertTrue(passwordEncoder.matches("new-secret-password", storedUser.passwordHash))
+    }
+
+    @Test
+    fun doctorExtendedCanPatchPatientFromAnotherRegion() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 2L, role = UserRole.DOCTOR_EXTENDED)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(medications = "Updated meds")
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.medications") { value("Updated meds") }
+        }
+    }
+
+    @Test
+    fun doctorFromAnotherRegionCannotPatchPatient() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(medications = "Updated meds")
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun patchPatientReturns400ForEmptyOrInvalidPayload() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(lastName = "   ")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(password = "123")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(birthDate = "3026-05-20")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun patchPatientReturns404WhenPatientDoesNotExist() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.patch("/api/patients/999999") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(medications = "Updated meds")
+        }.andExpect {
+            status { isNotFound() }
+        }
     }
 
     @Test
@@ -863,7 +1316,7 @@ class PatientControllerIntegrationTest {
         lastName: String = "Petrov",
         firstName: String = "Petr",
         middleName: String? = "Petrovich",
-        age: Int = 54,
+        birthDate: String = "1971-01-15",
         diagnosis: String = "Aortic valve stenosis",
         regionId: Long = 1L,
         durationMinutes: Int = 185,
@@ -872,7 +1325,7 @@ class PatientControllerIntegrationTest {
           "lastName": ${jsonString(lastName)},
           "firstName": ${jsonString(firstName)},
           "middleName": ${jsonNullableString(middleName)},
-          "age": $age,
+          "birthDate": ${jsonString(birthDate)},
           "diagnosis": ${jsonString(diagnosis)},
           "regionId": $regionId,
           "valve": {
@@ -888,6 +1341,88 @@ class PatientControllerIntegrationTest {
           "medications": "Warfarin, aspirin"
         }
     """.trimIndent()
+
+    private fun validCreateExaminationRequest(
+        title: String = "Control check",
+        examDate: String = "2026-04-10",
+        characteristicCode: String = "metric_01",
+    ): String = """
+        {
+          "title": ${jsonString(title)},
+          "examDate": ${jsonString(examDate)},
+          "comment": "Stable condition",
+          "measurements": [
+            {
+              "characteristicCode": ${jsonString(characteristicCode)},
+              "value": 120.5,
+              "comment": "First metric"
+            },
+            {
+              "characteristicCode": "metric_02",
+              "value": 80,
+              "comment": "Second metric"
+            }
+          ]
+        }
+    """.trimIndent()
+
+    private fun validPatchRequest(
+        lastName: String? = null,
+        firstName: String? = null,
+        middleName: String? = null,
+        includeMiddleName: Boolean = false,
+        birthDate: String? = null,
+        diagnosis: String? = null,
+        regionId: Long? = null,
+        medications: String? = null,
+        valveName: String? = null,
+        valveSize: String? = null,
+        valveMaterial: String? = null,
+        operationAnesthesia: String? = null,
+        operationDurationMinutes: Int? = null,
+        operationDeliverySystem: String? = null,
+        password: String? = null,
+    ): String {
+        val fields = mutableListOf<String>()
+        lastName?.let { fields += "\"lastName\": ${jsonString(it)}" }
+        firstName?.let { fields += "\"firstName\": ${jsonString(it)}" }
+        if (includeMiddleName) {
+            fields += "\"middleName\": ${jsonNullableString(middleName)}"
+        }
+        birthDate?.let { fields += "\"birthDate\": ${jsonString(it)}" }
+        diagnosis?.let { fields += "\"diagnosis\": ${jsonString(it)}" }
+        regionId?.let { fields += "\"regionId\": $it" }
+        medications?.let { fields += "\"medications\": ${jsonString(it)}" }
+        if (valveName != null || valveSize != null || valveMaterial != null) {
+            fields += """
+                "valve": {
+                  "name": ${jsonString(valveName ?: "MedValve")},
+                  "size": ${jsonString(valveSize ?: "27")},
+                  "material": ${jsonString(valveMaterial ?: "Biological")}
+                }
+            """.trimIndent()
+        }
+        if (operationAnesthesia != null || operationDurationMinutes != null || operationDeliverySystem != null) {
+            fields += """
+                "operationParameters": {
+                  "anesthesia": ${jsonString(operationAnesthesia ?: "General anesthesia")},
+                  "durationMinutes": ${operationDurationMinutes ?: 185},
+                  "deliverySystem": ${jsonString(operationDeliverySystem ?: "Transfemoral")}
+                }
+            """.trimIndent()
+        }
+        password?.let { fields += "\"password\": ${jsonString(it)}" }
+
+        return buildString {
+            append("{")
+            if (fields.isNotEmpty()) {
+                append("\n  ")
+                append(fields.joinToString(",\n  "))
+                append("\n")
+            }
+            append("}")
+        }
+    }
 
     private fun jsonString(value: String): String = buildString {
         append('"')

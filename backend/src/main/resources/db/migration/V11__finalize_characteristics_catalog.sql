@@ -1,22 +1,3 @@
-alter table characteristics
-    add column code varchar(50),
-    add column unit varchar(50);
-
-update characteristics
-set code = concat('metric_', lpad(id::text, 2, '0')),
-    unit = concat('unit_', lpad(id::text, 2, '0'))
-where code is null;
-
-alter table characteristics
-    alter column code set not null,
-    alter column unit set not null;
-
-alter table characteristics
-    add constraint uq_characteristics_code unique (code);
-
-alter table examination_characteristics
-    drop column unit;
-
 insert into characteristics (code, name, unit) values
     ('metric_01', 'Metric 01', 'unit_01'),
     ('metric_02', 'Metric 02', 'unit_02'),
