@@ -24,6 +24,7 @@ const routes = [
         path: '/patient',
         component: Patient,
         children: [
+            { path: '', redirect: '/patient/myCard/:code' },
             { path: 'myCard/:code?', component: myCard },
             { path: 'examinations', component: Examination },
         ],

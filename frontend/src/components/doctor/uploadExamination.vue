@@ -7,17 +7,45 @@ import Button from '@/components/ui/button.vue'
 import Field from "@/components/ui/field/field.vue";
 import FieldLabel from "@/components/ui/field/field-label.vue";
 import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
-import { useExaminationStore } from '../../stores/examinationStore.ts'
+import { useExaminationStore, toRuExamDate } from '@/stores/examinationStore'
 
 const submitted = ref(false)
 const route = useRoute()
 const examDate = ref("")
-const doctor = ref("")
 const conclusion = ref("")
 const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
-const { addExamination } = useExaminationStore()
+const { examinations, addExamination, updateExamination } = useExaminationStore()
 
 const indicatorLabels = Array.from({ length: 50 }, (_, index) => `Показатель ${index + 1}`)
+
+const patientCode = computed(() => {
+  return typeof route.params.code === 'string' ? route.params.code : ''
+})
+
+const resolvedDoctorFullName = computed(() => {
+  if (typeof window === 'undefined') return 'Борискова Д.В.'
+  const saved = localStorage.getItem('doctorFullName')
+  return saved && saved.trim() ? saved.trim() : 'Борискова Д.В.'
+})
+
+const editId = computed<number | null>(() => {
+  const value = route.query.editId
+  if (typeof value !== 'string') return null
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? null : parsed
+})
+
+const editingExam = computed(() => {
+  if (!editId.value) return null
+  return examinations.find(exam => exam.id === editId.value && exam.patientCode === patientCode.value) ?? null
+})
+
+if (editingExam.value) {
+  const [day, month, year] = editingExam.value.date.split('.')
+  examDate.value = `${year}-${month}-${day}`
+  conclusion.value = editingExam.value.conclusion
+  indicatorValues.value = indicatorLabels.map((_, index) => String(editingExam.value?.indicators[index] ?? ''))
+}
 
 const backToPatientCardPath = computed(() => {
   const code = typeof route.params.code === 'string' ? route.params.code : ''
@@ -26,8 +54,14 @@ const backToPatientCardPath = computed(() => {
 
 const resetForm = () => {
   submitted.value = false
+  if (editingExam.value) {
+    const [day, month, year] = editingExam.value.date.split('.')
+    examDate.value = `${year}-${month}-${day}`
+    conclusion.value = editingExam.value.conclusion
+    indicatorValues.value = indicatorLabels.map((_, index) => String(editingExam.value?.indicators[index] ?? ''))
+    return
+  }
   examDate.value = ""
-  doctor.value = ""
   conclusion.value = ""
   indicatorValues.value = Array.from({ length: 50 }, () => "")
 }
@@ -35,12 +69,17 @@ const resetForm = () => {
 const handleSubmit = (e: Event) => {
   e.preventDefault()
 
-  if (!examDate.value || !doctor.value.trim()) {
-    alert('Заполните обязательные поля: дату обследования и врача')
+  if (!examDate.value) {
+    alert('Заполните обязательное поле: дату обследования')
     return
   }
 
-  const indicators = indicatorValues.value.map(value => Number(value))
+  if (!editingExam.value && !patientCode.value) {
+    alert('Не удалось определить пациента для сохранения обследования')
+    return
+  }
+
+  const indicators = indicatorValues.value.map(value => Number(value.trim()))
   const hasInvalidIndicator = indicators.some(value => Number.isNaN(value))
 
   if (hasInvalidIndicator) {
@@ -48,12 +87,29 @@ const handleSubmit = (e: Event) => {
     return
   }
 
-  addExamination({
-    date: new Date(examDate.value).toLocaleDateString('ru-RU'),
-    doctor: doctor.value.trim(),
-    conclusion: conclusion.value.trim(),
-    indicators,
-  })
+  const doctorFullName = resolvedDoctorFullName.value
+  if (!doctorFullName) {
+    alert('Не удалось определить ФИО врача из личного кабинета')
+    return
+  }
+
+  if (editingExam.value) {
+    updateExamination({
+      id: editingExam.value.id,
+      date: toRuExamDate(examDate.value),
+      doctor: doctorFullName,
+      conclusion: conclusion.value.trim(),
+      indicators,
+    })
+  } else {
+    addExamination({
+      patientCode: patientCode.value,
+      date: toRuExamDate(examDate.value),
+      doctor: doctorFullName,
+      conclusion: conclusion.value.trim(),
+      indicators,
+    })
+  }
 
   submitted.value = true
 }
@@ -104,7 +160,7 @@ const handleSubmit = (e: Event) => {
             <!-- Текст -->
             <div class="flex-col ">
               <div class="font-semibold leading-none ">
-                Новое обследование
+                {{ editingExam ? 'Редактирование обследования' : 'Новое обследование' }}
               </div>
               <div class="text-sm text-muted-foreground">
                 Укажите параметры и загрузите файлы обследования
@@ -116,15 +172,10 @@ const handleSubmit = (e: Event) => {
 
 
           <form @submit.prevent="handleSubmit" class="space-y-6">
-            <div class="grid sm:grid-cols-2 gap-4">
+            <div class="grid sm:grid-cols-1 gap-4">
               <Field>
                 <FieldLabel>Дата обследования *</FieldLabel>
                 <Input v-model="examDate" type="date" required />
-              </Field>
-
-              <Field>
-                <FieldLabel>Врач *</FieldLabel>
-                <Input v-model="doctor" placeholder="ФИО врача" required />
               </Field>
             </div>
 
@@ -153,7 +204,7 @@ const handleSubmit = (e: Event) => {
             </div>
 
             <Button type="submit" class="w-full" size="lg">
-              Загрузить обследование
+              {{ editingExam ? 'Сохранить изменения' : 'Загрузить обследование' }}
             </Button>
           </form>
 

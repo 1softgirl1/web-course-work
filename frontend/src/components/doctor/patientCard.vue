@@ -5,9 +5,9 @@ import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
 import Badge from '@/components/ui/badge.vue'
 import Dialog from '@/components/ui/dialog.vue'
-import {Undo2, Calendar, FileText, Eye, Plus} from 'lucide-vue-next'
+import {Undo2, Calendar, FileText, Eye, Plus, Pencil} from 'lucide-vue-next'
 import { usePatientStore } from '@/stores/patientStore'
-import { useExaminationStore, type Examination } from '@/stores/examinationStore'
+import { useExaminationStore, type Examination, parseExamDate } from '@/stores/examinationStore'
 import { RegionsStore } from '@/stores/regionsStore.ts'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from "@/components/patient/examinationTabe.vue";
@@ -55,15 +55,14 @@ const goBackToList = () => {
   router.push(backNavigation.value)
 }
 
-const parseExamDate = (value: string): Date | null => {
-  const [day, month, year] = value.split('.').map(Number)
-  if (!day || !month || !year) return null
-  const date = new Date(year, month - 1, day)
-  return Number.isNaN(date.getTime()) ? null : date
-}
+const patientCode = computed(() => {
+  return typeof route.params.code === 'string' ? route.params.code : ''
+})
 
 const patientExaminations = computed(() => {
-  return [...examinations].sort((a, b) => {
+  return examinations
+    .filter(exam => exam.patientCode === patientCode.value)
+    .sort((a, b) => {
     const aTime = parseExamDate(a.date)?.getTime() ?? 0
     const bTime = parseExamDate(b.date)?.getTime() ?? 0
 
@@ -85,6 +84,13 @@ const addExaminationPath = computed(() => {
   const code = typeof route.params.code === 'string' ? route.params.code : ''
   return code ? `/doctor/patientCard/${code}/addExamination` : '/doctor/myPatients'
 })
+
+const editExaminationPath = (examId: number) => {
+  const code = typeof route.params.code === 'string' ? route.params.code : ''
+  return code
+    ? { path: `/doctor/patientCard/${code}/addExamination`, query: { editId: String(examId) } }
+    : { path: '/doctor/myPatients' }
+}
 </script>
 
 <template>
@@ -154,6 +160,11 @@ const addExaminationPath = computed(() => {
                   <Calendar class="w-4 h-4" />
                   <span>{{ exam.date }}</span>
                 </div>
+                <router-link :to="editExaminationPath(exam.id)">
+                  <Button type="button" variant="ghost" size="icon">
+                    <Pencil class="w-4 h-4" />
+                  </Button>
+                </router-link>
                 <Button type="button" variant="ghost" size="icon" @click="openDetails(exam)">
                   <Eye class="w-4 h-4" />
                 </Button>
@@ -166,7 +177,7 @@ const addExaminationPath = computed(() => {
       </Card>
 
       <div class="mt-8 w-full">
-        <ExaminationTabe />
+        <ExaminationTabe :examinations="patientExaminations" />
       </div>
 
       <Dialog v-model="isDetailsOpen" content-class="sm:max-w-4xl">

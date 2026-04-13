@@ -56,10 +56,17 @@ const resolveActiveHref = () => {
 
 const activeHref = ref(resolveActiveHref())
 const selectedRegionName = 'Кемерово'
+const doctorFullName = ref('Борискова Д.В.')
 
 onMounted(() => {
   if (typeof window === 'undefined') return
   localStorage.setItem('selectedRegion', 'kemerovo')
+  const savedDoctorName = localStorage.getItem('doctorFullName')
+  if (savedDoctorName && savedDoctorName.trim()) {
+    doctorFullName.value = savedDoctorName.trim()
+  } else {
+    localStorage.setItem('doctorFullName', doctorFullName.value)
+  }
 })
 
 watch(
@@ -136,7 +143,7 @@ const isActive = (href) => activeHref.value === href
               <Stethoscope class="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p class="font-medium text-foreground text-sm">Борискова Д.В.</p>
+              <p class="font-medium text-foreground text-sm">{{ doctorFullName }}</p>
               <p class="text-xs font-medium text-muted-foreground">{{ selectedRegionName }}</p>
             </div>
           </div>

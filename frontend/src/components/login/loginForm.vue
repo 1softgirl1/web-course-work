@@ -26,6 +26,9 @@ function handleLogin() {
   if (activeTab.value === 'patient') {
     router.push('/patient')
   } else {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('doctorFullName', 'Борискова Д.В.')
+    }
     router.push('/doctor')
   }
 }
