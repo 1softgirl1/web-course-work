@@ -26,7 +26,7 @@ const closeMenu = () => {
   <header class="sticky top-0 z-50 w-full border-b border-border bg-card/95 backdrop-blur-sm">
     <div class=" container mx-auto px-4 sm:px-6 lg:px-8 ">
       <div class="flex h-16 items-center justify-between">
-        <a href="/frontend/public" class="flex items-center gap-2" @click="closeMenu">
+        <router-link to="/" class="flex items-center gap-2" @click="closeMenu">
           <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-red-500">
             <Heart class="h-5 w-5 text-white" />
           </div>
@@ -38,7 +38,7 @@ const closeMenu = () => {
               Реестр редких патологий сердца
             </span>
           </div>
-        </a>
+        </router-link>
 
         <nav class="hidden items-center gap-6 lg:flex">
           <a
@@ -52,12 +52,12 @@ const closeMenu = () => {
         </nav>
 
         <div class="hidden items-center gap-3 lg:flex">
-          <a href="/login">
+          <router-link to="/login">
             <Button size="sm">
               <LogIn class="mr-2 h-4 w-4" />
               Войти
             </Button>
-          </a>
+          </router-link>
         </div>
 
         <button
@@ -86,12 +86,12 @@ const closeMenu = () => {
           </a>
 
           <div class="border-t border-border pt-4">
-            <a href="/login" @click="closeMenu">
+            <router-link to="/login" @click="closeMenu">
               <Button size="sm" class="w-full">
                 <LogIn class="mr-2 h-4 w-4" />
                 Войти
               </Button>
-            </a>
+            </router-link>
           </div>
         </nav>
       </div>
