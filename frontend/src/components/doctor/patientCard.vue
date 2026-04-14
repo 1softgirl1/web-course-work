@@ -198,17 +198,17 @@ onBeforeUnmount(() => {
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
     <div class="mb-6">
-      <div class="mb-2 flex gap-4">
+      <div class="mb-2 flex flex-wrap items-start gap-3 sm:gap-4">
         <Undo2 class="mt-1 cursor-pointer" @click="goBackToList" />
 
-        <div>
-          <h1 class="text-2xl font-bold text-foreground">Карточка пациента</h1>
+        <div class="min-w-0 flex-1">
+          <h1 class="text-xl font-bold text-foreground sm:text-2xl">Карточка пациента</h1>
           <p class="text-muted-foreground">Персональные данные и медицинская информация</p>
         </div>
 
-        <div v-if="patientData && canShowPatientFullName" class="ml-auto flex items-end gap-2">
-          <router-link :to="addExaminationPath">
-            <Button variant="default">
+        <div v-if="patientData && canShowPatientFullName" class="flex w-full justify-end sm:ml-auto sm:w-auto sm:items-end sm:gap-2">
+          <router-link :to="addExaminationPath" class="w-full sm:w-auto">
+            <Button variant="default" class="w-full sm:w-auto">
               <Plus class="mr-2 h-4 w-4" />
               Добавить обследование
             </Button>
@@ -247,21 +247,21 @@ onBeforeUnmount(() => {
             :key="`doctor-patient-exam-${exam.id}`"
             class="rounded-lg border border-border p-3"
           >
-            <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <div class="flex items-start gap-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-1">
+              <div class="flex min-w-0 items-start gap-3 sm:gap-4">
                 <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                   <FileText class="h-6 w-6 stroke-1 text-primary" />
                 </div>
-                <div>
-                  <div class="mb-1 flex items-center gap-2">
-                    <h3 class="truncate font-semibold text-foreground">Обследование #{{ exam.id }}</h3>
+                <div class="min-w-0">
+                  <div class="mb-1 flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                    <h3 class="font-semibold leading-snug text-foreground sm:truncate">Обследование #{{ exam.id }}</h3>
                     <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                   </div>
-                  <p class="text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
+                  <p class="text-sm text-muted-foreground wrap-break-word">Врач: {{ exam.doctor }}</p>
                 </div>
               </div>
 
-              <div class="flex items-center gap-3 sm:gap-4">
+              <div class="mt-2 flex items-center justify-between gap-3 border-t border-border/60 pt-2 sm:mt-0 sm:justify-start sm:gap-4 sm:border-0 sm:pt-0">
                 <div class="flex items-center gap-2 text-sm text-muted-foreground">
                   <Calendar class="h-4 w-4" />
                   <span>{{ exam.date }}</span>
@@ -292,7 +292,7 @@ onBeforeUnmount(() => {
       >
         <div class="space-y-4">
           <div>
-            <h3 class="text-lg font-semibold text-foreground">Изменить регион пациента</h3>
+            <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Изменить регион пациента</h3>
             <p class="text-sm text-muted-foreground">Выберите новый регион для пациента</p>
           </div>
 
@@ -317,7 +317,7 @@ onBeforeUnmount(() => {
       <Dialog v-model="isTransferConfirmOpen" content-class="sm:max-w-md">
         <div class="space-y-4">
           <div>
-            <h3 class="text-lg font-semibold text-foreground">Подтверждение перевода</h3>
+            <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Подтверждение перевода</h3>
             <p class="text-sm text-muted-foreground">
               Вы уверены, что хотите перевести пациента в регион {{ targetRegion }}?
             </p>
@@ -333,7 +333,7 @@ onBeforeUnmount(() => {
       <Dialog v-model="isTransferCountdownOpen" content-class="sm:max-w-md">
         <div class="space-y-4">
           <div>
-            <h3 class="text-lg font-semibold text-foreground">Перевод будет выполнен через {{ countdownSeconds }} сек.</h3>
+            <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Перевод будет выполнен через {{ countdownSeconds }} сек.</h3>
             <p class="text-sm text-muted-foreground">
               До завершения отсчёта можно отменить перевод пациента в регион {{ targetRegion }}.
             </p>
@@ -355,7 +355,7 @@ onBeforeUnmount(() => {
       <Dialog v-model="isDetailsOpen" content-class="sm:max-w-4xl">
         <div v-if="selectedExam" class="space-y-4">
           <div>
-            <h3 class="text-lg font-semibold text-foreground">Обследование #{{ selectedExam.id }}</h3>
+            <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Обследование #{{ selectedExam.id }}</h3>
             <p class="text-sm text-muted-foreground">{{ selectedExam.date }} · Врач: {{ selectedExam.doctor }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
           </div>

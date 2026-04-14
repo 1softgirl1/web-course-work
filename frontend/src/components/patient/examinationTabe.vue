@@ -38,7 +38,37 @@ const indicatorIndexes = computed<number[]>(() => {
 
 <template>
   <Card class="w-full max-w-none" title="Таблица обследований" description="Сравнение показателей по датам обследований">
-    <div class="overflow-x-auto">
+    <div class="sm:hidden space-y-3">
+      <div
+        v-for="exam in sortedExaminations"
+        :key="`mobile-exam-${exam.id}`"
+        class="rounded-lg border bg-card p-3"
+      >
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <p class="text-sm font-medium">Обследование #{{ exam.id }}</p>
+          <Badge variant="outline">{{ exam.date }}</Badge>
+        </div>
+
+        <p class="text-xs text-muted-foreground mb-2">Врач: {{ exam.doctor }}</p>
+
+        <div class="max-h-52 overflow-y-auto pr-1 space-y-1">
+          <div
+            v-for="(value, index) in exam.indicators"
+            :key="`mobile-cell-${exam.id}-${index}`"
+            class="flex items-start justify-between gap-3 rounded bg-secondary/40 px-2 py-1.5 text-xs"
+          >
+            <span class="text-muted-foreground">Показатель {{ index + 1 }}</span>
+            <span class="font-medium text-right">{{ value ?? '—' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="sortedExaminations.length === 0" class="text-sm text-center text-muted-foreground py-6">
+        Обследования отсутствуют
+      </div>
+    </div>
+
+    <div class="hidden sm:block overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

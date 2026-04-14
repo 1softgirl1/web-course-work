@@ -61,26 +61,26 @@ const openDetails = (exam: Examination) => {
           class="hover:border-primary/30 transition-colorsx lg:h-25  "
       >
       <div >
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-1">
             <!-- Info -->
-            <div class="flex items-start gap-4">
+            <div class="flex items-start gap-3 sm:gap-4 min-w-0">
               <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center ">
                 <FileText class="w-6 h-6 text-primary stroke-1" />
               </div>
-              <div>
+              <div class="min-w-0">
 
-                <div class="flex items-center gap-2 mb-1">
-                  <h3 class="font-semibold text-foreground truncate ">
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-1">
+                  <h3 class="font-semibold text-foreground leading-snug sm:truncate">
                     Обследование #{{ exam.id }}
                   </h3>
                   <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                 </div>
-                <p class="text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
+                <p class="text-sm text-muted-foreground wrap-break-word">Врач: {{ exam.doctor }}</p>
               </div>
             </div>
 
             <!-- Actions -->
-            <div class="flex items-center gap-3 sm:gap-4">
+            <div class="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border/60 sm:border-0">
               <div class="flex items-center gap-2 text-sm text-muted-foreground">
                 <Calendar class="w-4 h-4" />
                 <span>{{ exam.date }}</span>

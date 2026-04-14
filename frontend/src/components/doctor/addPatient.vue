@@ -155,14 +155,14 @@ const handleSubmit = (e: Event) => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <Card v-if="submitted" class="max-w-xl flex items-center">
-      <div class="p-8 text-center ">
+    <Card v-if="submitted" class="mx-auto flex w-full max-w-xl items-center md:mx-0">
+      <div class="p-4 text-center sm:p-8">
         <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
           <CheckCircle class="w-8 h-8 text-green-600" />
         </div>
         <h2 class="text-xl font-semibold text-foreground mb-2">Пациент успешно создан</h2>
         <div class="flex flex-col items-center text-muted-foreground mb-6 gap-1">
-          <div class="flex gap-4">
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             <p class="text-muted-foreground">
               Код пациента:
             </p>
@@ -170,7 +170,7 @@ const handleSubmit = (e: Event) => {
               {{ createdPatientCode }}
             </Badge>
           </div>
-          <div class="flex gap-4">
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             <p class="text-muted-foreground">
               Пароль пациента:
             </p>
@@ -186,7 +186,7 @@ const handleSubmit = (e: Event) => {
     <!-- Форма загрузки -->
     <div v-else>
       <div class="mb-6">
-        <div class="flex items-s gap-4 mb-2">
+        <div class="mb-2 flex items-start gap-3 sm:gap-4">
           <router-link to="/doctor/myPatients">
             <Undo2 class="mt-1"></Undo2>
           </router-link>
@@ -197,7 +197,7 @@ const handleSubmit = (e: Event) => {
         </div>
       </div>
 
-      <Card class="max-w-3xl" >
+      <Card class="mx-auto w-full max-w-3xl md:mx-0" >
 
         <template #header>
           <div class="flex items-start gap-3">
@@ -259,26 +259,26 @@ const handleSubmit = (e: Event) => {
           </Field>
 
           <div class="space-y-4">
-            <div class="flex items-center justify-between rounded-xl border border-border bg-muted/30 px-4 py-3">
+            <div class="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <FieldLabel>Перенесенные операции</FieldLabel>
                 <p class="text-xs text-muted-foreground mt-1">Добавьте одну или несколько операций пациента</p>
               </div>
-              <Button type="button" variant="outline" size="sm" @click="addOperation">
+              <Button type="button" variant="outline" size="sm" class="w-full sm:w-auto" @click="addOperation">
                 <Plus class="w-4 h-4 mr-1" />
                 Добавить операцию
               </Button>
             </div>
 
             <Card v-for="(operation, index) in operations" :key="index" class="overflow-hidden border border-border/80 shadow-none">
-              <div class="flex items-center justify-between border-b border-border bg-card px-4 py-3">
+              <div class="flex flex-col gap-2 border-b border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="flex items-center gap-2">
                   <div class="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
                     {{ index + 1 }}
                   </div>
                   <p class="text-sm font-medium">Операция</p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center justify-between gap-2 sm:justify-start">
                   <span class="rounded-full px-2 py-1 text-xs font-medium" :class="getOperationStatusClass(operation)">
                     {{ getOperationStatusLabel(operation) }}
                   </span>

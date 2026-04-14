@@ -150,15 +150,15 @@ const openPatientCard = (code: string) => {
         <p class="text-muted-foreground">{{ doctorRegionName }} — {{ filteredData.length }} пациентов</p>
       </div>
 
-      <div class="flex items-center gap-2">
-        <router-link to="/doctor/myPatients/addPatient">
-          <Button variant="default">
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+        <router-link to="/doctor/myPatients/addPatient" class="w-full sm:w-auto">
+          <Button variant="default" class="w-full sm:w-auto">
             <Plus class="mr-2 h-4 w-4" />
             Добавить пациента
           </Button>
         </router-link>
 
-        <Button variant="outline">
+        <Button variant="outline" class="w-full sm:w-auto">
           <Download class="mr-2 h-4 w-4" />
           Выгрузить в Excel
         </Button>
@@ -192,7 +192,7 @@ const openPatientCard = (code: string) => {
       </div>
     </div>
 
-    <div class="mb-4 flex items-center gap-6 text-sm text-muted-foreground">
+    <div class="mb-4 grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:flex sm:items-center sm:gap-6">
       <div class="flex items-center gap-2">
         <span class="inline-block h-2.5 w-2.5 rounded-full" :class="getExamStatusDotClass('green')" />
         <p>Обследование менее 3 месяцев назад</p>
@@ -209,7 +209,36 @@ const openPatientCard = (code: string) => {
 
     <Card>
       <div>
-        <div class="overflow-x-auto">
+        <div class="space-y-3 sm:hidden">
+          <div
+            v-for="patient in paginatedData"
+            :key="`mobile-my-patient-${patient.code}`"
+            class="cursor-pointer rounded-lg border border-border p-3"
+            @click="openPatientCard(patient.code)"
+          >
+            <div class="mb-2 flex items-start justify-between gap-2">
+              <Badge variant="outline">{{ patient.code }}</Badge>
+              <span class="flex items-center gap-1 text-xs text-muted-foreground">
+                <span
+                  class="inline-block h-2.5 w-2.5 rounded-full"
+                  :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                />
+                {{ patient.lastExam }}
+              </span>
+            </div>
+
+            <p class="text-sm font-medium text-foreground">{{ patient.fullName }}</p>
+            <p class="mt-1 text-xs text-muted-foreground">{{ patient.age }} лет</p>
+            <p class="mt-1 text-sm text-muted-foreground wrap-break-word">Диагноз: {{ patient.diagnosis }}</p>
+            <p class="mt-1 text-sm text-muted-foreground">Операции: {{ patient.operations }}</p>
+            <p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin class="h-3 w-3" />
+              {{ patient.region }}
+            </p>
+          </div>
+        </div>
+
+        <div class="hidden overflow-x-auto sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -238,7 +267,7 @@ const openPatientCard = (code: string) => {
 
                 <TableCell>{{ patient.fullName }}</TableCell>
                 <TableCell>{{ patient.age }} лет</TableCell>
-                <TableCell class="max-w-[200px] truncate">{{ patient.diagnosis }}</TableCell>
+                <TableCell class="max-w-50 truncate">{{ patient.diagnosis }}</TableCell>
                 <TableCell>{{ patient.operations }}</TableCell>
 
                 <TableCell>
@@ -263,9 +292,9 @@ const openPatientCard = (code: string) => {
           </Table>
         </div>
 
-        <div class="flex items-center justify-between border-t border-border px-4 py-3">
-          <p class="text-sm text-muted-foreground">Страница {{ currentPage }} из {{ totalPages }}</p>
-          <div class="flex items-center gap-2">
+        <div class="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-center text-sm text-muted-foreground sm:text-left">Страница {{ currentPage }} из {{ totalPages }}</p>
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <Button
               type="button"
               variant="outline"

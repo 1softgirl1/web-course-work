@@ -175,7 +175,7 @@ const openPatientCard = (code: string) => {
         </p>
       </div>
 
-      <Button variant="outline">
+      <Button variant="outline" class="w-full sm:w-auto">
         <Download class="w-4 h-4 mr-2" />
         Выгрузить в Excel
       </Button>
@@ -222,7 +222,7 @@ const openPatientCard = (code: string) => {
       </div>
     </div>
 
-    <div class="flex items-center gap-6  text-sm text-muted-foreground mb-4">
+    <div class="mb-4 grid grid-cols-1 gap-2 text-sm text-muted-foreground sm:flex sm:items-center sm:gap-6">
       <div class="flex items-center gap-2">
          <span
              class="inline-block w-2.5 h-2.5 rounded-full"
@@ -252,7 +252,35 @@ const openPatientCard = (code: string) => {
     <!-- TABLE -->
     <Card>
       <div>
-        <div class="overflow-x-auto">
+        <div class="space-y-3 sm:hidden">
+          <div
+            v-for="patient in paginatedData"
+            :key="`mobile-all-patient-${patient.code}`"
+            class="cursor-pointer rounded-lg border border-border p-3"
+            @click="openPatientCard(patient.code)"
+          >
+            <div class="mb-2 flex items-start justify-between gap-2">
+              <Badge variant="outline">{{ patient.code }}</Badge>
+              <span class="flex items-center gap-1 text-xs text-muted-foreground">
+                <span
+                  class="inline-block h-2.5 w-2.5 rounded-full"
+                  :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                />
+                {{ patient.lastExam }}
+              </span>
+            </div>
+
+            <p class="text-xs text-muted-foreground">Возраст: {{ patient.age }} лет</p>
+            <p class="mt-1 text-sm text-muted-foreground wrap-break-word">Диагноз: {{ patient.diagnosis }}</p>
+            <p class="mt-1 text-sm text-muted-foreground">Операции: {{ patient.operations }}</p>
+            <p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+              <MapPin class="w-3 h-3" />
+              {{ patient.region }}
+            </p>
+          </div>
+        </div>
+
+        <div class="hidden overflow-x-auto sm:block">
           <Table>
             <TableHeader>
               <TableRow>
@@ -284,7 +312,7 @@ const openPatientCard = (code: string) => {
                   {{ patient.age }} лет
                 </TableCell>
 
-                <TableCell class="max-w-[200px] truncate">
+                <TableCell class="max-w-50 truncate">
                   {{ patient.diagnosis }}
                 </TableCell>
 
@@ -315,11 +343,11 @@ const openPatientCard = (code: string) => {
             </TableBody>
           </Table>
         </div>
-        <div class="flex items-center justify-between border-t border-border px-4 py-3">
-          <p class="text-sm text-muted-foreground">
+        <div class="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p class="text-center text-sm text-muted-foreground sm:text-left">
             Страница {{ currentPage }} из {{ totalPages }}
           </p>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <Button
                 type="button"
                 variant="outline"
