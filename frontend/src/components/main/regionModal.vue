@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, defineProps, defineEmits } from "vue"
+import { ref, watch } from "vue"
 import Button from '../ui/button.vue'
 import Dialog from '../ui/dialog.vue'
 import { MapPin, LucideHospital } from "lucide-vue-next"

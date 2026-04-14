@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, defineProps, defineEmits } from "vue"
+import { ref, watch } from "vue"
 import { XIcon } from "lucide-vue-next"
 
 const props = defineProps({

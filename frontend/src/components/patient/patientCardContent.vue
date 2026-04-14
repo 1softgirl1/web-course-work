@@ -51,8 +51,8 @@ const valveLabel = computed(() => {
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-4">
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <User class="w-5 h-5 text-primary" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <User class="h-5 w-5 text-primary" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">ФИО</p>
@@ -63,8 +63,8 @@ const valveLabel = computed(() => {
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <Calendar class="w-5 h-5 text-primary" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <Calendar class="h-5 w-5 text-primary" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Дата рождения</p>
@@ -76,18 +76,21 @@ const valveLabel = computed(() => {
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <MapPin class="w-5 h-5 text-primary" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <MapPin class="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div class="min-w-0 flex-1">
               <p class="text-sm text-muted-foreground">Регион</p>
-              <p class="font-medium text-foreground">{{ patient.region }}</p>
+              <div class="flex flex-wrap items-center gap-2">
+                <p class="font-medium text-foreground">{{ patient.region }}</p>
+                <slot name="region-action" />
+              </div>
             </div>
           </div>
 
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <FileText class="w-5 h-5 text-primary" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <FileText class="h-5 w-5 text-primary" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Последнее обследование</p>
@@ -98,8 +101,8 @@ const valveLabel = computed(() => {
 
         <div class="space-y-4">
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              <ScanHeartIcon class="w-5 h-5 text-primary" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <ScanHeartIcon class="h-5 w-5 text-primary" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Код пациента</p>
@@ -119,8 +122,8 @@ const valveLabel = computed(() => {
     >
       <div class="space-y-6">
         <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-            <Heart class="w-5 h-5 text-red-500" />
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+            <Heart class="h-5 w-5 text-red-500" />
           </div>
           <div>
             <p class="text-sm text-muted-foreground">Диагноз</p>
@@ -130,8 +133,8 @@ const valveLabel = computed(() => {
 
         <div>
           <div class="flex items-start gap-3">
-            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-              <Activity class="w-5 h-5 text-red-500" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <Activity class="h-5 w-5 text-red-500" />
             </div>
             <div class="mb-5">
               <p class="text-sm text-muted-foreground">Операции</p>
@@ -146,7 +149,7 @@ const valveLabel = computed(() => {
               class="rounded-lg border border-border p-3"
             >
               <p class="font-medium text-foreground">{{ operation.name }}</p>
-              <p class="text-sm text-muted-foreground mt-1">
+              <p class="mt-1 text-sm text-muted-foreground">
                 - Наркоз: {{ operation.anesthesia }} <br />
                 - Продолжительность: {{ operation.duration }} <br />
                 - Система доставки: {{ operation.deliverySystem }}
@@ -157,9 +160,9 @@ const valveLabel = computed(() => {
         </div>
 
         <div>
-          <div class="flex items-start gap-3 mb-3">
-            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-              <Stethoscope class="w-5 h-5 text-red-500" />
+          <div class="mb-3 flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <Stethoscope class="h-5 w-5 text-red-500" />
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Характеристики клапана</p>
@@ -169,8 +172,8 @@ const valveLabel = computed(() => {
         </div>
 
         <div class="flex items-start gap-3">
-          <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-            <Pill class="w-5 h-5 text-red-500" />
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+            <Pill class="h-5 w-5 text-red-500" />
           </div>
           <div class="mb-5">
             <p class="text-sm text-muted-foreground">Медикаменты</p>
@@ -181,4 +184,3 @@ const valveLabel = computed(() => {
     </Card>
   </div>
 </template>
-

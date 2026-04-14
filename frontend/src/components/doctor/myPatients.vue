@@ -1,11 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
-
-
 import Card from '@/components/ui/card.vue'
-
 import Button from '@/components/ui/button.vue'
 import Input from '@/components/ui/input.vue'
 import Badge from '@/components/ui/badge.vue'
@@ -14,7 +10,6 @@ import SelectTrigger from '@/components/ui/select/selectTrigger.vue'
 import SelectValue from '@/components/ui/select/selectValue.vue'
 import SelectContent from '@/components/ui/select/selectContent.vue'
 import SelectItem from '@/components/ui/select/selectItem.vue'
-
 import Table from '@/components/ui/table/table.vue'
 import TableBody from '@/components/ui/table/tableBody.vue'
 import TableCell from '@/components/ui/table/tableCell.vue'
@@ -22,18 +17,14 @@ import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
-
-import { Search, Download, Calendar, MapPin, Plus, Funnel } from 'lucide-vue-next';
-
-
-/* ---------------- TYPES ---------------- */
+import { resolveSelectedRegionName } from '@/stores/regionsStore'
+import { Search, Download, Calendar, MapPin, Plus, Funnel } from 'lucide-vue-next'
 
 type ExamStatus = 'green' | 'yellow' | 'red'
+
 const patientStore = usePatientStore()
 const route = useRoute()
 const router = useRouter()
-
-/* ---------------- STATE ---------------- */
 
 const getQueryString = (key: string, fallback: string): string => {
   const value = route.query[key]
@@ -52,14 +43,14 @@ const diagnosisQuery = ref<string>(getQueryString('diagnosis', 'all'))
 const currentPage = ref<number>(getQueryPage())
 const itemsPerPage = 300
 
-const diagnosisOptions = computed<string[]>(() => {
-  return [...new Set(regionPatients.value.map(patient => patient.diagnosis))]
-})
-
-const doctorRegionName = computed<string>(() => 'Кемерово')
+const doctorRegionName = computed<string>(() => resolveSelectedRegionName())
 
 const regionPatients = computed<Patient[]>(() => {
   return patientStore.patients.filter(patient => patient.region === doctorRegionName.value)
+})
+
+const diagnosisOptions = computed<string[]>(() => {
+  return [...new Set(regionPatients.value.map(patient => patient.diagnosis))]
 })
 
 function parseExamDate(value: string): Date | null {
@@ -69,18 +60,15 @@ function parseExamDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-
-/* ---------------- COMPUTED ---------------- */
-
 const filteredData = computed<Patient[]>(() => {
   const q = searchQuery.value.toLowerCase().trim()
 
   const filteredPatients = regionPatients.value.filter(patient => {
     const matchesSearch =
-        patient.code.toLowerCase().includes(q) ||
-        patient.fullName.toLowerCase().includes(q) ||
-        patient.diagnosis.toLowerCase().includes(q) ||
-        patient.region.toLowerCase().includes(q)
+      patient.code.toLowerCase().includes(q) ||
+      patient.fullName.toLowerCase().includes(q) ||
+      patient.diagnosis.toLowerCase().includes(q) ||
+      patient.region.toLowerCase().includes(q)
 
     const matchesDiagnosis = diagnosisQuery.value === 'all' || patient.diagnosis === diagnosisQuery.value
     return matchesSearch && matchesDiagnosis
@@ -111,7 +99,7 @@ watch([searchQuery, diagnosisQuery], () => {
   currentPage.value = 1
 })
 
-watch(totalPages, (newTotalPages) => {
+watch(totalPages, newTotalPages => {
   if (currentPage.value > newTotalPages) {
     currentPage.value = newTotalPages
   }
@@ -121,7 +109,6 @@ const goToPage = (page: number) => {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
 }
-
 
 const getExamStatus = (lastExam: string): ExamStatus => {
   const examDate = parseExamDate(lastExam)
@@ -157,47 +144,41 @@ const openPatientCard = (code: string) => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-
-    <!-- HEADER -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold text-foreground">Мои пациенты</h1>
-        <p class="text-muted-foreground">
-          {{ doctorRegionName }} — {{ filteredData.length }} пациентов
-        </p>
+        <p class="text-muted-foreground">{{ doctorRegionName }} — {{ filteredData.length }} пациентов</p>
       </div>
 
       <div class="flex items-center gap-2">
         <router-link to="/doctor/myPatients/addPatient">
           <Button variant="default">
-            <Plus class="w-4 h-4 mr-2" />
+            <Plus class="mr-2 h-4 w-4" />
             Добавить пациента
           </Button>
         </router-link>
 
         <Button variant="outline">
-          <Download class="w-4 h-4 mr-2" />
+          <Download class="mr-2 h-4 w-4" />
           Выгрузить в Excel
         </Button>
       </div>
-
     </div>
 
-    <!-- SEARCH -->
     <div class="mb-6">
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div class="relative">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Search class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <Input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Поиск по коду, ФИО, диагнозу или региону..."
-              class="pl-10"
+            v-model="searchQuery"
+            type="text"
+            placeholder="Поиск по коду, ФИО, диагнозу или региону..."
+            class="pl-10"
           />
         </div>
 
         <Select v-model="diagnosisQuery">
-          <Funnel class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Funnel class="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <SelectTrigger>
             <SelectValue placeholder="Все диагнозы" class="pl-10" />
           </SelectTrigger>
@@ -208,38 +189,24 @@ const openPatientCard = (code: string) => {
             </SelectItem>
           </SelectContent>
         </Select>
-
       </div>
     </div>
 
-    <div class="flex items-center gap-6  text-sm text-muted-foreground mb-4">
+    <div class="mb-4 flex items-center gap-6 text-sm text-muted-foreground">
       <div class="flex items-center gap-2">
-         <span
-             class="inline-block w-2.5 h-2.5 rounded-full"
-             :class="getExamStatusDotClass('green')"
-         />
+        <span class="inline-block h-2.5 w-2.5 rounded-full" :class="getExamStatusDotClass('green')" />
         <p>Обследование менее 3 месяцев назад</p>
       </div>
       <div class="flex items-center gap-2">
-        <span
-            class="inline-block w-2.5 h-2.5 rounded-full"
-            :class="getExamStatusDotClass('yellow')"
-        />
-        <p>Обследование менее 3-6 месяцев назад</p>
+        <span class="inline-block h-2.5 w-2.5 rounded-full" :class="getExamStatusDotClass('yellow')" />
+        <p>Обследование 3-6 месяцев назад</p>
       </div>
       <div class="flex items-center gap-2">
-        <span
-            class="inline-block w-2.5 h-2.5 rounded-full"
-            :class="getExamStatusDotClass('red')"
-        />
+        <span class="inline-block h-2.5 w-2.5 rounded-full" :class="getExamStatusDotClass('red')" />
         <p>Обследование более 6 месяцев назад</p>
       </div>
-
-
-
     </div>
 
-    <!-- TABLE -->
     <Card>
       <div>
         <div class="overflow-x-auto">
@@ -258,61 +225,46 @@ const openPatientCard = (code: string) => {
 
             <TableBody>
               <TableRow
-                  v-for="patient in paginatedData"
-                  :key="patient.code"
-                  class="cursor-pointer"
-                  @click="openPatientCard(patient.code)"
+                v-for="patient in paginatedData"
+                :key="patient.code"
+                class="cursor-pointer"
+                @click="openPatientCard(patient.code)"
               >
                 <TableCell>
-                  <Badge variant="outline" >
+                  <Badge variant="outline">
                     {{ patient.code }}
                   </Badge>
                 </TableCell>
 
-                <TableCell>
-                  {{ patient.fullName }}
-                </TableCell>
-
-                <TableCell>
-                  {{ patient.age }} лет
-                </TableCell>
-
-                <TableCell class="max-w-[200px] truncate">
-                  {{ patient.diagnosis }}
-                </TableCell>
-
-
-                <TableCell>
-                  {{ patient.operations }}
-                </TableCell>
+                <TableCell>{{ patient.fullName }}</TableCell>
+                <TableCell>{{ patient.age }} лет</TableCell>
+                <TableCell class="max-w-[200px] truncate">{{ patient.diagnosis }}</TableCell>
+                <TableCell>{{ patient.operations }}</TableCell>
 
                 <TableCell>
                   <span class="flex items-center gap-2 text-sm">
                     <span
-                        class="inline-block w-2.5 h-2.5 rounded-full"
-                        :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                      class="inline-block h-2.5 w-2.5 rounded-full"
+                      :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
                     />
-                    <Calendar class="w-3 h-3" />
+                    <Calendar class="h-3 w-3" />
                     {{ patient.lastExam }}
                   </span>
                 </TableCell>
 
                 <TableCell>
                   <span class="flex items-center gap-1 text-sm">
-                    <MapPin class="w-3 h-3" />
+                    <MapPin class="h-3 w-3" />
                     {{ patient.region }}
                   </span>
                 </TableCell>
-
               </TableRow>
             </TableBody>
           </Table>
         </div>
 
         <div class="flex items-center justify-between border-t border-border px-4 py-3">
-          <p class="text-sm text-muted-foreground">
-            Страница {{ currentPage }} из {{ totalPages }}
-          </p>
+          <p class="text-sm text-muted-foreground">Страница {{ currentPage }} из {{ totalPages }}</p>
           <div class="flex items-center gap-2">
             <Button
               type="button"
@@ -348,6 +300,5 @@ const openPatientCard = (code: string) => {
         </div>
       </div>
     </Card>
-
   </div>
 </template>

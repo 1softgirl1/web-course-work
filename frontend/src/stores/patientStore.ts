@@ -42,6 +42,15 @@ export interface NewPatientInput {
   medications?: string
 }
 
+export interface RegionChangeLogEntry {
+  id: number
+  patientCode: string
+  changedAt: string
+  changedBy: string
+  fromRegion: string
+  toRegion: string
+}
+
 const initialPatients: Patient[] = [
   {
     code: 'PT-7GZVL7PT',
@@ -285,6 +294,7 @@ const initialPatients: Patient[] = [
 
 const state = reactive({
   patients: initialPatients,
+  regionChangeLogs: [] as RegionChangeLogEntry[],
 })
 
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -365,9 +375,42 @@ export const usePatientStore = () => {
     }
   }
 
+  const transferPatientRegion = (patientCode: string, nextRegion: string, changedBy: string) => {
+    const patient = state.patients.find(item => item.code === patientCode)
+    if (!patient) return null
+
+    const trimmedRegion = nextRegion.trim()
+    const trimmedChangedBy = changedBy.trim()
+
+    if (!trimmedRegion || patient.region === trimmedRegion) {
+      return patient
+    }
+
+    const previousRegion = patient.region
+    patient.region = trimmedRegion
+
+    state.regionChangeLogs.unshift({
+      id: Date.now() + Math.floor(Math.random() * 1000),
+      patientCode: patient.code,
+      changedAt: new Date().toLocaleString('ru-RU'),
+      changedBy: trimmedChangedBy || 'Неизвестный врач',
+      fromRegion: previousRegion,
+      toRegion: trimmedRegion,
+    })
+
+    return patient
+  }
+
+  const getPatientRegionLogs = (patientCode: string) => {
+    return state.regionChangeLogs.filter(entry => entry.patientCode === patientCode)
+  }
+
   return {
     patients: state.patients,
+    regionChangeLogs: state.regionChangeLogs,
     addPatient,
+    transferPatientRegion,
+    getPatientRegionLogs,
   }
 }
 

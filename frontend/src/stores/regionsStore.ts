@@ -127,3 +127,22 @@ export const CITY_TO_REGION: Record<string, string> = {
     "калининград": "kaliningrad",
     "калининградская область": "kaliningrad",
 }
+
+export const DEFAULT_REGION_ID = 'kemerovo'
+
+export const getRegionById = (regionId: string | null | undefined): Region | undefined => {
+    if (!regionId) return undefined
+    return RegionsStore.find(region => region.id === regionId)
+}
+
+export const getRegionNameById = (regionId: string | null | undefined): string => {
+    return getRegionById(regionId)?.name ?? RegionsStore.find(region => region.id === DEFAULT_REGION_ID)?.name ?? RegionsStore[0]?.name ?? ''
+}
+
+export const resolveSelectedRegionName = (): string => {
+    if (typeof window === 'undefined') {
+        return getRegionNameById(DEFAULT_REGION_ID)
+    }
+
+    return getRegionNameById(localStorage.getItem('selectedRegion') ?? DEFAULT_REGION_ID)
+}
