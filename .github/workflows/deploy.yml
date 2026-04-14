@@ -3,7 +3,6 @@ name: Deploy Vue to GitHub Pages
 on:
   push:
     branches: ['frontend']
-  workflow_dispatch:
 
 permissions:
   contents: read
