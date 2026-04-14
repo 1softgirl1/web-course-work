@@ -4,6 +4,7 @@ on:
   push:
     branches: ['frontend']
 
+
 permissions:
   contents: read
   pages: write

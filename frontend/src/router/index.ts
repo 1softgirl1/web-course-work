@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import Main from '../views/Main.vue'
 import About from '../components/main/about.vue'
 import Faq from "../components/main/faq.vue";
@@ -24,7 +24,7 @@ const routes = [
         path: '/patient',
         component: Patient,
         children: [
-            { path: '', redirect: '/patient/myCard/:code' },
+            { path: '', redirect: '/patient/myCard' },
             { path: 'myCard/:code?', component: myCard },
             { path: 'examinations', component: Examination },
         ],
@@ -47,7 +47,7 @@ const routes = [
 ]
 
 const router = createRouter({
-    history: createWebHistory(import.meta.env.BASE_URL),
+    history: createWebHashHistory(import.meta.env.BASE_URL),
     routes,
 })
 
