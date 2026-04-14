@@ -26,6 +26,8 @@ const patientData = computed(() => {
       v-if="patientData"
       :patient="patientData"
       :can-show-patient-full-name="true"
+      :show-region-help-badge="true"
+
     />
 
     <Card v-else class="max-w-xl">

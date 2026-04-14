@@ -3,7 +3,14 @@ import { ref, computed, provide, inject } from 'vue'
 const SELECT_KEY = Symbol('select')
 
 export function provideSelect(props: any, emit: any) {
-    const open = ref(false)
+    const localOpen = ref(false)
+    const open = computed({
+        get: () => (typeof props.open === 'boolean' ? props.open : localOpen.value),
+        set: (value: boolean) => {
+            localOpen.value = value
+            emit('update:open', value)
+        },
+    })
 
     const items = ref<Record<string, string>>({})
 

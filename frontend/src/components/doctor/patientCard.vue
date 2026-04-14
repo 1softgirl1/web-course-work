@@ -25,6 +25,7 @@ const { examinations } = useExaminationStore()
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
 const isRegionPickerOpen = ref(false)
+const isRegionSelectOpen = ref(false)
 const isTransferConfirmOpen = ref(false)
 const isTransferCountdownOpen = ref(false)
 const targetRegion = ref('')
@@ -126,6 +127,7 @@ const resetTransferFlow = () => {
   clearTransferTimers()
   countdownSeconds.value = 10
   isRegionPickerOpen.value = false
+  isRegionSelectOpen.value = false
   isTransferConfirmOpen.value = false
   isTransferCountdownOpen.value = false
   targetRegion.value = ''
@@ -134,6 +136,7 @@ const resetTransferFlow = () => {
 const openRegionPicker = () => {
   if (!patientData.value || !canChangeRegion.value) return
   targetRegion.value = ''
+  isRegionSelectOpen.value = false
   isRegionPickerOpen.value = true
 }
 
@@ -214,18 +217,21 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
+
     <div v-if="patientData" class="space-y-6">
       <PatientCardContent :patient="patientData" :can-show-patient-full-name="canShowPatientFullName">
+
         <template #region-action>
-          <Button
-            v-if="canChangeRegion"
-            type="button"
-            variant="outline"
-            size="sm"
-            @click="openRegionPicker"
+          <Badge
+              v-if="canChangeRegion"
+              variant="default"
+              class="cursor-pointer text-xs"
+              role="button"
+              tabindex="0"
+              @click="openRegionPicker"
           >
             Изменить регион
-          </Button>
+          </Badge>
         </template>
       </PatientCardContent>
 
@@ -280,18 +286,21 @@ onBeforeUnmount(() => {
         <ExaminationTabe :examinations="patientExaminations" />
       </div>
 
-      <Dialog v-model="isRegionPickerOpen" content-class="sm:max-w-md">
+      <Dialog
+        v-model="isRegionPickerOpen"
+        :content-class="isRegionSelectOpen ? 'details-scroll sm:max-w-md sm:min-h-[26rem]' : 'details-scroll sm:max-w-md'"
+      >
         <div class="space-y-4">
           <div>
             <h3 class="text-lg font-semibold text-foreground">Изменить регион пациента</h3>
-            <p class="text-sm text-muted-foreground">Выберите новый регион для пациента {{ patientData.code }}.</p>
+            <p class="text-sm text-muted-foreground">Выберите новый регион для пациента</p>
           </div>
 
-          <Select v-model="targetRegion">
+          <Select v-model="targetRegion" v-model:open="isRegionSelectOpen">
             <SelectTrigger>
               <SelectValue placeholder="Выберите регион" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent class="details-scroll max-h-56 overflow-y-auto">
               <SelectItem v-for="region in availableRegions" :key="region.id" :value="region.name">
                 {{ region.name }}
               </SelectItem>
@@ -310,7 +319,7 @@ onBeforeUnmount(() => {
           <div>
             <h3 class="text-lg font-semibold text-foreground">Подтверждение перевода</h3>
             <p class="text-sm text-muted-foreground">
-              Вы уверены, что хотите перевести пациента {{ patientData.code }} в регион {{ targetRegion }}?
+              Вы уверены, что хотите перевести пациента в регион {{ targetRegion }}?
             </p>
           </div>
 
@@ -326,7 +335,7 @@ onBeforeUnmount(() => {
           <div>
             <h3 class="text-lg font-semibold text-foreground">Перевод будет выполнен через {{ countdownSeconds }} сек.</h3>
             <p class="text-sm text-muted-foreground">
-              До завершения отсчёта можно отменить перевод пациента {{ patientData.code }} в регион {{ targetRegion }}.
+              До завершения отсчёта можно отменить перевод пациента в регион {{ targetRegion }}.
             </p>
           </div>
 
@@ -377,27 +386,27 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.details-scroll {
+:global(.details-scroll) {
   scrollbar-width: thin;
   scrollbar-color: rgb(148 163 184) transparent;
 }
 
-.details-scroll::-webkit-scrollbar {
+:global(.details-scroll::-webkit-scrollbar) {
   width: 10px;
 }
 
-.details-scroll::-webkit-scrollbar-track {
+:global(.details-scroll::-webkit-scrollbar-track) {
   background: transparent;
 }
 
-.details-scroll::-webkit-scrollbar-thumb {
+:global(.details-scroll::-webkit-scrollbar-thumb) {
   background: linear-gradient(180deg, rgb(148 163 184), rgb(100 116 139));
   border-radius: 9999px;
   border: 2px solid transparent;
   background-clip: padding-box;
 }
 
-.details-scroll::-webkit-scrollbar-thumb:hover {
+:global(.details-scroll::-webkit-scrollbar-thumb:hover) {
   background: linear-gradient(180deg, rgb(100 116 139), rgb(71 85 105));
   background-clip: padding-box;
 }
