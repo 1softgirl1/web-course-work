@@ -16,7 +16,6 @@ const examDate = ref("")
 const conclusion = ref("")
 const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
 const { examinations, addExamination, updateExamination } = useExaminationStore()
-
 const indicatorLabels = Array.from({ length: 50 }, (_, index) => `Показатель ${index + 1}`)
 
 const patientCode = computed(() => {
