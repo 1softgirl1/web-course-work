@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import {
   Heart,
   Users,
+  User,
   Stethoscope,
   Globe,
   LogOut,
@@ -20,6 +21,7 @@ const sidebarOpen = ref(false)
 const navigation = [
   { name: 'Мои пациенты', href: '/doctor/myPatients', icon: Users },
   { name: 'Все пациенты', href: '/doctor/allPatients', icon: Globe },
+  { name: 'Моя карточка', href: '/doctor/doctorCard', icon: User },
 ]
 
 const DOCTOR_MENU_ACTIVE_KEY = 'doctorMenuActive'
@@ -39,6 +41,7 @@ const getSavedActiveHref = () => {
 const resolveActiveHref = () => {
   if (route.path.startsWith('/doctor/allPatients')) return '/doctor/allPatients'
   if (route.path.startsWith('/doctor/myPatients')) return '/doctor/myPatients'
+  if (route.path.startsWith('/doctor/doctorCard')) return '/doctor/doctorCard'
 
   if (route.path.startsWith('/doctor/patientCard/')) {
     if (route.query.from === 'allPatients') return '/doctor/allPatients'

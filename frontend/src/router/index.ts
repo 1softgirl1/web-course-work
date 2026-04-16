@@ -13,6 +13,7 @@ import uploadExamination from "../components/doctor/uploadExamination.vue";
 import myPatients from "../components/doctor/myPatients.vue";
 import allPatients from "../components/doctor/allPatients.vue"
 import addPatient from "../components/doctor/addPatient.vue"
+import doctorCard from "@/components/doctor/doctorCard.vue";
 
 const routes = [
     { path: '/', component: Main },
@@ -39,7 +40,8 @@ const routes = [
             { path: 'myPatients/addPatient', component: addPatient },
             { path: 'allPatients', component: allPatients },
             { path: 'patientCard/:code', component: doctorPatientCard },
-            { path: 'patientCard/:code/addExamination', component: uploadExamination }
+            { path: 'patientCard/:code/addExamination', component: uploadExamination },
+            { path: 'doctorCard', component: doctorCard},
 
         ],
     },
