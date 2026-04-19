@@ -251,14 +251,61 @@ const isPasswordModalOpen = ref(false)
 
     <Dialog v-model="isRegionChangeOpen" content-class="sm:max-w-2xl">
       <div class="space-y-4">
-        <h3 class="text-lg font-semibold text-foreground">Я переехал, как изменить регион?</h3>
-        <p class="text-sm text-muted-foreground">
-          Напишите письмо на <span class="text-primary">support@your-organization.ru</span> с запросом на смену региона,
-          затем подтвердите заявку по телефону <span class="text-primary">8 (800) 000-00-00</span>.
-        </p>
-        <p class="text-sm text-muted-foreground">
-          Обычно изменение региона занимает до 5 рабочих дней.
-        </p>
+        <div >
+          <div class="mb-1 flex items-center gap-2 ">
+            <h3 class="text-lg font-semibold text-foreground">Я переехал, как изменить регион?</h3>
+          </div>
+          <div class="flex flex-row items-center gap-2 font-medium ">
+            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
+              <p class="text-primary font-semibold">1</p>
+            </div>
+            <p>Отправьте письмо на электронную почту</p>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Напишите письмо на адрес
+            <span class="text-primary">
+              support@your-organization.ru
+            </span> с запросом на смену региона по следующему шаблону:
+          </p>
+
+          <div class="bg-primary/10 my-4 rounded-xl p-4 text-sm text-muted-foreground">
+            <p><span class="text-black">Тема: Запрос на смену региона</span></p>
+            <p>Здравствуйте! Прошу изменить мой регион обслуживания на: [укажите нужный регион].</p>
+            <p>ФИО: [ваше ФИО]</p>
+            <p>Код пациента: [ваш код пациента]</p>
+            <p>Дата рождения: [дд.мм.гггг]</p>
+            <p>Контактный телефон: [номер телефона]</p>
+            <p>Спасибо!</p>
+          </div>
+
+
+          <div class="flex flex-row items-center gap-2 font-medium ">
+            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
+              <p class="text-primary font-semibold">2</p>
+            </div>
+            <p>Позвоните и подтвердите заявку</p>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Позвоните по номеру:
+            <span class="text-primary"> 8 (800) 000-00-00 </span><br>
+            Сообщите, что вы отправили письмо с заявкой на смену региона, и попросите подтвердить её получение.
+          </p>
+
+          <div class="flex flex-row items-center gap-2 font-medium ">
+            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
+              <p class="text-primary font-semibold">3</p>
+            </div>
+            <p>Ожидайте и при необходимости напомните</p>
+          </div>
+          <p class="text-sm text-muted-foreground">
+            Ожидайте изменения региона в течение 5  рабочих дней.
+            Если по истечении этого срока регион не изменился — позвоните повторно и уточните статус заявки.
+          </p>
+
+
+
+        </div>
+
       </div>
     </Dialog>
   </div>
