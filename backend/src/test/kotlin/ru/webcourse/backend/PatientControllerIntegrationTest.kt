@@ -1166,6 +1166,265 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
+    fun doctorCanPatchExistingExaminationMeasurementWithoutRemovingOthers() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_01",
+                      "value": 135.25,
+                      "comment": "Corrected value"
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.measurements.length()") { value(2) }
+            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.measurements[0].value") { value("135.25") }
+            jsonPath("$.measurements[0].comment") { value("Corrected value") }
+            jsonPath("$.measurements[1].characteristicCode") { value("metric_02") }
+            jsonPath("$.measurements[1].value") { value("80") }
+            jsonPath("$.measurements[1].comment") { value("Second measurement") }
+        }
+    }
+
+    @Test
+    fun doctorCanPatchExaminationByAddingNewMeasurement() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_03",
+                      "value": 42.75,
+                      "comment": "Late lab result"
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.measurements.length()") { value(3) }
+            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.measurements[1].characteristicCode") { value("metric_02") }
+            jsonPath("$.measurements[2].characteristicCode") { value("metric_03") }
+            jsonPath("$.measurements[2].value") { value("42.75") }
+            jsonPath("$.measurements[2].comment") { value("Late lab result") }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanPatchExaminationFromAnotherRegion() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 2L, role = UserRole.DOCTOR_EXTENDED)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "title": "Updated by extended doctor"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.title") { value("Updated by extended doctor") }
+        }
+    }
+
+    @Test
+    fun doctorFromAnotherRegionCannotPatchExamination() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Forbidden update" }"""
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun patientCannotPatchExamination() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            with(patientBearer(created.patientCode, created.temporaryPassword))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Forbidden update" }"""
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun unauthenticatedExaminationPatchIsRejected() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Should be rejected" }"""
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun patchExaminationReturns404ForMissingResources() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val secondPatient = createPatientThroughApi(
+            login = DOCTOR_EMAIL,
+            body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr", regionId = 1L)
+        )
+        val examinationId = seedExaminationWithMeasurements(firstPatient.id)
+
+        mockMvc.patch("/api/patients/999999/examinations/$examinationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Missing patient" }"""
+        }.andExpect {
+            status { isNotFound() }
+        }
+
+        mockMvc.patch("/api/patients/${firstPatient.id}/examinations/999999") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Missing examination" }"""
+        }.andExpect {
+            status { isNotFound() }
+        }
+
+        mockMvc.patch("/api/patients/${secondPatient.id}/examinations/$examinationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "title": "Wrong patient" }"""
+        }.andExpect {
+            status { isNotFound() }
+        }
+
+        mockMvc.patch("/api/patients/${firstPatient.id}/examinations/$examinationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_99",
+                      "value": 1
+                    }
+                  ]
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
+    fun patchExaminationReturns400ForInvalidPayload() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        val examinationId = seedExaminationWithMeasurements(created.id)
+
+        listOf(
+            "{}",
+            """{ "measurements": [] }""",
+            """
+                {
+                  "examDate": "3026-04-10"
+                }
+            """.trimIndent(),
+            """
+                {
+                  "measurements": [
+                    { "characteristicCode": "metric_01", "value": 1 },
+                    { "characteristicCode": "metric_01", "value": 2 }
+                  ]
+                }
+            """.trimIndent(),
+            """
+                {
+                  "measurements": [
+                    { "characteristicCode": "metric_03" }
+                  ]
+                }
+            """.trimIndent(),
+        ).forEach { body ->
+            mockMvc.patch("/api/patients/${created.id}/examinations/$examinationId") {
+                with(doctorBearer(DOCTOR_EMAIL))
+                contentType = MediaType.APPLICATION_JSON
+                content = body
+            }.andExpect {
+                status { isBadRequest() }
+            }
+        }
+    }
+
+    @Test
+    fun patchExaminationDateChangesChronologicalOrderAndMonitoringStatus() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val today = LocalDate.now()
+        val updatedExamDate = today.minusDays(10)
+        val oldExaminationId = seedExaminationWithMeasurements(created.id, today.minusMonths(8))
+        seedExaminationWithMeasurements(created.id, today.minusMonths(2))
+
+        mockMvc.patch("/api/patients/${created.id}/examinations/$oldExaminationId") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "examDate": "$updatedExamDate"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.examDate") { value(updatedExamDate.toString()) }
+        }
+
+        mockMvc.get("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items[1].examId") { value(oldExaminationId.toInt()) }
+        }
+
+        mockMvc.get("/api/doctor/patients") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items[0].status") { value("GREEN") }
+            jsonPath("$.items[0].lastExaminationAt") { value(updatedExamDate.toString()) }
+        }
+    }
+
+    @Test
     fun doctorCanPatchPatientFieldsAndPasswordExceptLogin() {
         createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
@@ -1440,7 +1699,7 @@ class PatientControllerIntegrationTest {
     private fun seedExaminationWithMeasurements(
         patientId: Long,
         examDate: LocalDate = LocalDate.parse("2026-04-08"),
-    ) {
+    ): Long {
         val examinationId = jdbcTemplate.queryForObject(
             """
             insert into examinations (patient_id, title, exam_date, comment)
@@ -1487,6 +1746,8 @@ class PatientControllerIntegrationTest {
             BigDecimal("80.00"),
             "Second measurement"
         )
+
+        return examinationId
     }
 
     private fun seedExaminationWithDate(patientId: Long, examDate: LocalDate) {

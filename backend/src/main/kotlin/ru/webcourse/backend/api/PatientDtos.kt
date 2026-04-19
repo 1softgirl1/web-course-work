@@ -115,6 +115,7 @@ data class CreateExaminationRequest(
     @field:Schema(description = "Examination title.", example = "Quarterly follow-up")
     val title: String,
     @field:NotNull
+    @field:PastOrPresent
     @field:Schema(description = "Date of the examination.", example = "2026-04-10")
     val examDate: LocalDate,
     @field:Schema(description = "Optional examination comment.", example = "Stable postoperative condition", nullable = true)
@@ -123,6 +124,32 @@ data class CreateExaminationRequest(
     @field:Size(min = 1)
     @field:Schema(description = "Measured characteristic values.")
     val measurements: List<CreateExaminationMeasurementRequest>,
+)
+
+@Schema(description = "Single measured characteristic patch entry.")
+data class UpdateExaminationMeasurementRequest(
+    @field:NotBlank
+    @field:Schema(description = "Stable characteristic code.", example = "HEART_RATE")
+    val characteristicCode: String,
+    @field:Schema(description = "Measured numeric value. Required when adding a new characteristic to the examination.", example = "72")
+    val value: BigDecimal? = null,
+    @field:Schema(description = "Optional measurement comment.", example = "Measured at rest", nullable = true)
+    val comment: String? = null,
+)
+
+@Schema(description = "Partial patient examination update request.")
+data class UpdateExaminationRequest(
+    @field:Schema(description = "Examination title.", example = "Quarterly follow-up")
+    val title: String? = null,
+    @field:PastOrPresent
+    @field:Schema(description = "Date of the examination.", example = "2026-04-10")
+    val examDate: LocalDate? = null,
+    @field:Schema(description = "Optional examination comment.", example = "Stable postoperative condition", nullable = true)
+    val comment: String? = null,
+    @field:Valid
+    @field:Size(min = 1)
+    @field:Schema(description = "Measured characteristic values to add or update. Omitted characteristics remain unchanged.")
+    val measurements: List<UpdateExaminationMeasurementRequest>? = null,
 )
 
 @Schema(description = "Patient creation result.")

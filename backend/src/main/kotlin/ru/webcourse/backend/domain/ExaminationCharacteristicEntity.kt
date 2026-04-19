@@ -26,9 +26,9 @@ class ExaminationCharacteristicEntity(
     @JoinColumn(name = "characteristic_id", nullable = false)
     val characteristic: CharacteristicEntity,
     @Column(name = "value", nullable = false)
-    val value: BigDecimal,
+    var value: BigDecimal,
     @Column(name = "comment")
-    val comment: String? = null,
+    var comment: String? = null,
 )
 
 @Embeddable

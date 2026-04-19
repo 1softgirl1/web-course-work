@@ -267,6 +267,115 @@ class PatientCardController(
         @Valid @RequestBody request: CreateExaminationRequest,
     ): ExaminationResponse = patientService.addExamination(patientId = id, actor = actor, request = request)
 
+    @PatchMapping("/{patientId}/examinations/{examId}")
+    @Operation(
+        summary = "Edit patient examination record",
+        description = "Partially updates an existing examination record. A regular doctor can edit examinations only for patients from the doctor's own region. A doctor with extended permissions can edit examinations for any patient. Measurements are applied as upserts by characteristicCode: omitted measurements remain unchanged.",
+        operationId = "updatePatientExamination",
+        tags = ["Examinations"],
+        security = [SecurityRequirement(name = "bearerAuth")],
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(
+                responseCode = "200",
+                description = "Examination record updated",
+                content = [Content(
+                    schema = Schema(implementation = ExaminationResponse::class),
+                    examples = [ExampleObject(
+                        name = "updatedExamination",
+                        value = """
+                        {
+                          "examId": 11,
+                          "title": "Quarterly follow-up",
+                          "examDate": "2026-04-10",
+                          "comment": "Corrected after lab results",
+                          "measurements": [
+                            {
+                              "characteristicId": 5,
+                              "characteristicCode": "metric_01",
+                              "characteristicName": "Metric 01",
+                              "value": "78",
+                              "unit": "unit_01",
+                              "comment": "Corrected value"
+                            },
+                            {
+                              "characteristicId": 6,
+                              "characteristicCode": "metric_02",
+                              "characteristicName": "Metric 02",
+                              "value": "120",
+                              "unit": "unit_02",
+                              "comment": "Existing value remains"
+                            }
+                          ]
+                        }
+                        """,
+                    )],
+                )],
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Validation failed",
+                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
+            ),
+            ApiResponse(
+                responseCode = "401",
+                description = "Authentication required",
+                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
+            ),
+            ApiResponse(
+                responseCode = "403",
+                description = "Access denied for patient examination update",
+                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
+            ),
+            ApiResponse(
+                responseCode = "404",
+                description = "Patient card, examination, or characteristic was not found",
+                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
+            ),
+        ],
+    )
+    @io.swagger.v3.oas.annotations.parameters.RequestBody(
+        required = true,
+        description = "Partial examination update payload. Only provided fields are changed.",
+        content = [Content(
+            schema = Schema(implementation = UpdateExaminationRequest::class),
+            examples = [ExampleObject(
+                name = "updateExamination",
+                value = """
+                {
+                  "comment": "Corrected after lab results",
+                  "measurements": [
+                    {
+                      "characteristicCode": "metric_01",
+                      "value": 78,
+                      "comment": "Corrected value"
+                    },
+                    {
+                      "characteristicCode": "metric_03",
+                      "value": 4.2,
+                      "comment": "New lab result"
+                    }
+                  ]
+                }
+                """,
+            )],
+        )],
+    )
+    fun updateExamination(
+        @Parameter(description = "Patient identifier.", example = "1")
+        @PathVariable patientId: Long,
+        @Parameter(description = "Examination identifier.", example = "11")
+        @PathVariable examId: Long,
+        @AuthenticationPrincipal actor: ActorPrincipal,
+        @Valid @RequestBody request: UpdateExaminationRequest,
+    ): ExaminationResponse = patientService.updateExamination(
+        patientId = patientId,
+        examinationId = examId,
+        actor = actor,
+        request = request,
+    )
+
     @GetMapping("/{id}/examinations")
     @Operation(
         summary = "Get patient examination records",

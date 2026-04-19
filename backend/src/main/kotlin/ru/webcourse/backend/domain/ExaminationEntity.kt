@@ -23,11 +23,11 @@ class ExaminationEntity(
     @JoinColumn(name = "patient_id", nullable = false)
     val patient: PatientProfileEntity,
     @Column(name = "title", nullable = false)
-    val title: String,
+    var title: String,
     @Column(name = "exam_date", nullable = false)
-    val examDate: LocalDate,
+    var examDate: LocalDate,
     @Column(name = "comment")
-    val comment: String? = null,
+    var comment: String? = null,
     @OneToMany(mappedBy = "examination", cascade = [CascadeType.ALL], orphanRemoval = false)
     val measurements: MutableList<ExaminationCharacteristicEntity> = mutableListOf(),
 )

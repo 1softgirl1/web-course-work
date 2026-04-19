@@ -16,6 +16,7 @@ import ru.webcourse.backend.api.PatientCardViewMode
 import ru.webcourse.backend.api.PatientListResponse
 import ru.webcourse.backend.api.PatientMonitoringStatus
 import ru.webcourse.backend.api.PatientSummaryResponse
+import ru.webcourse.backend.api.UpdateExaminationRequest
 import ru.webcourse.backend.api.UpdatePatientRequest
 import ru.webcourse.backend.api.ValveResponse
 import ru.webcourse.backend.api.VitalsHistoryItemResponse
@@ -229,6 +230,63 @@ class PatientService(
         return examinationRepository.saveAndFlush(examination).toExaminationResponse()
     }
 
+    @Transactional
+    fun updateExamination(
+        patientId: Long,
+        examinationId: Long,
+        actor: ActorPrincipal?,
+        request: UpdateExaminationRequest,
+    ): ExaminationResponse {
+        val patient = findPatient(patientId)
+        requireDoctorCanModifyPatient(patient, actor)
+        validateUpdateExaminationRequest(request)
+
+        val examination = examinationRepository.findByIdAndPatientId(examinationId, patientId)
+            ?: throw NotFoundException("Examination with id=$examinationId for patient id=$patientId was not found")
+
+        request.title?.let { examination.title = it.trimNonBlank("title") }
+        request.examDate?.let { examination.examDate = it }
+        request.comment?.let { examination.comment = it.trim().takeIf(String::isNotBlank) }
+
+        request.measurements?.let { measurements ->
+            val requestedCodes = measurements.map { it.characteristicCode.trim() }.distinct()
+            val characteristicsByCode = characteristicRepository.findAllByCodeIn(requestedCodes)
+                .associateBy { it.code }
+            val missingCodes = requestedCodes.filterNot(characteristicsByCode::containsKey)
+            if (missingCodes.isNotEmpty()) {
+                throw NotFoundException("Characteristics with codes=${missingCodes.joinToString(",")} were not found")
+            }
+
+            val existingMeasurementsByCode = examination.measurements.associateBy { it.characteristic.code }
+            measurements.forEach { measurement ->
+                val code = measurement.characteristicCode.trim()
+                val existingMeasurement = existingMeasurementsByCode[code]
+                if (existingMeasurement != null) {
+                    measurement.value?.let { existingMeasurement.value = it }
+                    measurement.comment?.let { existingMeasurement.comment = it.trim().takeIf(String::isNotBlank) }
+                } else {
+                    val value = measurement.value
+                        ?: throw IllegalArgumentException("value is required for new characteristicCode=$code")
+                    val characteristic = characteristicsByCode.getValue(code)
+                    examination.measurements.add(
+                        ExaminationCharacteristicEntity(
+                            id = ExaminationCharacteristicId(
+                                examinationId = examination.id,
+                                characteristicId = characteristic.id,
+                            ),
+                            examination = examination,
+                            characteristic = characteristic,
+                            value = value,
+                            comment = measurement.comment?.trim()?.takeIf(String::isNotBlank),
+                        )
+                    )
+                }
+            }
+        }
+
+        return examinationRepository.saveAndFlush(examination).toExaminationResponse()
+    }
+
     @Transactional(readOnly = true)
     fun listExaminations(
         patientId: Long,
@@ -418,6 +476,33 @@ class PatientService(
             deliverySystem.trimNonBlank("operationParameters.deliverySystem")
         }
         request.password?.trimNonBlank("password")
+    }
+
+    private fun validateUpdateExaminationRequest(request: UpdateExaminationRequest) {
+        if (
+            request.title == null &&
+            request.examDate == null &&
+            request.comment == null &&
+            request.measurements == null
+        ) {
+            throw IllegalArgumentException("At least one examination field must be provided")
+        }
+
+        request.title?.trimNonBlank("title")
+        request.measurements?.let { measurements ->
+            val duplicateCodes = measurements
+                .map { it.characteristicCode.trim() }
+                .groupingBy { it }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
+                .sorted()
+            if (duplicateCodes.isNotEmpty()) {
+                throw IllegalArgumentException(
+                    "Duplicate characteristicCode values are not allowed: ${duplicateCodes.joinToString(",")}"
+                )
+            }
+        }
     }
 
     private fun String.trimNonBlank(fieldName: String): String =

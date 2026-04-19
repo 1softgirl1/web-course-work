@@ -367,6 +367,69 @@ paths:
           description: Access denied for patient examination history
         '404':
           description: Patient card not found
+  /api/patients/{patientId}/examinations/{examId}:
+    patch:
+      tags: [Examinations]
+      operationId: updatePatientExamination
+      summary: Edit patient examination record
+      description: >
+        Partially updates an existing examination record.
+        A regular doctor can edit examinations only for patients from the doctor's own region.
+        A doctor with extended permissions can edit examinations for any patient.
+        Patients cannot edit examinations.
+        Measurements are applied as upserts by characteristicCode: existing measurements are updated,
+        new measurements are added, and omitted measurements remain unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: patientId
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - in: path
+          name: examId
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExaminationRequest'
+            examples:
+              updateOneMetric:
+                summary: Correct one measurement and keep all other measurements
+                value:
+                  measurements:
+                    - characteristicCode: metric_01
+                      value: 78
+                      comment: Corrected value
+              addLateLabResult:
+                summary: Add a measurement that was not ready initially
+                value:
+                  measurements:
+                    - characteristicCode: metric_03
+                      value: 4.2
+                      comment: Late lab result
+      responses:
+        '200':
+          description: Examination record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExaminationResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Authentication required
+        '403':
+          description: Access denied for patient examination update
+        '404':
+          description: Patient card, examination, or characteristic was not found
 components:
   securitySchemes:
     bearerAuth:
@@ -525,6 +588,38 @@ components:
           items:
             $ref: '#/components/schemas/CreateExaminationMeasurementRequest'
       required: [title, examDate, measurements]
+    UpdateExaminationMeasurementRequest:
+      type: object
+      properties:
+        characteristicCode:
+          type: string
+        value:
+          type: number
+          nullable: true
+          description: Required when adding a characteristic that does not exist in this examination yet.
+        comment:
+          type: string
+          nullable: true
+      required: [characteristicCode]
+    UpdateExaminationRequest:
+      type: object
+      description: >
+        Partial examination update. At least one field must be provided.
+        If measurements are provided, they are applied as upserts by characteristicCode and omitted measurements remain unchanged.
+      properties:
+        title:
+          type: string
+        examDate:
+          type: string
+          format: date
+        comment:
+          type: string
+          nullable: true
+        measurements:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/UpdateExaminationMeasurementRequest'
     ValveResponse:
       type: object
       properties:
