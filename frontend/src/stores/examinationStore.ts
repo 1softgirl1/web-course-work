@@ -1,4 +1,6 @@
-import { reactive } from 'vue'
+﻿import { reactive } from 'vue'
+import type { CreateExaminationRequest } from '@/api/patientApi.contract'
+import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
 
 export interface Examination {
   id: number
@@ -26,60 +28,8 @@ export interface UpdateExamination {
   indicators: number[]
 }
 
-const createIndicators = (startValue: number): number[] => {
-  return Array.from({ length: 50 }, (_, index) => startValue + index)
-}
-
-const initialExaminations: Examination[] = [
-  {
-    id: 1,
-    patientCode: 'PT-7GZVL7PT',
-    date: "10.03.2026",
-    doctor: "Петрова А.В.",
-    conclusion: "Стабильное состояние, рекомендовано плановое наблюдение.",
-    indicators: createIndicators(10),
-    status: "Новое",
-  },
-  {
-    id: 2,
-    patientCode: 'PT-7GZVL7PT',
-    date: "15.02.2026",
-    doctor: "Сидоров В.И.",
-    conclusion: "Положительная динамика, продолжить текущую терапию.",
-    indicators: createIndicators(20),
-    status: "Просмотрено",
-  },
-  {
-    id: 3,
-    patientCode: 'PT-K9M2Q4XR',
-    date: "10.02.2026",
-    doctor: "Петрова А.В.",
-    conclusion: "Требуется контроль показателей через 3 месяца.",
-    indicators: createIndicators(30),
-    status: "Просмотрено",
-  },
-  {
-    id: 4,
-    patientCode: 'PT-3HWT8LNC',
-    date: "05.01.2026",
-    doctor: "Козлова М.Н.",
-    conclusion: "Без признаков ухудшения, наблюдение в стандартном режиме.",
-    indicators: createIndicators(40),
-    status: "Просмотрено",
-  },
-  {
-    id: 5,
-    patientCode: 'PT-2QNF9ZTA',
-    date: "05.01.2026",
-    doctor: "Петрова А.В.",
-    conclusion: "Рекомендована коррекция медикаментозной терапии.",
-    indicators: createIndicators(50),
-    status: "Просмотрено",
-  },
-]
-
 const state = reactive({
-  examinations: initialExaminations,
+  examinations: [] as Examination[],
 })
 
 export function parseExamDate(value: string): Date | null {
@@ -89,31 +39,121 @@ export function parseExamDate(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date
 }
 
+const toIsoDate = (value: string): string => {
+  const parsed = parseExamDate(value)
+  if (!parsed) return value
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function toRuExamDate(value: string): string {
   const sourceDate = new Date(value)
   if (Number.isNaN(sourceDate.getTime())) return value
   return sourceDate.toLocaleDateString('ru-RU')
 }
 
+const getIndicatorsFromMeasurements = (examId: number): number[] => {
+  const all = mockPatientApi.listAllExaminationsRaw()
+  const exam = all.find(item => item.examId === examId)
+  if (!exam) return []
+
+  return exam.measurements.map(measurement => {
+    const numeric = Number(measurement.value)
+    return Number.isNaN(numeric) ? 0 : numeric
+  })
+}
+
+const syncExaminationsFromMock = () => {
+  const patientsById = new Map(
+    mockPatientApi.listAllPatientsRaw().map(patient => [patient.id, patient.patientCode])
+  )
+
+  const allRaw = mockPatientApi.listAllExaminationsRaw().map(exam => ({
+    id: exam.examId,
+    patientCode: patientsById.get(exam.patientId) ?? '',
+    date: mockPatientApi.toRuDateFromIso(exam.examDate),
+    doctor: exam.doctorName,
+    conclusion: exam.comment ?? '',
+    indicators: exam.measurements.map(item => Number(item.value) || 0),
+  }))
+
+  const latestByPatient = new Map<string, number>()
+  const sortedByDate = [...allRaw].sort((left, right) => {
+    const leftTime = parseExamDate(left.date)?.getTime() ?? 0
+    const rightTime = parseExamDate(right.date)?.getTime() ?? 0
+    return rightTime - leftTime
+  })
+
+  for (const exam of sortedByDate) {
+    if (!latestByPatient.has(exam.patientCode)) {
+      latestByPatient.set(exam.patientCode, exam.id)
+    }
+  }
+
+  const mapped: Examination[] = allRaw.map(exam => ({
+    ...exam,
+    status: latestByPatient.get(exam.patientCode) === exam.id ? 'Новое' : 'Просмотрено',
+  }))
+
+  state.examinations.splice(0, state.examinations.length, ...mapped)
+}
+
+syncExaminationsFromMock()
+
+const toApiPayload = (exam: {
+  date: string
+  conclusion: string
+  indicators: number[]
+}): CreateExaminationRequest => {
+  return {
+    title: 'Обследование',
+    examDate: toIsoDate(exam.date),
+    comment: exam.conclusion.trim() || null,
+    measurements: exam.indicators.map((value, index) => ({
+      characteristicCode: `CHAR_${String(index + 1).padStart(2, '0')}`,
+      value,
+      comment: null,
+    })),
+  }
+}
+
 export const useExaminationStore = () => {
   const addExamination = (exam: NewExamination) => {
-    const newId = Math.max(...state.examinations.map(e => e.id), 0) + 1
-    state.examinations.unshift({
-      id: newId,
-      ...exam,
-      status: 'Новое',
-    })
+    const patient = mockPatientApi.findPatientByCode(exam.patientCode)
+    if (!patient) return false
+
+    mockPatientApi.addPatientExamination(patient.id, toApiPayload(exam), exam.doctor)
+    syncExaminationsFromMock()
+    return true
   }
 
   const updateExamination = (payload: UpdateExamination) => {
-    const target = state.examinations.find(exam => exam.id === payload.id)
-    if (!target) return false
+    const targetExam = state.examinations.find(exam => exam.id === payload.id)
+    if (!targetExam) return false
 
-    target.date = payload.date
-    target.doctor = payload.doctor
-    target.conclusion = payload.conclusion
-    target.indicators = [...payload.indicators]
-    target.status = 'Новое'
+    const patient = mockPatientApi.findPatientByCode(targetExam.patientCode)
+    if (!patient) return false
+
+    const nextIndicators = payload.indicators.length > 0
+      ? payload.indicators
+      : getIndicatorsFromMeasurements(payload.id)
+
+    const updated = mockPatientApi.updatePatientExamination(
+      patient.id,
+      payload.id,
+      toApiPayload({
+        date: payload.date,
+        conclusion: payload.conclusion,
+        indicators: nextIndicators,
+      }),
+      payload.doctor
+    )
+
+    if (!updated) return false
+
+    syncExaminationsFromMock()
     return true
   }
 
@@ -123,4 +163,3 @@ export const useExaminationStore = () => {
     updateExamination,
   }
 }
-

@@ -26,23 +26,18 @@ import {RouterLink} from "vue-router";
           <h4 class="mb-4 font-semibold text-background">Разделы сайта</h4>
           <ul class="space-y-3">
             <li>
-              <a href="/frontend/public#about" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/#about" class="text-sm text-background/70 transition-colors hover:text-background">
                 О проекте
               </a>
             </li>
             <li>
-              <a href="/frontend/public#articles" class="text-sm text-background/70 transition-colors hover:text-background">
-                Полезные статьи
-              </a>
-            </li>
-            <li>
-              <a href="/frontend/public#blog" class="text-sm text-background/70 transition-colors hover:text-background">
-                Блог
-              </a>
-            </li>
-            <li>
-              <a href="/frontend/public#faq" class="text-sm text-background/70 transition-colors hover:text-background">
+              <a href="/#faq" class="text-sm text-background/70 transition-colors hover:text-background">
                 Частые вопросы
+              </a>
+            </li>
+            <li>
+              <a href="/#contacts" class="text-sm text-background/70 transition-colors hover:text-background">
+                Контакты
               </a>
             </li>
             <li>
@@ -113,14 +108,6 @@ import {RouterLink} from "vue-router";
           <p class="text-sm text-background/60">
             © 2026 КардиоРеестр. Все права защищены.
           </p>
-          <div class="flex flex-col items-center gap-3 sm:flex-row sm:gap-6">
-            <RouterLink to="/privacy" class="text-sm text-background/60 transition-colors hover:text-background">
-              Политика конфиденциальности
-            </RouterLink>
-            <RouterLink to="/terms" class="text-sm text-background/60 transition-colors hover:text-background">
-              Условия использования
-            </RouterLink>
-          </div>
         </div>
       </div>
     </div>

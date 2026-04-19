@@ -7,8 +7,6 @@ const mobileMenuOpen = ref(false)
 
 const navLinks = [
   { href: '/#about', label: 'О проекте' },
-  { href: '/#articles', label: 'Полезные статьи' },
-  { href: '/#blog', label: 'Блог' },
   { href: '/#faq', label: 'Частые вопросы' },
   { href: '/#contacts', label: 'Контакты' },
 ]
