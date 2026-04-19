@@ -14,15 +14,27 @@ import {
 import Button from '@/components/ui/button.vue'
 import { cn } from '@/lib/utils'
 import { DEFAULT_REGION_ID, resolveSelectedRegionName } from '@/stores/regionsStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const sidebarOpen = ref(false)
 
-const navigation = [
+const doctorNavigation = [
   { name: 'Мои пациенты', href: '/doctor/myPatients', icon: Users },
   { name: 'Все пациенты', href: '/doctor/allPatients', icon: Globe },
   { name: 'Моя карточка', href: '/doctor/doctorCard', icon: User },
 ]
+
+const doctorExtendedNavigation = [
+  { name: 'Все пациенты', href: '/doctor/allPatients', icon: Globe },
+  { name: 'Все врачи', href: '/doctor/allDoctors', icon: Stethoscope },
+  { name: 'Моя карточка', href: '/doctor/doctorCard', icon: User },
+]
+
+const navigation = computed(() => (
+  authStore.isDoctorExtended.value ? doctorExtendedNavigation : doctorNavigation
+))
 
 const DOCTOR_MENU_ACTIVE_KEY = 'doctorMenuActive'
 
@@ -34,18 +46,23 @@ const saveActiveHref = (href) => {
 const getSavedActiveHref = () => {
   if (typeof window === 'undefined') return ''
   const savedHref = localStorage.getItem(DOCTOR_MENU_ACTIVE_KEY)
-  const isKnownHref = navigation.some(item => item.href === savedHref)
+  const isKnownHref = navigation.value.some(item => item.href === savedHref)
   return isKnownHref ? savedHref : ''
 }
 
 const resolveActiveHref = () => {
   if (route.path.startsWith('/doctor/allPatients')) return '/doctor/allPatients'
   if (route.path.startsWith('/doctor/myPatients')) return '/doctor/myPatients'
+  if (route.path.startsWith('/doctor/allDoctors')) return '/doctor/allDoctors'
   if (route.path.startsWith('/doctor/doctorCard')) return '/doctor/doctorCard'
 
   if (route.path.startsWith('/doctor/patientCard/')) {
     if (route.query.from === 'allPatients') return '/doctor/allPatients'
     if (route.query.from === 'myPatients') return '/doctor/myPatients'
+  }
+
+  if (authStore.isDoctorExtended.value) {
+    return getSavedActiveHref() || '/doctor/allPatients'
   }
 
   return getSavedActiveHref() || '/doctor/myPatients'
@@ -54,6 +71,7 @@ const resolveActiveHref = () => {
 const activeHref = ref(resolveActiveHref())
 const selectedRegionName = computed(() => resolveSelectedRegionName())
 const doctorFullName = ref('Борискова Д.В.')
+const isDoctorExtended = computed(() => authStore.isDoctorExtended.value)
 
 onMounted(() => {
   if (typeof window === 'undefined') return
@@ -63,7 +81,9 @@ onMounted(() => {
   }
 
   const savedDoctorName = localStorage.getItem('doctorFullName')
-  if (savedDoctorName && savedDoctorName.trim()) {
+  if (authStore.user.value?.displayName) {
+    doctorFullName.value = authStore.user.value.displayName
+  } else if (savedDoctorName && savedDoctorName.trim()) {
     doctorFullName.value = savedDoctorName.trim()
   } else {
     localStorage.setItem('doctorFullName', doctorFullName.value)
@@ -85,6 +105,10 @@ const setActivePage = (href) => {
 }
 
 const isActive = (href) => activeHref.value === href
+
+const handleLogout = () => {
+  authStore.logout()
+}
 </script>
 
 <template>
@@ -134,12 +158,17 @@ const isActive = (href) => activeHref.value === href
 
         <div class="border-b border-border p-4">
           <div class="flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <div v-if="!isDoctorExtended" class="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
               <Stethoscope class="h-5 w-5 text-primary" />
+            </div>
+            <div v-if="isDoctorExtended" class="flex h-10 w-10 items-center justify-center rounded-full bg-red-600/10">
+              <Stethoscope class="h-5 w-5 text-red-600" />
             </div>
             <div>
               <p class="text-sm font-medium text-foreground">{{ doctorFullName }}</p>
-              <p class="text-xs font-medium text-muted-foreground">{{ selectedRegionName }}</p>
+              <p class="text-xs font-medium text-muted-foreground">
+                {{ selectedRegionName }}<span v-if="isDoctorExtended"></span>
+              </p>
             </div>
           </div>
         </div>
@@ -165,7 +194,7 @@ const isActive = (href) => activeHref.value === href
         </nav>
 
         <div class="border-t border-border p-4">
-          <router-link to="/">
+          <router-link to="/login" @click="handleLogout">
             <Button variant="ghost" class="w-full justify-start gap-3 text-muted-foreground">
               <LogOut class="h-5 w-5" />
               Выйти

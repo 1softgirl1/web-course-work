@@ -8,10 +8,12 @@ import Field from "@/components/ui/field/field.vue";
 import FieldLabel from "@/components/ui/field/field-label.vue";
 import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
 import { useExaminationStore, toRuExamDate } from '@/stores/examinationStore'
+import { useAuthStore } from '@/stores/authStore'
 
 
 const submitted = ref(false)
 const route = useRoute()
+const authStore = useAuthStore()
 const examDate = ref("")
 const conclusion = ref("")
 const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
@@ -23,9 +25,7 @@ const patientCode = computed(() => {
 })
 
 const resolvedDoctorFullName = computed(() => {
-  if (typeof window === 'undefined') return 'Борискова Д.В.'
-  const saved = localStorage.getItem('doctorFullName')
-  return saved && saved.trim() ? saved.trim() : 'Борискова Д.В.'
+  return authStore.user.value?.displayName || 'Борискова Д.В.'
 })
 
 const editId = computed<number | null>(() => {

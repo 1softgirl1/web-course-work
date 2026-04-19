@@ -1,8 +1,9 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import Card from '@/components/ui/card.vue'
 import DoctorCardContent, { type DoctorProfile } from '@/components/doctor/doctorCardContent.vue'
 import { resolveSelectedRegionName } from '@/stores/regionsStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const DEFAULT_DOCTOR_PROFILE: Omit<DoctorProfile, 'region'> = {
   fullName: 'Борискова Д.В.',
@@ -12,6 +13,7 @@ const DEFAULT_DOCTOR_PROFILE: Omit<DoctorProfile, 'region'> = {
 }
 
 const doctorData = ref<DoctorProfile | null>(null)
+const authStore = useAuthStore()
 
 const buildDoctorProfile = (): DoctorProfile => {
   if (typeof window === 'undefined') {
@@ -22,12 +24,12 @@ const buildDoctorProfile = (): DoctorProfile => {
   }
 
   const fullName = localStorage.getItem('doctorFullName')?.trim() || DEFAULT_DOCTOR_PROFILE.fullName
-  const email = localStorage.getItem('doctorEmail')?.trim() || DEFAULT_DOCTOR_PROFILE.email
+  const email = authStore.user.value?.email?.trim() || localStorage.getItem('doctorEmail')?.trim() || DEFAULT_DOCTOR_PROFILE.email
   const specialty = localStorage.getItem('doctorSpecialty')?.trim() || DEFAULT_DOCTOR_PROFILE.specialty
   const workplace = localStorage.getItem('doctorWorkplace')?.trim() || DEFAULT_DOCTOR_PROFILE.workplace
 
   return {
-    fullName,
+    fullName: authStore.user.value?.displayName || fullName,
     email,
     specialty,
     workplace,
@@ -51,7 +53,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="p-4 sm:p-6 lg:p-8">
+  <div class="p-4 sm:p-6 lg:p-8 space-y-6">
     <div class="mb-6">
       <h1 class="text-2xl font-bold text-foreground">Моя карточка</h1>
       <p class="text-muted-foreground">Персональные данные</p>
@@ -66,5 +68,6 @@ onMounted(() => {
     <Card v-else class="max-w-xl">
       <div class="p-6 text-muted-foreground">Данные врача отсутствуют</div>
     </Card>
+
   </div>
 </template>

@@ -1,30 +1,34 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, ref } from 'vue'
 import Card from '@/components/ui/card.vue'
 import Badge from '@/components/ui/badge.vue'
+import Dialog from '@/components/ui/dialog.vue'
+import ChangePasswordCard from '@/components/profile/changePasswordCard.vue'
 import {
-  User,
-  MapPin,
+  Activity,
   Calendar,
   FileText,
-  ScanHeartIcon,
   Heart,
+  KeyRound,
+  MapPin,
   Pill,
+  ScanHeartIcon,
   Stethoscope,
-  Activity,
+  User,
 } from 'lucide-vue-next'
 import type { Patient } from '@/stores/patientStore'
-import Dialog from "@/components/ui/dialog.vue";
 
 const props = withDefaults(
   defineProps<{
     patient: Patient
     canShowPatientFullName?: boolean
     showRegionHelpBadge?: boolean
+    canChangeOwnPassword?: boolean
   }>(),
   {
     canShowPatientFullName: true,
     showRegionHelpBadge: false,
+    canChangeOwnPassword: false,
   }
 )
 
@@ -34,9 +38,7 @@ const fullName = computed(() => {
   return props.patient.fullName || 'Нет данных'
 })
 
-const birthDateLabel = computed(() => {
-  return props.patient.birthDate || 'Нет данных'
-})
+const birthDateLabel = computed(() => props.patient.birthDate || 'Нет данных')
 
 const valveLabel = computed(() => {
   const values = [props.patient.valve.name, props.patient.valve.size, props.patient.valve.material].filter(Boolean)
@@ -44,6 +46,7 @@ const valveLabel = computed(() => {
 })
 
 const isRegionChangeOpen = ref(false)
+const isPasswordModalOpen = ref(false)
 </script>
 
 <template>
@@ -87,7 +90,6 @@ const isRegionChangeOpen = ref(false)
             <div class="min-w-0 flex-1">
               <p class="text-sm text-muted-foreground">Регион</p>
               <div class="flex flex-wrap items-center gap-2">
-
                 <p class="font-medium text-foreground">{{ patient.region }}</p>
                 <slot name="region-action" />
                 <Badge
@@ -103,8 +105,6 @@ const isRegionChangeOpen = ref(false)
                   Как сменить регион?
                 </Badge>
               </div>
-
-
             </div>
           </div>
 
@@ -126,9 +126,20 @@ const isRegionChangeOpen = ref(false)
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Код пациента</p>
-              <Badge variant="outline" class="text-xs">
-                {{ patient.code }}
-              </Badge>
+              <Badge variant="outline" class="text-xs">{{ patient.code }}</Badge>
+            </div>
+          </div>
+
+          <div v-if="canChangeOwnPassword" class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <KeyRound class="h-5 w-5 text-primary" />
+            </div>
+            <div class="flex items-center gap-2">
+              <div>
+                <p class="text-sm text-muted-foreground">Пароль</p>
+                <p class="font-medium text-foreground">********</p>
+              </div>
+              <Badge variant="outline" class="cursor-pointer" @click="isPasswordModalOpen = true">Изменить</Badge>
             </div>
           </div>
         </div>
@@ -203,67 +214,24 @@ const isRegionChangeOpen = ref(false)
       </div>
     </Card>
 
-
-
-    <Dialog v-model="isRegionChangeOpen" content-class="sm:max-w-2xl">
+    <Dialog v-if="canChangeOwnPassword" v-model="isPasswordModalOpen" content-class="sm:max-w-md">
       <div class="space-y-4">
-        <div >
-          <div class="mb-1 flex items-center gap-2 ">
-            <h3 class="text-lg font-semibold text-foreground">Я переехал, как изменить регион?</h3>
-          </div>
-          <div class="flex flex-row items-center gap-2 font-medium ">
-            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
-              <p class="text-primary font-semibold">1</p>
-            </div>
-            <p>Отправьте письмо на электронную почту</p>
-          </div>
-          <p class="text-sm text-muted-foreground">
-            Напишите письмо на адрес
-            <span class="text-primary">
-              support@your-organization.ru
-            </span> с запросом на смену региона по следующему шаблону:
-          </p>
-
-          <div class="bg-primary/10 my-4 rounded-xl p-4 text-sm text-muted-foreground">
-            <p><span class="text-black">Тема: Запрос на смену региона</span></p>
-            <p>Здравствуйте! Прошу изменить мой регион обслуживания на: [укажите нужный регион].</p>
-            <p>ФИО: [ваше ФИО]</p>
-            <p>Код пациента: [ваш код пациента]</p>
-            <p>Дата рождения: [дд.мм.гггг]</p>
-            <p>Контактный телефон: [номер телефона]</p>
-            <p>Спасибо!</p>
-          </div>
-
-
-          <div class="flex flex-row items-center gap-2 font-medium ">
-            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
-              <p class="text-primary font-semibold">2</p>
-            </div>
-            <p>Позвоните и подтвердите заявку</p>
-          </div>
-          <p class="text-sm text-muted-foreground">
-            Позвоните по номеру:
-            <span class="text-primary"> 8 (800) 000-00-00 </span><br>
-            Сообщите, что вы отправили письмо с заявкой на смену региона, и попросите подтвердить её получение.
-          </p>
-
-          <div class="flex flex-row items-center gap-2 font-medium ">
-            <div class="bg-primary/10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full my-4 ">
-              <p class="text-primary font-semibold">3</p>
-            </div>
-            <p>Ожидайте и при необходимости напомните</p>
-          </div>
-          <p class="text-sm text-muted-foreground">
-            Ожидайте изменения региона в течение 5  рабочих дней.
-            Если по истечении этого срока регион не изменился — позвоните повторно и уточните статус заявки.
-          </p>
-
-
-
-        </div>
-
+        <h3 class="text-lg font-semibold text-foreground">Изменение пароля</h3>
+        <ChangePasswordCard @success="isPasswordModalOpen = false" />
       </div>
     </Dialog>
 
+    <Dialog v-model="isRegionChangeOpen" content-class="sm:max-w-2xl">
+      <div class="space-y-4">
+        <h3 class="text-lg font-semibold text-foreground">Я переехал, как изменить регион?</h3>
+        <p class="text-sm text-muted-foreground">
+          Напишите письмо на <span class="text-primary">support@your-organization.ru</span> с запросом на смену региона,
+          затем подтвердите заявку по телефону <span class="text-primary">8 (800) 000-00-00</span>.
+        </p>
+        <p class="text-sm text-muted-foreground">
+          Обычно изменение региона занимает до 5 рабочих дней.
+        </p>
+      </div>
+    </Dialog>
   </div>
 </template>

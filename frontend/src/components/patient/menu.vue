@@ -14,9 +14,11 @@ import {
 
 import Button from '@/components/ui/button.vue'
 import { cn } from "@/lib/utils"
+import { useAuthStore } from '@/stores/authStore'
 
 // router
 const route = useRoute()
+const authStore = useAuthStore()
 
 // state
 const sidebarOpen = ref(false)
@@ -29,6 +31,10 @@ const navigation = [
 
 // methods
 const isActive = (href) => route.path === href || route.path.startsWith(`${href}/`)
+
+const handleLogout = () => {
+  authStore.logout()
+}
 </script>
 
 <template>
@@ -87,8 +93,8 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
               <User class="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p class="font-medium text-foreground text-sm">Иванов Иван</p>
-              <p class="text-xs font-medium text-muted-foreground">Код: 2024-0001</p>
+              <p class="font-medium text-foreground text-sm">{{ authStore.user.value?.displayName || 'Пациент' }}</p>
+              <p class="text-xs font-medium text-muted-foreground">Код: {{ authStore.user.value?.patientCode || '—' }}</p>
             </div>
           </div>
         </div>
@@ -116,7 +122,7 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
 
         <!-- Logout -->
         <div class="p-4 border-t border-border">
-          <router-link to="/">
+          <router-link to="/login" @click="handleLogout">
             <Button
                 variant="ghost"
                 class="w-full justify-start gap-3 text-muted-foreground"

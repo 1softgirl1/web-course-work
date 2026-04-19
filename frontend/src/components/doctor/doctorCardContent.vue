@@ -1,10 +1,12 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch } from 'vue'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
 import Input from '@/components/ui/input.vue'
-import { Hospital, Mail, MapPin, Stethoscope, User } from 'lucide-vue-next'
-import Badge from "@/components/ui/badge.vue";
+import Badge from '@/components/ui/badge.vue'
+import Dialog from '@/components/ui/dialog.vue'
+import ChangePasswordCard from '@/components/profile/changePasswordCard.vue'
+import { Hospital, KeyRound, Mail, MapPin, Stethoscope, User } from 'lucide-vue-next'
 
 export interface DoctorProfile {
   fullName: string
@@ -25,6 +27,7 @@ const emit = defineEmits<{
 const isEmailEditing = ref(false)
 const emailDraft = ref(props.doctor.email)
 const emailError = ref('')
+const isPasswordModalOpen = ref(false)
 
 watch(
   () => props.doctor.email,
@@ -69,7 +72,7 @@ const saveEmail = () => {
     title="Персональные данные"
     description="Основная информация о враче"
   >
-    <div class="space-y-6">
+    <div class="grid gap-6 lg:grid-cols-2">
       <div class="space-y-4">
         <div class="flex items-start gap-3">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -81,33 +84,6 @@ const saveEmail = () => {
           </div>
         </div>
 
-        <div class="flex items-start gap-3">
-          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-            <Mail class="h-5 w-5 text-primary" />
-          </div>
-          <div class="min-w-0 flex-1">
-            <p class="text-sm text-muted-foreground">Email</p>
-
-            <div v-if="isEmailEditing" class="mt-1 space-y-2">
-              <Input
-                v-model="emailDraft"
-                type="email"
-                placeholder="doctor@clinic.ru"
-                class="h-10"
-              />
-              <p v-if="emailError" class="text-sm text-destructive">{{ emailError }}</p>
-              <div class="flex flex-wrap gap-2">
-                <Button size="sm" @click="saveEmail">Сохранить</Button>
-                <Button size="sm" variant="outline" @click="cancelEmailEditing">Отменить</Button>
-              </div>
-            </div>
-
-            <div v-else class="mt-1 flex flex-wrap items-center gap-2">
-              <p class="font-medium text-foreground break-all">{{ doctor.email || 'Нет данных' }}</p>
-              <Badge variant="outline" @click="startEmailEditing">Изменить</Badge>
-            </div>
-          </div>
-        </div>
 
         <div class="flex items-start gap-3">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -118,9 +94,7 @@ const saveEmail = () => {
             <p class="font-medium text-foreground">{{ doctor.specialty || 'Нет данных' }}</p>
           </div>
         </div>
-      </div>
 
-      <div class="space-y-4">
         <div class="flex items-start gap-3">
           <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
             <Hospital class="h-5 w-5 text-primary" />
@@ -141,6 +115,60 @@ const saveEmail = () => {
           </div>
         </div>
       </div>
+
+      <div class="space-y-4">
+
+
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <Mail class="h-5 w-5 text-primary" />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-sm text-muted-foreground">Email</p>
+
+            <div v-if="isEmailEditing" class="mt-1 space-y-2">
+              <Input
+                  v-model="emailDraft"
+                  type="email"
+                  placeholder="doctor@clinic.ru"
+                  class="h-10"
+              />
+              <p v-if="emailError" class="text-sm text-destructive">{{ emailError }}</p>
+              <div class="flex flex-wrap gap-2">
+                <Button size="sm" @click="saveEmail">Сохранить</Button>
+                <Button size="sm" variant="outline" @click="cancelEmailEditing">Отменить</Button>
+              </div>
+            </div>
+
+            <div v-else class="mt-1 flex flex-wrap items-center gap-2">
+              <p class="font-medium text-foreground break-all">{{ doctor.email || 'Нет данных' }}</p>
+              <Badge variant="outline" class="cursor-pointer" @click="startEmailEditing">Изменить</Badge>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+            <KeyRound class="h-5 w-5 text-primary" />
+          </div>
+
+          <div>
+            <p class="text-sm text-muted-foreground">Пароль</p>
+            <div class="flex flex-wrap items-center gap-2">
+              <p class="font-medium text-foreground">********</p>
+              <Badge variant="outline" class="cursor-pointer" @click="isPasswordModalOpen = true">Изменить</Badge>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   </Card>
+
+  <Dialog v-model="isPasswordModalOpen" content-class="sm:max-w-md">
+    <div class="space-y-4">
+      <h3 class="text-lg font-semibold text-foreground">Изменение пароля</h3>
+      <ChangePasswordCard @success="isPasswordModalOpen = false" />
+    </div>
+  </Dialog>
 </template>

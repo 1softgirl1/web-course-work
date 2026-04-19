@@ -248,9 +248,13 @@ export const usePatientStore = () => {
 
     const previousRegion = target.regionName
 
-    mockPatientApi.updatePatientCard(target.id, {
+    const updated = mockPatientApi.updatePatientCard(target.id, {
       regionId: resolveRegionIdByName(nextRegionName),
     })
+
+    if (!updated) {
+      return state.patients.find(patient => patient.code === patientCode) ?? null
+    }
 
     state.regionChangeLogs.unshift({
       id: Date.now() + Math.floor(Math.random() * 1000),

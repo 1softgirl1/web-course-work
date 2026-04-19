@@ -1,5 +1,6 @@
 ﻿import {
   type AuthResponse,
+  type ChangePasswordRequest,
   type CreateExaminationRequest,
   type CreatePatientRequest,
   type CreatedPatientResponse,
@@ -11,6 +12,7 @@
   type PatientCardResponse,
   type PatientListResponse,
   type PatientStatus,
+  type UserRole,
   type UpdatePatientRequest,
   type ValveResponse,
 } from '@/api/patientApi.contract'
@@ -39,6 +41,7 @@ export interface MockPatientRecord {
   medications: string
   createdAt: string
   temporaryPassword: string
+  password?: string
 }
 
 export interface MockExaminationRecord extends ExaminationResponse {
@@ -46,7 +49,20 @@ export interface MockExaminationRecord extends ExaminationResponse {
   doctorName: string
 }
 
+export interface MockDoctorRecord {
+  id: number
+  fullName: string
+  email: string
+  specialty: string
+  workplace: string
+  role: UserRole
+  regionId: number
+  regionName: string
+  password?: string
+}
+
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+const MOCK_DEFAULT_PASSWORD = '123456'
 
 const toRegionIdByName = (regionName: string): number => {
   const index = RegionsStore.findIndex(region => region.name === regionName)
@@ -252,10 +268,85 @@ const db = {
   examinations: [...examinationSeed],
 }
 
+const doctorSeed: MockDoctorRecord[] = [
+  {
+    id: 1,
+    fullName: 'Борискова Д.В.',
+    email: 'doctor@clinic.ru',
+    specialty: 'Кардиолог',
+    workplace: 'НМИЦ им. Е.Н. Мешалкина',
+    role: 'DOCTOR',
+    regionId: toRegionIdByStoreKey(DEFAULT_REGION_ID),
+    regionName: toRegionNameById(toRegionIdByStoreKey(DEFAULT_REGION_ID)),
+  },
+  {
+    id: 2,
+    fullName: 'Шамгунова А.Д.',
+    email: 'admin@clinic.ru',
+    specialty: 'Кардиохирург',
+    workplace: 'ФГБУ НМИЦ сердечно-сосудистой хирургии им. А.Н. Бакулева',
+    role: 'DOCTOR_EXTENDED',
+    regionId: toRegionIdByStoreKey(DEFAULT_REGION_ID),
+    regionName: toRegionNameById(toRegionIdByStoreKey(DEFAULT_REGION_ID)),
+  },
+  {
+    id: 3,
+    fullName: 'Петрова А.В.',
+    email: 'petrova@clinic.ru',
+    specialty: 'Кардиолог',
+    workplace: 'Клинический кардиологический диспансер им. Л.С. Барбараша',
+    role: 'DOCTOR',
+    regionId: toRegionIdByName('Кемерово'),
+    regionName: 'Кемерово',
+  },
+  {
+    id: 4,
+    fullName: 'Сидоров В.И.',
+    email: 'sidorov@clinic.ru',
+    specialty: 'Врач функциональной диагностики',
+    workplace: 'Межрегиональный клинико-диагностический центр',
+    role: 'DOCTOR',
+    regionId: toRegionIdByName('Казань'),
+    regionName: 'Казань',
+  },
+]
+
+interface MockSession {
+  userId: number
+  role: UserRole
+  displayName: string
+  email: string | null
+  patientCode: string | null
+  doctorRegionId: number | null
+}
+
+let currentSession: MockSession | null = null
+
+const isDoctorRole = (role: UserRole | null | undefined) =>
+  role === 'DOCTOR' || role === 'DOCTOR_EXTENDED'
+
+const isDoctorExtended = (role: UserRole | null | undefined) => role === 'DOCTOR_EXTENDED'
+
 const resolveDoctorRegionId = (): number => {
+  if (currentSession?.doctorRegionId) return currentSession.doctorRegionId
   if (typeof window === 'undefined') return toRegionIdByStoreKey(DEFAULT_REGION_ID)
   const selected = localStorage.getItem('selectedRegion') ?? DEFAULT_REGION_ID
   return toRegionIdByStoreKey(selected)
+}
+
+const canEditPatient = (patient: MockPatientRecord): boolean => {
+  const role = currentSession?.role
+  if (!isDoctorRole(role)) return false
+  if (isDoctorExtended(role)) return true
+  return patient.regionId === resolveDoctorRegionId()
+}
+
+const canViewFullPatient = (patient: MockPatientRecord): boolean => {
+  const role = currentSession?.role
+  if (isDoctorExtended(role)) return true
+  if (role === 'DOCTOR') return patient.regionId === resolveDoctorRegionId()
+  if (role === 'PATIENT') return currentSession?.patientCode === patient.patientCode
+  return false
 }
 
 const getStatusByExamDate = (examDate: string | null): PatientStatus => {
@@ -334,23 +425,66 @@ const toCard = (patient: MockPatientRecord, anonymized: boolean): PatientCardRes
 export const mockPatientApi = {
   login(payload: LoginRequest): AuthResponse {
     const isDoctor = payload.login.includes('@')
-    const role = isDoctor ? 'DOCTOR' : 'PATIENT'
+    const normalizedLogin = payload.login.trim().toLowerCase()
+    const doctorByEmail = isDoctor
+      ? doctorSeed.find(doctor => doctor.email.toLowerCase() === normalizedLogin)
+      : null
+    const role: UserRole = isDoctor
+      ? (doctorByEmail?.role ?? (normalizedLogin.includes('admin') || normalizedLogin.includes('extended') ? 'DOCTOR_EXTENDED' : 'DOCTOR'))
+      : 'PATIENT'
+
+    const doctorRegionId = isDoctor
+      ? (doctorByEmail?.regionId ?? resolveDoctorRegionId())
+      : null
+    const patientByCode = !isDoctor ? db.patients.find(patient => patient.patientCode.toLowerCase() === normalizedLogin) : null
+
+    if (isDoctor && !doctorByEmail) {
+      throw new Error('INVALID_CREDENTIALS')
+    }
+
+    if (!isDoctor && !patientByCode) {
+      throw new Error('INVALID_CREDENTIALS')
+    }
+
+    const accountPassword = isDoctor
+      ? (doctorByEmail?.password ?? MOCK_DEFAULT_PASSWORD)
+      : (patientByCode?.password ?? MOCK_DEFAULT_PASSWORD)
+    if (payload.password !== accountPassword) {
+      throw new Error('INVALID_CREDENTIALS')
+    }
+
+    const patientCode = patientByCode?.patientCode ?? (!isDoctor ? payload.login : null)
+
+    currentSession = {
+      userId: isDoctor ? (doctorByEmail?.id ?? 1) : (patientByCode?.id ?? 100),
+      role,
+      displayName: isDoctor
+        ? (doctorByEmail?.fullName ?? (role === 'DOCTOR_EXTENDED' ? 'Администратор врач' : 'Борискова Д.В.'))
+        : (patientByCode ? `${patientByCode.lastName} ${patientByCode.firstName}` : 'Пациент'),
+      email: isDoctor ? payload.login : null,
+      patientCode,
+      doctorRegionId,
+    }
 
     return {
       accessToken: `mock-jwt-${Date.now()}`,
       tokenType: 'Bearer',
       expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
       user: {
-        id: isDoctor ? 1 : 100,
+        id: currentSession.userId,
         role,
-        displayName: isDoctor ? 'Борискова Д.В.' : 'Пациент',
-        email: isDoctor ? payload.login : null,
-        patientCode: isDoctor ? null : payload.login,
+        displayName: currentSession.displayName,
+        email: currentSession.email,
+        patientCode: currentSession.patientCode,
       },
     }
   },
 
   listDoctorPatients(params: ListDoctorPatientsParams = {}): PatientListResponse {
+    if (!isDoctorRole(currentSession?.role)) {
+      return { items: [], page: 0, limit: 20, total: 0 }
+    }
+
     const scope = params.scope ?? 'own'
     const doctorRegionId = resolveDoctorRegionId()
     const page = Math.max(0, params.page ?? 0)
@@ -398,11 +532,18 @@ export const mockPatientApi = {
   getPatientCard(patientId: number): PatientCardResponse | null {
     const patient = db.patients.find(item => item.id === patientId)
     if (!patient) return null
-    const anonymized = patient.regionId !== resolveDoctorRegionId()
+    if (currentSession?.role === 'PATIENT' && currentSession.patientCode !== patient.patientCode) {
+      return null
+    }
+    const anonymized = !canViewFullPatient(patient)
     return toCard(patient, anonymized)
   },
 
   createPatientCard(payload: CreatePatientRequest): CreatedPatientResponse {
+    if (!isDoctorRole(currentSession?.role)) {
+      throw new Error('FORBIDDEN')
+    }
+
     const id = Math.max(0, ...db.patients.map(patient => patient.id)) + 1
     const patientCode = generatePatientCode(new Set(db.patients.map(patient => patient.patientCode)))
     const now = new Date().toISOString()
@@ -454,6 +595,7 @@ export const mockPatientApi = {
   updatePatientCard(patientId: number, payload: UpdatePatientRequest): PatientCardResponse | null {
     const patient = db.patients.find(item => item.id === patientId)
     if (!patient) return null
+    if (!canEditPatient(patient)) return null
 
     if (payload.lastName !== undefined) patient.lastName = payload.lastName.trim()
     if (payload.firstName !== undefined) patient.firstName = payload.firstName.trim()
@@ -476,12 +618,13 @@ export const mockPatientApi = {
       })
     }
 
-    return toCard(patient, patient.regionId !== resolveDoctorRegionId())
+    return toCard(patient, !canViewFullPatient(patient))
   },
 
   addPatientExamination(patientId: number, payload: CreateExaminationRequest, doctorName: string): ExaminationResponse | null {
-    const patientExists = db.patients.some(patient => patient.id === patientId)
-    if (!patientExists) return null
+    const patient = db.patients.find(item => item.id === patientId)
+    if (!patient) return null
+    if (!canEditPatient(patient)) return null
 
     const nextExamId = Math.max(0, ...db.examinations.map(exam => exam.examId)) + 1
 
@@ -514,6 +657,13 @@ export const mockPatientApi = {
   },
 
   listPatientExaminations(patientId: number): ExaminationListResponse {
+    const patient = db.patients.find(item => item.id === patientId)
+    if (!patient) return { items: [] }
+
+    if (currentSession?.role === 'PATIENT' && currentSession.patientCode !== patient.patientCode) {
+      return { items: [] }
+    }
+
     return {
       items: db.examinations
         .filter(exam => exam.patientId === patientId)
@@ -530,6 +680,10 @@ export const mockPatientApi = {
 
   // Mock-only helper while backend has no examination PATCH endpoint yet.
   updatePatientExamination(patientId: number, examId: number, payload: CreateExaminationRequest, doctorName: string): ExaminationResponse | null {
+    const patient = db.patients.find(item => item.id === patientId)
+    if (!patient) return null
+    if (!canEditPatient(patient)) return null
+
     const exam = db.examinations.find(item => item.patientId === patientId && item.examId === examId)
     if (!exam) return null
 
@@ -570,6 +724,91 @@ export const mockPatientApi = {
     return true
   },
 
+  restoreSession(session: {
+    id: number
+    role: UserRole
+    displayName: string
+    email: string | null
+    patientCode: string | null
+    doctorRegionId?: number | null
+  }) {
+    currentSession = {
+      userId: session.id,
+      role: session.role,
+      displayName: session.displayName,
+      email: session.email,
+      patientCode: session.patientCode,
+      doctorRegionId: session.doctorRegionId ?? (isDoctorRole(session.role) ? resolveDoctorRegionId() : null),
+    }
+  },
+
+  clearSession() {
+    currentSession = null
+  },
+
+  listDoctors(): MockDoctorRecord[] {
+    if (!isDoctorExtended(currentSession?.role)) return []
+    return doctorSeed.map(doctor => ({ ...doctor }))
+  },
+
+  getDoctorById(doctorId: number): MockDoctorRecord | null {
+    if (!isDoctorExtended(currentSession?.role)) return null
+    const doctor = doctorSeed.find(item => item.id === doctorId)
+    return doctor ? { ...doctor } : null
+  },
+
+  updateDoctorRegion(doctorId: number, regionId: number): MockDoctorRecord | null {
+    if (!isDoctorExtended(currentSession?.role)) return null
+
+    const doctor = doctorSeed.find(item => item.id === doctorId)
+    if (!doctor) return null
+
+    doctor.regionId = regionId
+    doctor.regionName = toRegionNameById(regionId)
+
+    if (currentSession?.userId === doctorId) {
+      currentSession.doctorRegionId = regionId
+      if (typeof window !== 'undefined') {
+        const regionStoreId = RegionsStore[regionId - 1]?.id
+        if (regionStoreId) {
+          localStorage.setItem('selectedRegion', regionStoreId)
+        }
+      }
+    }
+
+    return { ...doctor }
+  },
+
+  changeOwnPassword(payload: ChangePasswordRequest): boolean {
+    if (!currentSession) throw new Error('UNAUTHORIZED')
+
+    const session = currentSession
+    const currentPassword = payload.currentPassword.trim()
+    const newPassword = payload.newPassword.trim()
+    if (!currentPassword || !newPassword) throw new Error('VALIDATION_ERROR')
+    if (newPassword.length < 6) throw new Error('WEAK_PASSWORD')
+
+    if (session.role === 'PATIENT') {
+      const patient = db.patients.find(item => item.id === session.userId)
+      if (!patient) throw new Error('NOT_FOUND')
+      const savedPassword = patient.password ?? MOCK_DEFAULT_PASSWORD
+      if (savedPassword !== currentPassword) throw new Error('INVALID_CURRENT_PASSWORD')
+      patient.password = newPassword
+      return true
+    }
+
+    if (isDoctorRole(session.role)) {
+      const doctor = doctorSeed.find(item => item.id === session.userId)
+      if (!doctor) throw new Error('NOT_FOUND')
+      const savedPassword = doctor.password ?? MOCK_DEFAULT_PASSWORD
+      if (savedPassword !== currentPassword) throw new Error('INVALID_CURRENT_PASSWORD')
+      doctor.password = newPassword
+      return true
+    }
+
+    throw new Error('FORBIDDEN')
+  },
+
   listAllPatientsRaw(): MockPatientRecord[] {
     return db.patients.map(patient => ({ ...patient, valve: { ...patient.valve }, operationParameters: { ...patient.operationParameters }, operationHistory: patient.operationHistory.map(item => ({ ...item })) }))
   },
@@ -580,3 +819,10 @@ export const mockPatientApi = {
 
   toRuDateFromIso,
 }
+
+
+
+
+
+
+

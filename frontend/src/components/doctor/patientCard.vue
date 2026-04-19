@@ -14,10 +14,12 @@ import { Undo2, Calendar, FileText, Eye, Plus, Pencil } from 'lucide-vue-next'
 import { usePatientStore } from '@/stores/patientStore'
 import { useExaminationStore, type Examination, parseExamDate } from '@/stores/examinationStore'
 import { RegionsStore, resolveSelectedRegionName } from '@/stores/regionsStore'
+import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
 
 const patientStore = usePatientStore()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const { examinations } = useExaminationStore()
@@ -46,17 +48,19 @@ const patientData = computed(() => {
 const doctorRegionName = computed(() => resolveSelectedRegionName())
 
 const currentDoctorFullName = computed(() => {
-  if (typeof window === 'undefined') return 'Неизвестный врач'
-  return localStorage.getItem('doctorFullName')?.trim() || 'Неизвестный врач'
+  return authStore.user.value?.displayName || 'Неизвестный врач'
 })
 
 const canShowPatientFullName = computed(() => {
   if (!patientData.value) return false
+  if (authStore.isDoctorExtended.value) return true
   return patientData.value.region === doctorRegionName.value
 })
 
 const canChangeRegion = computed(() => {
-  return Boolean(patientData.value && canShowPatientFullName.value)
+  if (!patientData.value) return false
+  if (authStore.isDoctorExtended.value) return true
+  return canShowPatientFullName.value
 })
 
 const availableRegions = computed(() => {
@@ -230,7 +234,7 @@ onBeforeUnmount(() => {
               tabindex="0"
               @click="openRegionPicker"
           >
-            Изменить регион
+            Изменить
           </Badge>
         </template>
       </PatientCardContent>

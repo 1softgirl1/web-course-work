@@ -7,12 +7,14 @@ import Button from '@/components/ui/button.vue'
 import { Mail, Lock } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/stores/authStore'
 import Field from "@/components/ui/field/field.vue";
 import FieldLabel from "@/components/ui/field/field-label.vue";
 import FieldGroup from "@/components/ui/field/field-group.vue";
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 const queryRole = computed(() => String(route.query.role ?? 'patient'))
 const activeTab = ref(queryRole.value === 'doctor' ? 'doctor' : 'patient')
@@ -22,14 +24,40 @@ const tabItems = [
   { value: 'doctor', label: 'Врач' },
 ]
 
+const patientLogin = ref('')
+const patientPassword = ref('')
+const doctorLogin = ref('')
+const doctorPassword = ref('')
+const authError = ref('')
+
 function handleLogin() {
-  if (activeTab.value === 'patient') {
-    router.push('/patient')
-  } else {
+  authError.value = ''
+
+  const payload = activeTab.value === 'patient'
+    ? { login: patientLogin.value.trim(), password: patientPassword.value }
+    : { login: doctorLogin.value.trim(), password: doctorPassword.value }
+
+  if (!payload.login || !payload.password) {
+    authError.value = 'Введите логин и пароль'
+    return
+  }
+
+  try {
+    const response = authStore.login(payload)
+
     if (typeof window !== 'undefined') {
-      localStorage.setItem('doctorFullName', 'Борискова Д.В.')
+      localStorage.setItem('doctorFullName', response.user.displayName)
     }
+
+    if (response.user.role === 'PATIENT') {
+      const patientCode = response.user.patientCode
+      router.push(patientCode ? `/patient/myCard/${patientCode}` : '/patient')
+      return
+    }
+
     router.push('/doctor')
+  } catch {
+    authError.value = 'Не удалось выполнить вход. Проверьте учетные данные.'
   }
 }
 </script>
@@ -60,9 +88,10 @@ function handleLogin() {
             <div class="relative">
               <Mail class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                v-model="patientLogin"
                 id="patient-email"
-                type="email"
-                placeholder="patient@example.com"
+                type="text"
+                placeholder="Код пациента, например PT-7GZVL7PT"
                 class="h-11 pl-10"
                 required
               />
@@ -73,6 +102,7 @@ function handleLogin() {
             <div class="relative">
               <Lock class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                v-model="patientPassword"
                 id="patient-password"
                 type="password"
                 placeholder="Введите пароль"
@@ -95,6 +125,7 @@ function handleLogin() {
             <div class="relative">
               <Mail class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                v-model="doctorLogin"
                 id="doctor-email"
                 type="email"
                 placeholder="doctor@clinic.ru"
@@ -108,6 +139,7 @@ function handleLogin() {
             <div class="relative">
               <Lock class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                v-model="doctorPassword"
                 id="doctor-password"
                 type="password"
                 placeholder="Введите пароль"
@@ -122,6 +154,10 @@ function handleLogin() {
           Войти как врач
         </Button>
       </form>
+
+      <p v-if="authError" class="mt-3 text-sm text-destructive">
+        {{ authError }}
+      </p>
 
       <div class="mt-6 rounded-xl border border-border bg-secondary/50 p-4">
         <p class="text-center text-sm text-muted-foreground">

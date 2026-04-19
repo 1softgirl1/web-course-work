@@ -4,12 +4,14 @@ import Card from "@/components/ui/card.vue"
 import Button from "@/components/ui/button.vue"
 import Dialog from '@/components/ui/dialog.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
+import { useAuthStore } from '@/stores/authStore'
 
 import {FileText, Calendar, Eye} from "lucide-vue-next"
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
 import Badge from "@/components/ui/badge.vue";
 
 const { examinations } = useExaminationStore()
+const authStore = useAuthStore()
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
 
@@ -21,7 +23,12 @@ const parseExamDate = (value: string): Date | null => {
 }
 
 const sortedExaminations = computed<Examination[]>(() => {
-  return [...examinations].sort((a, b) => {
+  const patientCode = authStore.user.value?.patientCode
+  const visibleExaminations = patientCode
+    ? examinations.filter(exam => exam.patientCode === patientCode)
+    : examinations
+
+  return [...visibleExaminations].sort((a, b) => {
     const aTime = parseExamDate(a.date)?.getTime() ?? 0
     const bTime = parseExamDate(b.date)?.getTime() ?? 0
 

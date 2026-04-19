@@ -20,6 +20,7 @@ import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
+import { useAuthStore } from '@/stores/authStore'
 
 import { Search, Download, Calendar, MapPin, Funnel } from 'lucide-vue-next'
 
@@ -27,8 +28,10 @@ import { Search, Download, Calendar, MapPin, Funnel } from 'lucide-vue-next'
 
 type ExamStatus = 'green' | 'yellow' | 'red'
 const patientStore = usePatientStore()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const isDoctorExtended = computed(() => authStore.isDoctorExtended.value)
 
 /* ---------------- STATE ---------------- */
 
@@ -260,7 +263,8 @@ const openPatientCard = (code: string) => {
             @click="openPatientCard(patient.code)"
           >
             <div class="mb-2 flex items-start justify-between gap-2">
-              <Badge variant="outline">{{ patient.code }}</Badge>
+              <Badge v-if="!isDoctorExtended" variant="outline">{{ patient.code }}</Badge>
+              <p v-else class="text-sm font-medium text-foreground">{{ patient.fullName }}</p>
               <span class="flex items-center gap-1 text-xs text-muted-foreground">
                 <span
                   class="inline-block h-2.5 w-2.5 rounded-full"
@@ -284,7 +288,7 @@ const openPatientCard = (code: string) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Код пациента</TableHead>
+                <TableHead>{{ isDoctorExtended ? 'ФИО' : 'Код пациента' }}</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
 
@@ -302,9 +306,8 @@ const openPatientCard = (code: string) => {
                   @click="openPatientCard(patient.code)"
               >
                 <TableCell>
-                  <Badge variant="outline" >
-                    {{ patient.code }}
-                  </Badge>
+                  <Badge v-if="!isDoctorExtended" variant="outline">{{ patient.code }}</Badge>
+                  <span v-else>{{ patient.fullName }}</span>
                 </TableCell>
 
 
