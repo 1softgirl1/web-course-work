@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed } from 'vue'
 import { cva } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
@@ -37,7 +37,7 @@ const buttonVariants = cva(
           secondary:
               'bg-secondary text-secondary-foreground hover:bg-secondary/80',
           ghost:
-              'hover:bg-accent hover:text-accent-foreground',
+              'hover:bg-primary hover:text-accent-foreground',
           link: 'text-primary underline-offset-4 hover:underline',
         },
         size: {
@@ -56,7 +56,7 @@ const buttonVariants = cva(
     }
 )
 
-// вычисление классов
+// РІС‹С‡РёСЃР»РµРЅРёРµ РєР»Р°СЃСЃРѕРІ
 const classes = computed(() =>
     cn(buttonVariants({ variant: props.variant, size: props.size }), props.class)
 )
@@ -72,3 +72,4 @@ const classes = computed(() =>
     <slot />
   </component>
 </template>
+

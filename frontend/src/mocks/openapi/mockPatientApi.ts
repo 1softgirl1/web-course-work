@@ -2,8 +2,10 @@
   type AuthResponse,
   type ChangePasswordRequest,
   type CreateExaminationRequest,
+  type CreateDoctorRequest,
   type CreatePatientRequest,
   type CreatedPatientResponse,
+  type CreatedDoctorResponse,
   type ExaminationListResponse,
   type ExaminationResponse,
   type ListDoctorPatientsParams,
@@ -51,6 +53,9 @@ export interface MockExaminationRecord extends ExaminationResponse {
 
 export interface MockDoctorRecord {
   id: number
+  lastName: string
+  firstName: string
+  middleName: string | null
   fullName: string
   email: string
   specialty: string
@@ -271,7 +276,10 @@ const db = {
 const doctorSeed: MockDoctorRecord[] = [
   {
     id: 1,
-    fullName: 'Борискова Д.В.',
+    lastName: 'Борискова',
+    firstName: 'Дарья',
+    middleName: 'Викторовна',
+    fullName: 'Борискова Дарья Викторовна',
     email: 'doctor@clinic.ru',
     specialty: 'Кардиолог',
     workplace: 'НМИЦ им. Е.Н. Мешалкина',
@@ -281,7 +289,10 @@ const doctorSeed: MockDoctorRecord[] = [
   },
   {
     id: 2,
-    fullName: 'Шамгунова А.Д.',
+    lastName: 'Шамгунова',
+    firstName: 'Алина',
+    middleName: 'Денисовна',
+    fullName: 'Шамгунова Алина Денисовна',
     email: 'admin@clinic.ru',
     specialty: 'Кардиохирург',
     workplace: 'ФГБУ НМИЦ сердечно-сосудистой хирургии им. А.Н. Бакулева',
@@ -291,7 +302,10 @@ const doctorSeed: MockDoctorRecord[] = [
   },
   {
     id: 3,
-    fullName: 'Петрова А.В.',
+    lastName: 'Петрова',
+    firstName: 'Анна',
+    middleName: 'Викторовна',
+    fullName: 'Петрова Анна Викторовна',
     email: 'petrova@clinic.ru',
     specialty: 'Кардиолог',
     workplace: 'Клинический кардиологический диспансер им. Л.С. Барбараша',
@@ -301,7 +315,10 @@ const doctorSeed: MockDoctorRecord[] = [
   },
   {
     id: 4,
-    fullName: 'Сидоров В.И.',
+    lastName: 'Сидоров',
+    firstName: 'Владимир',
+    middleName: 'Ильич',
+    fullName: 'Сидоров Владимир Ильич',
     email: 'sidorov@clinic.ru',
     specialty: 'Врач функциональной диагностики',
     workplace: 'Межрегиональный клинико-диагностический центр',
@@ -778,7 +795,57 @@ export const mockPatientApi = {
 
     return { ...doctor }
   },
+  createDoctor(payload: CreateDoctorRequest): CreatedDoctorResponse {
+    if (!isDoctorExtended(currentSession?.role)) {
+      throw new Error('FORBIDDEN')
+    }
 
+    const normalizedEmail = payload.email.trim().toLowerCase()
+    const existingDoctor = doctorSeed.find(item => item.email.toLowerCase() === normalizedEmail)
+    if (existingDoctor) {
+      throw new Error('DOCTOR_EMAIL_EXISTS')
+    }
+
+    const id = Math.max(0, ...doctorSeed.map(doctor => doctor.id)) + 1
+    const temporaryPassword = generatePassword()
+    const regionId = payload.regionId
+    const lastName = payload.lastName.trim()
+    const firstName = payload.firstName.trim()
+    const middleName = payload.middleName?.trim() || null
+    const fullName = [lastName, firstName, middleName].filter(Boolean).join(' ')
+
+    const record: MockDoctorRecord = {
+      id,
+      lastName,
+      firstName,
+      middleName,
+      fullName,
+      email: normalizedEmail,
+      specialty: payload.specialty.trim(),
+      workplace: payload.workplace.trim(),
+      role: 'DOCTOR',
+      regionId,
+      regionName: toRegionNameById(regionId),
+      password: temporaryPassword,
+    }
+
+    doctorSeed.unshift(record)
+
+    return {
+      id: record.id,
+      fullName: record.fullName,
+      lastName: record.lastName,
+      firstName: record.firstName,
+      middleName: record.middleName,
+      email: record.email,
+      specialty: record.specialty,
+      workplace: record.workplace,
+      role: record.role,
+      regionId: record.regionId,
+      regionName: record.regionName,
+      temporaryPassword,
+    }
+  },
   changeOwnPassword(payload: ChangePasswordRequest): boolean {
     if (!currentSession) throw new Error('UNAUTHORIZED')
 
@@ -819,6 +886,10 @@ export const mockPatientApi = {
 
   toRuDateFromIso,
 }
+
+
+
+
 
 
 

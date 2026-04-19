@@ -53,6 +53,31 @@ export interface CreatePatientRequest {
   medications: string
 }
 
+export interface CreateDoctorRequest {
+  lastName: string
+  firstName: string
+  middleName: string | null
+  email: string
+  specialty: string
+  workplace: string
+  regionId: number
+}
+
+export interface CreatedDoctorResponse {
+  id: number
+  fullName: string
+  lastName: string
+  firstName: string
+  middleName: string | null
+  email: string
+  specialty: string
+  workplace: string
+  role: UserRole
+  regionId: number
+  regionName: string
+  temporaryPassword: string
+}
+
 export interface UpdatePatientRequest {
   lastName?: string
   firstName?: string
@@ -168,3 +193,5 @@ export interface ListDoctorPatientsParams {
   regionId?: number
   diagnosis?: string
 }
+
+

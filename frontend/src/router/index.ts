@@ -1,4 +1,4 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+﻿import { createRouter, createWebHashHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import Main from '../views/Main.vue'
 import About from '../components/main/about.vue'
@@ -16,6 +16,7 @@ import allPatients from "../components/doctor/allPatients.vue"
 import allDoctors from "../components/doctor/allDoctors.vue"
 import doctorProfileAdmin from "../components/doctor/doctorProfileAdmin.vue"
 import addPatient from "../components/doctor/addPatient.vue"
+import addDoctor from "../components/doctor/addDoctor.vue"
 import doctorCard from "@/components/doctor/doctorCard.vue";
 
 const routes = [
@@ -41,9 +42,10 @@ const routes = [
         meta: { requiresAuth: true, roles: ['DOCTOR', 'DOCTOR_EXTENDED'] },
         children: [
             { path: 'myPatients', component: myPatients, meta: { roles: ['DOCTOR'] } },
-            { path: 'myPatients/addPatient', component: addPatient, meta: { roles: ['DOCTOR'] } },
+            { path: 'myPatients/addPatient', component: addPatient, meta: { roles: ['DOCTOR', 'DOCTOR_EXTENDED'] } },
             { path: 'allPatients', component: allPatients, meta: { roles: ['DOCTOR', 'DOCTOR_EXTENDED'] } },
             { path: 'allDoctors', component: allDoctors, meta: { roles: ['DOCTOR_EXTENDED'] } },
+            { path: 'allDoctors/addDoctor', component: addDoctor, meta: { roles: ['DOCTOR_EXTENDED'] } },
             { path: 'allDoctors/:id', component: doctorProfileAdmin, meta: { roles: ['DOCTOR_EXTENDED'] } },
             { path: 'patientCard/:code', component: doctorPatientCard },
             { path: 'patientCard/:code/addExamination', component: uploadExamination },
@@ -92,3 +94,5 @@ router.beforeEach((to) => {
 })
 
 export default router
+
+

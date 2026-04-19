@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, computed, watch} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -22,7 +22,7 @@ import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
 
-import { Search, Download, Calendar, MapPin, Funnel } from 'lucide-vue-next'
+import { Search, Download, Calendar, MapPin, Funnel, Plus } from 'lucide-vue-next'
 
 /* ---------------- TYPES ---------------- */
 
@@ -178,10 +178,23 @@ const openPatientCard = (code: string) => {
         </p>
       </div>
 
-      <Button variant="outline" class="w-full sm:w-auto">
-        <Download class="w-4 h-4 mr-2" />
-        Выгрузить в Excel
-      </Button>
+      <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <router-link
+          v-if="isDoctorExtended"
+          to="/doctor/myPatients/addPatient"
+          class="w-full sm:w-auto"
+        >
+          <Button class="w-full sm:w-auto">
+            <Plus class="w-4 h-4 mr-2" />
+            Добавить пациента
+          </Button>
+        </router-link>
+
+        <Button variant="outline" class="w-full sm:w-auto">
+          <Download class="w-4 h-4 mr-2" />
+          Выгрузить в Excel
+        </Button>
+      </div>
     </div>
 
     <!-- SEARCH -->
@@ -388,3 +401,6 @@ const openPatientCard = (code: string) => {
 
   </div>
 </template>
+
+
+

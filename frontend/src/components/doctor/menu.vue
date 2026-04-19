@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -73,6 +73,22 @@ const selectedRegionName = computed(() => resolveSelectedRegionName())
 const doctorFullName = ref('Борискова Д.В.')
 const isDoctorExtended = computed(() => authStore.isDoctorExtended.value)
 
+const toInitialsName = (value) => {
+  const normalized = (value || '').trim().replace(/\s+/g, ' ')
+  if (!normalized) return 'Врач'
+
+  const parts = normalized.split(' ')
+  if (parts.length === 1) return parts[0]
+
+  const lastName = parts[0]
+  const firstInitial = parts[1]?.charAt(0)?.toUpperCase() || ''
+  const middleInitial = parts[2]?.charAt(0)?.toUpperCase() || ''
+
+  if (!firstInitial && !middleInitial) return lastName
+  if (firstInitial && middleInitial) return `${lastName} ${firstInitial}.${middleInitial}.`
+  return `${lastName} ${firstInitial}.`
+}
+
 onMounted(() => {
   if (typeof window === 'undefined') return
 
@@ -82,9 +98,9 @@ onMounted(() => {
 
   const savedDoctorName = localStorage.getItem('doctorFullName')
   if (authStore.user.value?.displayName) {
-    doctorFullName.value = authStore.user.value.displayName
+    doctorFullName.value = toInitialsName(authStore.user.value.displayName)
   } else if (savedDoctorName && savedDoctorName.trim()) {
-    doctorFullName.value = savedDoctorName.trim()
+    doctorFullName.value = toInitialsName(savedDoctorName.trim())
   } else {
     localStorage.setItem('doctorFullName', doctorFullName.value)
   }
@@ -209,3 +225,5 @@ const handleLogout = () => {
     </div>
   </div>
 </template>
+
+
