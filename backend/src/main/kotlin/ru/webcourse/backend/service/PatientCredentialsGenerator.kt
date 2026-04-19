@@ -16,7 +16,7 @@ class PatientCredentialsGenerator(
                 .map { CODE_ALPHABET[random.nextInt(CODE_ALPHABET.length)] }
                 .joinToString("")
 
-            if (!userRepository.existsByLogin(candidate)) {
+            if (!userRepository.existsByUsername(candidate)) {
                 return candidate
             }
         }

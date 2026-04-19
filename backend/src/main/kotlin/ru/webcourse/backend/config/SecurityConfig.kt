@@ -41,6 +41,8 @@ class SecurityConfig(
             .authorizeHttpRequests {
                 it.requestMatchers(HttpMethod.OPTIONS, "/api/**", "/auth/**").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/auth/refresh").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
                 it.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/api/doctor/patients").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers(HttpMethod.GET, "/api/doctor/patients").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)

@@ -11,12 +11,12 @@ class ActorUserDetailsService(
 ) : UserDetailsService {
 
     override fun loadUserByUsername(username: String): ActorPrincipal {
-        val user = userRepository.findByLogin(username)
-            ?: throw UsernameNotFoundException("User with login=$username was not found")
+        val user = userRepository.findByUsername(username)
+            ?: throw UsernameNotFoundException("User with username=$username was not found")
 
         return ActorPrincipal(
             id = user.id,
-            login = user.login,
+            authUsername = user.username,
             passwordHash = user.passwordHash,
             role = user.role.name,
             status = user.status,

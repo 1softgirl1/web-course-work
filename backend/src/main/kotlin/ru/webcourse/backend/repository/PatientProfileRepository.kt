@@ -7,10 +7,10 @@ import org.springframework.data.jpa.repository.Query
 import ru.webcourse.backend.domain.PatientProfileEntity
 
 interface PatientProfileRepository : JpaRepository<PatientProfileEntity, Long> {
-    @EntityGraph(attributePaths = ["region"])
+    @EntityGraph(attributePaths = ["user", "region"])
     fun findAllByRegionIdOrderByCreatedAtDesc(regionId: Long): List<PatientProfileEntity>
 
-    @EntityGraph(attributePaths = ["region"])
+    @EntityGraph(attributePaths = ["user", "region"])
     @Query(
         """
         select p

@@ -1,4 +1,4 @@
-insert into characteristics (code, name, unit) values
+﻿insert into characteristics (code, name, unit) values
     ('metric_01', 'Metric 01', 'unit_01'),
     ('metric_02', 'Metric 02', 'unit_02'),
     ('metric_03', 'Metric 03', 'unit_03'),
@@ -50,3 +50,4 @@ insert into characteristics (code, name, unit) values
     ('metric_49', 'Metric 49', 'unit_49'),
     ('metric_50', 'Metric 50', 'unit_50')
 on conflict (code) do nothing;
+

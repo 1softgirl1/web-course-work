@@ -15,8 +15,8 @@ class UserEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long = 0,
-    @Column(name = "login", nullable = false, unique = true)
-    val login: String,
+    @Column(name = "username", nullable = false, unique = true)
+    val username: String,
     @Column(name = "password_hash", nullable = false)
     val passwordHash: String,
     @Enumerated(EnumType.STRING)

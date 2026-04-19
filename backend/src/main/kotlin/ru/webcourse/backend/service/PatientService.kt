@@ -63,7 +63,7 @@ class PatientService(
 
         val patientUser = userRepository.save(
             UserEntity(
-                login = patientCode,
+                username = patientCode,
                 passwordHash = requireNotNull(passwordEncoder.encode(generatedPassword)) {
                     "Password encoder returned null hash"
                 },
@@ -75,7 +75,6 @@ class PatientService(
         val patient = PatientProfileEntity(
             user = patientUser,
             region = region,
-            patientCode = patientCode,
             lastName = request.lastName.trim(),
             firstName = request.firstName.trim(),
             middleName = request.middleName?.trim()?.takeIf { it.isNotBlank() },
@@ -267,7 +266,6 @@ class PatientService(
                 id = patient.id,
                 user = updatedUser,
                 region = updatedRegion,
-                patientCode = patient.patientCode,
                 lastName = request.lastName?.trimNonBlank("lastName") ?: patient.lastName,
                 firstName = request.firstName?.trimNonBlank("firstName") ?: patient.firstName,
                 middleName = when (request.middleName) {
@@ -438,7 +436,7 @@ class PatientService(
 
         return UserEntity(
             id = user.id,
-            login = user.login,
+            username = user.username,
             passwordHash = updatedPasswordHash,
             role = user.role,
             status = user.status,
@@ -451,7 +449,7 @@ class PatientService(
 
     private fun PatientProfileEntity.toCreatedResponse(generatedPassword: String) = CreatedPatientResponse(
         id = id,
-        patientCode = patientCode,
+        patientCode = user.username,
         temporaryPassword = generatedPassword,
         lastName = lastName,
         firstName = firstName,
@@ -471,7 +469,7 @@ class PatientService(
         lastExaminationAt: LocalDate?,
     ) = PatientSummaryResponse(
         id = id,
-        patientCode = patientCode,
+        patientCode = user.username,
         lastName = lastName.takeIf { includeNames },
         firstName = firstName.takeIf { includeNames },
         middleName = middleName.takeIf { includeNames },
@@ -493,7 +491,7 @@ class PatientService(
     ) = PatientCardResponse(
         id = id,
         viewMode = viewMode,
-        patientCode = patientCode,
+        patientCode = user.username,
         lastName = lastName.takeIf { includeNames },
         firstName = firstName.takeIf { includeNames },
         middleName = middleName.takeIf { includeNames },

@@ -7,7 +7,7 @@ import ru.webcourse.backend.domain.UserStatus
 
 data class ActorPrincipal(
     val id: Long,
-    val login: String,
+    val authUsername: String,
     private val passwordHash: String,
     val role: String,
     val status: UserStatus,
@@ -18,7 +18,7 @@ data class ActorPrincipal(
 
     override fun getPassword(): String = passwordHash
 
-    override fun getUsername(): String = login
+    override fun getUsername(): String = authUsername
 
     override fun isEnabled(): Boolean = status == UserStatus.ACTIVE
 }

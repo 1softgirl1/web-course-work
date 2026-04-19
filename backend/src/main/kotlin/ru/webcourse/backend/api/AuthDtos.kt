@@ -11,20 +11,31 @@ data class LoginRequest(
         description = "Doctor email or patient code. Values containing '@' are treated as doctor credentials.",
         example = "doctor.demo@example.com",
     )
-    val login: String,
+    val username: String,
     @field:NotBlank
     @field:Schema(description = "Raw user password.", example = "secret123")
     val password: String,
 )
 
-@Schema(description = "JWT authentication result.")
+@Schema(description = "Refresh-token based session rotation request.")
+data class RefreshTokenRequest(
+    @field:NotBlank
+    @field:Schema(description = "Opaque refresh token issued during login or refresh.", example = "YV1fN1e2JfV_F9l4r5H2cX...")
+    val refreshToken: String,
+)
+
+@Schema(description = "JWT authentication result with access and refresh tokens.")
 data class AuthResponse(
     @field:Schema(description = "Signed JWT access token.", example = "eyJhbGciOiJIUzI1NiJ9...")
     val accessToken: String,
     @field:Schema(description = "Token type.", example = "Bearer")
     val tokenType: String = "Bearer",
     @field:Schema(description = "Access token expiration timestamp.", example = "2026-04-13T12:00:00Z")
-    val expiresAt: Instant,
+    val accessTokenExpiresAt: Instant,
+    @field:Schema(description = "Opaque refresh token.", example = "YV1fN1e2JfV_F9l4r5H2cX...")
+    val refreshToken: String,
+    @field:Schema(description = "Refresh token expiration timestamp.", example = "2026-05-13T12:00:00Z")
+    val refreshTokenExpiresAt: Instant,
     @field:Schema(description = "Authenticated user summary.")
     val user: AuthUserResponse,
 )

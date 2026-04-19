@@ -22,6 +22,11 @@ class JwtAuthenticationFilter(
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
+        if (request.requestURI.startsWith("/auth/")) {
+            filterChain.doFilter(request, response)
+            return
+        }
+
         val header = request.getHeader(HttpHeaders.AUTHORIZATION)
         if (header.isNullOrBlank() || !header.startsWith(BEARER_PREFIX)) {
             filterChain.doFilter(request, response)
@@ -40,7 +45,7 @@ class JwtAuthenticationFilter(
         }
 
         val user = userRepository.findById(payload.userId).orElse(null)
-        if (user == null || user.login != payload.login || user.role.name != payload.role) {
+        if (user == null || user.username != payload.username || user.role.name != payload.role) {
             unauthorized(response, "Invalid bearer token")
             return
         }
@@ -52,7 +57,7 @@ class JwtAuthenticationFilter(
 
         val principal = ActorPrincipal(
             id = user.id,
-            login = user.login,
+            authUsername = user.username,
             passwordHash = user.passwordHash,
             role = user.role.name,
             status = user.status,

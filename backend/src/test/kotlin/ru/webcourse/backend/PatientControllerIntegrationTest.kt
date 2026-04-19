@@ -106,14 +106,17 @@ class PatientControllerIntegrationTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": "$DOCTOR_EMAIL",
+                  "username": "$DOCTOR_EMAIL",
                   "password": "$DOCTOR_PASSWORD"
                 }
             """.trimIndent()
         }.andExpect {
             status { isOk() }
             jsonPath("$.accessToken") { isString() }
+            jsonPath("$.refreshToken") { isString() }
             jsonPath("$.tokenType") { value("Bearer") }
+            jsonPath("$.accessTokenExpiresAt") { isString() }
+            jsonPath("$.refreshTokenExpiresAt") { isString() }
             jsonPath("$.user.role") { value(UserRole.DOCTOR.name) }
             jsonPath("$.user.email") { value(DOCTOR_EMAIL) }
         }
@@ -128,14 +131,17 @@ class PatientControllerIntegrationTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": "${created.patientCode}",
+                  "username": "${created.patientCode}",
                   "password": "${created.temporaryPassword}"
                 }
             """.trimIndent()
         }.andExpect {
             status { isOk() }
             jsonPath("$.accessToken") { isString() }
+            jsonPath("$.refreshToken") { isString() }
             jsonPath("$.tokenType") { value("Bearer") }
+            jsonPath("$.accessTokenExpiresAt") { isString() }
+            jsonPath("$.refreshTokenExpiresAt") { isString() }
             jsonPath("$.user.role") { value(UserRole.PATIENT.name) }
             jsonPath("$.user.patientCode") { value(created.patientCode) }
         }
@@ -149,7 +155,7 @@ class PatientControllerIntegrationTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": "$DOCTOR_EMAIL",
+                  "username": "$DOCTOR_EMAIL",
                   "password": "wrong-password"
                 }
             """.trimIndent()
@@ -167,7 +173,7 @@ class PatientControllerIntegrationTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": "${created.patientCode}",
+                  "username": "${created.patientCode}",
                   "password": "wrong-password"
                 }
             """.trimIndent()
@@ -180,7 +186,7 @@ class PatientControllerIntegrationTest {
     fun inactiveUserGets403OnLogin() {
         userRepository.save(
             UserEntity(
-                login = "inactive-doctor@example.com",
+                username = "inactive-doctor@example.com",
                 passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
                 role = UserRole.DOCTOR,
                 status = UserStatus.INACTIVE,
@@ -191,12 +197,179 @@ class PatientControllerIntegrationTest {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": "inactive-doctor@example.com",
+                  "username": "inactive-doctor@example.com",
                   "password": "$DOCTOR_PASSWORD"
                 }
             """.trimIndent()
         }.andExpect {
             status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun refreshReturnsNewTokenPairAndRevokesOldRefreshToken() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        val refreshResponse = mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.accessToken") { isString() }
+            jsonPath("$.refreshToken") { isString() }
+            jsonPath("$.user.email") { value(DOCTOR_EMAIL) }
+        }.andReturn()
+
+        val refreshedBody = refreshResponse.response.contentAsString
+        val newAccessToken = extractJsonString(refreshedBody, "accessToken")
+        val newRefreshToken = extractJsonString(refreshedBody, "refreshToken")
+
+        assertNotEquals(session.refreshToken, newRefreshToken)
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.get("/api/doctor/patients") {
+            with(bearer(newAccessToken))
+        }.andExpect {
+            status { isOk() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "$newRefreshToken"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }
+    }
+
+    @Test
+    fun refreshAndLogoutIgnoreStaleBearerHeader() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val firstSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        val secondSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        mockMvc.post("/auth/refresh") {
+            with(bearer("invalid-stale-access-token"))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${firstSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }
+
+        mockMvc.post("/auth/logout") {
+            with(bearer("invalid-stale-access-token"))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${secondSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isNoContent() }
+        }
+    }
+
+    @Test
+    fun refreshReturns401ForUnknownRefreshToken() {
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "unknown-refresh-token"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun refreshReturns401ForExpiredRefreshToken() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        val user = userRepository.findByUsername(DOCTOR_EMAIL) ?: error("Doctor was not found")
+
+        jdbcTemplate.update(
+            """
+            update refresh_tokens
+            set expires_at = now() - interval '1 minute'
+            where user_id = ?
+            """.trimIndent(),
+            user.id,
+        )
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun logoutInvalidatesCurrentRefreshSessionAndIsIdempotent() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        mockMvc.post("/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isNoContent() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isNoContent() }
         }
     }
 
@@ -207,7 +380,7 @@ class PatientControllerIntegrationTest {
         val accessToken = login(HEAD_DOCTOR_EMAIL, DOCTOR_PASSWORD)
         val payload = jwtService.parseAccessToken(accessToken)
         assertEquals(UserRole.DOCTOR_EXTENDED.name, payload.role)
-        assertEquals(HEAD_DOCTOR_EMAIL, payload.login)
+        assertEquals(HEAD_DOCTOR_EMAIL, payload.username)
 
         mockMvc.post("/api/doctor/patients") {
             with(bearer(accessToken))
@@ -243,7 +416,7 @@ class PatientControllerIntegrationTest {
         val patientCode = extractJsonString(responseBody, "patientCode")
         val generatedPassword = extractJsonString(responseBody, "temporaryPassword")
 
-        val storedUser = userRepository.findByLogin(patientCode)
+        val storedUser = userRepository.findByUsername(patientCode)
         assertNotNull(storedUser)
         assertEquals(UserRole.PATIENT, storedUser.role)
         assertTrue(passwordEncoder.matches(generatedPassword, storedUser.passwordHash))
@@ -251,7 +424,7 @@ class PatientControllerIntegrationTest {
 
         val patients = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L)
         assertEquals(1, patients.size)
-        assertEquals(patientCode, patients.single().patientCode)
+        assertEquals(patientCode, patients.single().user.username)
         assertEquals("Petrov", patients.single().lastName)
         assertEquals("Petr", patients.single().firstName)
         assertEquals("Petrovich", patients.single().middleName)
@@ -293,7 +466,7 @@ class PatientControllerIntegrationTest {
     fun doctorWithoutProfileCannotUsePatientEndpoints() {
         userRepository.save(
             UserEntity(
-                login = DOCTOR_WITHOUT_PROFILE_EMAIL,
+                username = DOCTOR_WITHOUT_PROFILE_EMAIL,
                 passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
                 role = UserRole.DOCTOR,
                 status = UserStatus.ACTIVE,
@@ -331,7 +504,7 @@ class PatientControllerIntegrationTest {
         val patientCode = extractJsonString(createResponse.response.contentAsString, "patientCode")
         val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
 
-        assertEquals(patientCode, profile.patientCode)
+        assertEquals(patientCode, profile.user.username)
         assertEquals(1L, profile.region.id)
     }
 
@@ -350,7 +523,7 @@ class PatientControllerIntegrationTest {
         val patientCode = extractJsonString(createResponse.response.contentAsString, "patientCode")
         val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
 
-        assertEquals(patientCode, profile.patientCode)
+        assertEquals(patientCode, profile.user.username)
         assertEquals(null, profile.middleName)
     }
 
@@ -413,10 +586,10 @@ class PatientControllerIntegrationTest {
 
         val patients = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L)
         assertEquals(2, patients.size)
-        assertTrue(patients.any { it.patientCode == first.patientCode })
-        assertTrue(patients.any { it.patientCode == second.patientCode })
-        assertTrue(userRepository.existsByLogin(first.patientCode))
-        assertTrue(userRepository.existsByLogin(second.patientCode))
+        assertTrue(patients.any { it.user.username == first.patientCode })
+        assertTrue(patients.any { it.user.username == second.patientCode })
+        assertTrue(userRepository.existsByUsername(first.patientCode))
+        assertTrue(userRepository.existsByUsername(second.patientCode))
 
         mockMvc.get("/api/doctor/patients") {
             with(doctorBearer(DOCTOR_EMAIL))
@@ -428,16 +601,16 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
-    fun createdPatientCodeMatchesUserLoginAndProfileCode() {
+    fun createdPatientCodeMatchesUsername() {
         createDoctor(login = DOCTOR_EMAIL)
 
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
-        val storedUser = userRepository.findByLogin(created.patientCode)
+        val storedUser = userRepository.findByUsername(created.patientCode)
 
         assertNotNull(storedUser)
-        assertEquals(created.patientCode, profile.patientCode)
-        assertEquals(created.patientCode, storedUser.login)
+        assertEquals(created.patientCode, profile.user.username)
+        assertEquals(created.patientCode, storedUser.username)
     }
 
     @Test
@@ -1032,9 +1205,9 @@ class PatientControllerIntegrationTest {
             jsonPath("$.operationParameters.deliverySystem") { value("Transapical") }
         }
 
-        val storedUser = userRepository.findByLogin(created.patientCode)
+        val storedUser = userRepository.findByUsername(created.patientCode)
         assertNotNull(storedUser)
-        assertEquals(created.patientCode, storedUser.login)
+        assertEquals(created.patientCode, storedUser.username)
         assertTrue(passwordEncoder.matches("new-secret-password", storedUser.passwordHash))
     }
 
@@ -1151,7 +1324,7 @@ class PatientControllerIntegrationTest {
         val region = regionRepository.findById(regionId).orElseThrow()
         val doctorUser = userRepository.save(
             UserEntity(
-                login = login,
+                username = login,
                 passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
                 role = role,
                 status = status,
@@ -1176,7 +1349,7 @@ class PatientControllerIntegrationTest {
     ) {
         userRepository.save(
             UserEntity(
-                login = login,
+                username = login,
                 passwordHash = passwordEncoder.encode(PATIENT_PASSWORD)!!,
                 role = UserRole.PATIENT,
                 status = status,
@@ -1203,8 +1376,8 @@ class PatientControllerIntegrationTest {
         login: String,
         password: String,
     ): String {
-        val user = userRepository.findByLogin(login)
-            ?: error("User with login=$login was not found")
+        val user = userRepository.findByUsername(login)
+            ?: error("User with username=$login was not found")
         check(passwordEncoder.matches(password, user.passwordHash)) {
             "Password mismatch for user $login"
         }
@@ -1212,7 +1385,7 @@ class PatientControllerIntegrationTest {
         return jwtService.generateAccessToken(
             ActorPrincipal(
                 id = user.id,
-                login = user.login,
+                authUsername = user.username,
                 passwordHash = user.passwordHash,
                 role = user.role.name,
                 status = user.status,
@@ -1221,11 +1394,15 @@ class PatientControllerIntegrationTest {
     }
 
     private fun login(login: String, password: String): String {
+        return loginSession(login, password).accessToken
+    }
+
+    private fun loginSession(login: String, password: String): AuthSessionPayload {
         val response = mockMvc.post("/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
-                  "login": ${jsonString(login)},
+                  "username": ${jsonString(login)},
                   "password": ${jsonString(password)}
                 }
             """.trimIndent()
@@ -1233,7 +1410,11 @@ class PatientControllerIntegrationTest {
             status { isOk() }
         }.andReturn()
 
-        return extractJsonString(response.response.contentAsString, "accessToken")
+        val body = response.response.contentAsString
+        return AuthSessionPayload(
+            accessToken = extractJsonString(body, "accessToken"),
+            refreshToken = extractJsonString(body, "refreshToken"),
+        )
     }
 
     private fun createPatientThroughApi(
@@ -1457,5 +1638,10 @@ class PatientControllerIntegrationTest {
         val id: Long,
         val patientCode: String,
         val temporaryPassword: String,
+    )
+
+    data class AuthSessionPayload(
+        val accessToken: String,
+        val refreshToken: String,
     )
 }

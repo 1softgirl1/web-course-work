@@ -12,8 +12,8 @@ paths:
       operationId: login
       summary: Login
       description: >
-        Authenticates either a doctor or a patient and returns a JWT access token.
-        If the login contains '@', the backend treats it as a doctor email.
+        Authenticates either a doctor or a patient and returns access and refresh tokens.
+        If the username contains '@', the backend treats it as a doctor email.
         Otherwise the backend treats it as a patient code.
       requestBody:
         required: true
@@ -34,6 +34,50 @@ paths:
           description: Invalid credentials
         '403':
           description: User account is inactive or access is forbidden
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      operationId: refreshTokens
+      summary: Refresh tokens
+      description: >
+        Rotates the refresh token and returns a new access and refresh token pair.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation failed
+        '401':
+          description: Invalid refresh token
+        '403':
+          description: User account is inactive or access is forbidden
+  /auth/logout:
+    post:
+      tags: [Auth]
+      operationId: logout
+      summary: Logout
+      description: >
+        Invalidates the provided refresh token. The endpoint is idempotent and closes only one refresh session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '204':
+          description: Refresh session invalidated
+        '400':
+          description: Validation failed
   /api/doctor/patients:
     post:
       tags: [Patients]
@@ -333,11 +377,17 @@ components:
     LoginRequest:
       type: object
       properties:
-        login:
+        username:
           type: string
         password:
           type: string
-      required: [login, password]
+      required: [username, password]
+    RefreshTokenRequest:
+      type: object
+      properties:
+        refreshToken:
+          type: string
+      required: [refreshToken]
     AuthUserResponse:
       type: object
       properties:
@@ -365,12 +415,17 @@ components:
         tokenType:
           type: string
           enum: [Bearer]
-        expiresAt:
+        accessTokenExpiresAt:
+          type: string
+          format: date-time
+        refreshToken:
+          type: string
+        refreshTokenExpiresAt:
           type: string
           format: date-time
         user:
           $ref: '#/components/schemas/AuthUserResponse'
-      required: [accessToken, tokenType, expiresAt, user]
+      required: [accessToken, tokenType, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, user]
     CreateValveRequest:
       type: object
       properties:
