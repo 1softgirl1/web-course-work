@@ -4,7 +4,7 @@ import { RouterLink } from "vue-router"
 import Button from '../ui/button.vue'
 import type { Region } from "../../stores/regionsStore.ts"
 import { RegionsStore, CITY_TO_REGION } from "../../stores/regionsStore.ts"
-import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital, Stethoscope } from "lucide-vue-next"
+import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital, Stethoscope, LogIn } from "lucide-vue-next"
 import RegionModal from "@/components/main/regionModal.vue"
 import RegionConfirmModal from "@/components/main/regionConfirmModal.vue"
 
@@ -14,7 +14,7 @@ const TEXTS = {
   subtitle: "Получите удобный доступ к хранению медицинских данных и обследований при врожденных пороках сердца — в единой системе для пациентов, представителей и врачей.",
   cta: "Запишитесь в клинику или свяжитесь с нами, чтобы получить доступ к личному кабинету.",
   patientBtn: "Вход для пациентов",
-  doctorBtn: "Вход для врача",
+  doctorBtn: "Вход для врачей",
   clinicsTitle: "Клиники в вашем регионе",
   changeRegion: "Изменить регион",
 }
@@ -199,7 +199,15 @@ onMounted(async () => {
 
         <h1 class="mb-5 text-2xl font-bold leading-tight text-foreground sm:text-4xl lg:text-5xl">{{ TEXTS.title }}</h1>
         <p class="mx-auto mb-5 max-w-3xl text-base text-muted-foreground sm:text-xl">{{ TEXTS.subtitle }}</p>
-        <p class="mb-7 text-sm font-medium text-foreground sm:mb-8 sm:text-base">{{ TEXTS.cta }}</p>
+
+        <div class="m-7 inline-block rounded-xl border border-border bg-white p-3">
+          <p class="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <LogIn class="w-4 h-4" />
+            {{TEXTS.cta}}
+          </p>
+        </div>
+
+
 
         <div class="gap-4 sm:flex sm:justify-center">
 

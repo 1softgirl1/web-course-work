@@ -122,7 +122,7 @@ const polylinePoints = computed(() => {
     <div class="space-y-4">
       <div class="flex items-center justify-between gap-3">
         <h3 class="text-lg font-semibold text-foreground">Динамика: {{ indicatorTitle }}</h3>
-        <p class="text-xs text-muted-foreground">{{ series.length }} измерений</p>
+
       </div>
 
       <div v-if="series.length > 0" class="rounded-xl border border-border/80 bg-gradient-to-b from-background to-muted/30 p-3 sm:p-4">
