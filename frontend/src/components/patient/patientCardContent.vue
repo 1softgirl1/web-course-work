@@ -40,10 +40,9 @@ const fullName = computed(() => {
 
 const birthDateLabel = computed(() => props.patient.birthDate || 'Нет данных')
 
-const valveLabel = computed(() => {
-  const values = [props.patient.valve.name, props.patient.valve.size, props.patient.valve.material].filter(Boolean)
-  return values.length > 0 ? values.join(', ') : 'Нет данных'
-})
+const valveName = computed(() => props.patient.valve.name || 'Не указано')
+const valveSize = computed(() => props.patient.valve.size || 'Не указано')
+const valveMaterial = computed(() => props.patient.valve.material || 'Не указано')
 
 const isRegionChangeOpen = ref(false)
 const isPasswordModalOpen = ref(false)
@@ -173,18 +172,34 @@ const isPasswordModalOpen = ref(false)
             </div>
           </div>
 
-          <div v-if="patient.operationDetails.length > 0" class="space-y-2">
+          <div v-if="patient.operationDetails.length > 0" class="space-y-3">
             <div
               v-for="(operation, index) in patient.operationDetails"
               :key="`operation-${index}`"
-              class="rounded-lg border border-border p-3"
+              class="rounded-xl border border-border/80 bg-muted/20 p-4"
             >
-              <p class="font-medium text-foreground">{{ operation.name }}</p>
-              <p class="mt-1 text-sm text-muted-foreground">
-                - Наркоз: {{ operation.anesthesia }} <br />
-                - Продолжительность: {{ operation.duration }} <br />
-                - Система доставки: {{ operation.deliverySystem }}
-              </p>
+
+              <div class="mb-3 flex items-center  gap-3">
+                <Badge variant="outline" class="text-xs">Операция {{ index + 1 }}</Badge>
+                <p class="font-semibold text-foreground">{{ operation.name }}</p>
+              </div>
+
+              <div class="grid gap-2 sm:grid-cols-3">
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Наркоз</p>
+                  <p class="text-sm font-medium text-foreground">{{ operation.anesthesia || 'Не указано' }}</p>
+                </div>
+
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Продолжительность</p>
+                  <p class="text-sm font-medium text-foreground">{{ operation.duration || 'Не указано' }}</p>
+                </div>
+
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Система доставки</p>
+                  <p class="text-sm font-medium text-foreground">{{ operation.deliverySystem || 'Не указано' }}</p>
+                </div>
+              </div>
             </div>
           </div>
           <p v-else class="text-sm text-muted-foreground">Нет данных</p>
@@ -197,7 +212,20 @@ const isPasswordModalOpen = ref(false)
             </div>
             <div>
               <p class="text-sm text-muted-foreground">Характеристики клапана</p>
-              <p class="font-medium text-foreground">{{ valveLabel }}</p>
+              <div class="mt-2 grid gap-2 sm:grid-cols-3">
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Название</p>
+                  <p class="text-sm font-medium text-foreground">{{ valveName }}</p>
+                </div>
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Размер</p>
+                  <p class="text-sm font-medium text-foreground">{{ valveSize }}</p>
+                </div>
+                <div class="rounded-lg bg-background px-3 py-2">
+                  <p class="text-xs text-muted-foreground">Материал</p>
+                  <p class="text-sm font-medium text-foreground">{{ valveMaterial }}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

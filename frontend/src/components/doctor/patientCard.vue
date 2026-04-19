@@ -17,6 +17,7 @@ import { RegionsStore, resolveSelectedRegionName } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
+import IndicatorTrendDialog from '@/components/patient/indicatorTrendDialog.vue'
 
 const patientStore = usePatientStore()
 const authStore = useAuthStore()
@@ -26,6 +27,8 @@ const { examinations } = useExaminationStore()
 
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
+const selectedIndicatorIndex = ref<number | null>(null)
+const isIndicatorTrendOpen = ref(false)
 const isRegionPickerOpen = ref(false)
 const isRegionSelectOpen = ref(false)
 const isTransferConfirmOpen = ref(false)
@@ -113,6 +116,11 @@ const editExaminationPath = (examId: number) => {
 const openDetails = (exam: Examination) => {
   selectedExam.value = exam
   isDetailsOpen.value = true
+}
+
+const openIndicatorTrend = (index: number) => {
+  selectedIndicatorIndex.value = index
+  isIndicatorTrendOpen.value = true
 }
 
 const clearTransferTimers = () => {
@@ -287,7 +295,7 @@ onBeforeUnmount(() => {
       </Card>
 
       <div class="mt-8 w-full">
-        <ExaminationTabe :examinations="patientExaminations" />
+        <ExaminationTabe :examinations="patientExaminations" @select-indicator="openIndicatorTrend" />
       </div>
 
       <Dialog
@@ -371,7 +379,7 @@ onBeforeUnmount(() => {
                 <div
                   v-for="(value, index) in selectedExam.indicators"
                   :key="`doctor-modal-${selectedExam.id}-indicator-${index}`"
-                  class="rounded-md bg-secondary/40 px-3 py-2 text-sm"
+                  class="rounded-md bg-secondary/40 px-3 py-2 text-left text-sm"
                 >
                   <span class="text-muted-foreground">Показатель {{ index + 1 }}:</span>
                   <span class="ml-1 font-medium text-foreground">{{ value }}</span>
@@ -381,6 +389,12 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </Dialog>
+
+      <IndicatorTrendDialog
+        v-model="isIndicatorTrendOpen"
+        :indicator-index="selectedIndicatorIndex"
+        :exams="patientExaminations"
+      />
     </div>
 
     <Card v-else class="max-w-xl">
@@ -415,3 +429,5 @@ onBeforeUnmount(() => {
   background-clip: padding-box;
 }
 </style>
+
+

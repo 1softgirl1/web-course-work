@@ -1,19 +1,21 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import Card from "@/components/ui/card.vue"
-import Button from "@/components/ui/button.vue"
+import Card from '@/components/ui/card.vue'
+import Button from '@/components/ui/button.vue'
 import Dialog from '@/components/ui/dialog.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
+import IndicatorTrendDialog from '@/components/patient/indicatorTrendDialog.vue'
 import { useAuthStore } from '@/stores/authStore'
-
-import {FileText, Calendar, Eye} from "lucide-vue-next"
+import { FileText, Calendar, Eye } from 'lucide-vue-next'
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
-import Badge from "@/components/ui/badge.vue";
+import Badge from '@/components/ui/badge.vue'
 
 const { examinations } = useExaminationStore()
 const authStore = useAuthStore()
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
+const selectedIndicatorIndex = ref<number | null>(null)
+const isIndicatorTrendOpen = ref(false)
 
 const parseExamDate = (value: string): Date | null => {
   const [day, month, year] = value.split('.').map(Number)
@@ -46,101 +48,95 @@ const openDetails = (exam: Examination) => {
   isDetailsOpen.value = true
 }
 
+const openIndicatorTrend = (index: number) => {
+  selectedIndicatorIndex.value = index
+  isIndicatorTrendOpen.value = true
+}
 </script>
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold text-foreground">Обследования</h1>
         <p class="text-muted-foreground">История всех пройденных обследований</p>
       </div>
-
-
     </div>
 
-    <!-- Список обследований -->
     <div class="space-y-4">
       <Card
-          v-for="exam in sortedExaminations"
-          :key="exam.id"
-          class="hover:border-primary/30 transition-colorsx lg:h-25  "
+        v-for="exam in sortedExaminations"
+        :key="exam.id"
+        class="transition-colors lg:h-25 hover:border-primary/30"
       >
-      <div >
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-1">
-            <!-- Info -->
-            <div class="flex items-start gap-3 sm:gap-4 min-w-0">
-              <div class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center ">
-                <FileText class="w-6 h-6 text-primary stroke-1" />
+        <div>
+          <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-1">
+            <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+              <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
+                <FileText class="h-6 w-6 stroke-1 text-primary" />
               </div>
               <div class="min-w-0">
-
-                <div class="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-1">
-                  <h3 class="font-semibold text-foreground leading-snug sm:truncate">
-                    Обследование #{{ exam.id }}
-                  </h3>
+                <div class="mb-1 flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                  <h3 class="truncate font-semibold leading-snug text-foreground">Обследование #{{ exam.id }}</h3>
                   <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                 </div>
-                <p class="text-sm text-muted-foreground wrap-break-word">Врач: {{ exam.doctor }}</p>
+                <p class="wrap-break-word text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
               </div>
             </div>
 
-            <!-- Actions -->
-            <div class="flex items-center justify-between sm:justify-start gap-3 sm:gap-4 mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-border/60 sm:border-0">
+            <div class="mt-2 flex items-center justify-between gap-3 border-t border-border/60 pt-2 sm:mt-0 sm:justify-start sm:gap-4 sm:border-0 sm:pt-0">
               <div class="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar class="w-4 h-4" />
+                <Calendar class="h-4 w-4" />
                 <span>{{ exam.date }}</span>
               </div>
               <Button type="button" variant="ghost" size="icon" @click="openDetails(exam)">
-                <Eye class="w-4 h-4" />
+                <Eye class="h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
-
       </Card>
     </div>
 
     <div class="mt-8 w-full">
-      <ExaminationTabe />
+      <ExaminationTabe @select-indicator="openIndicatorTrend" />
     </div>
-
 
     <Dialog v-model="isDetailsOpen" content-class="sm:max-w-4xl">
       <div v-if="selectedExam" class="space-y-4">
-
         <div>
-          <div class="flex items-center gap-2 mb-1">
-            <h3 class="text-lg font-semibold text-foreground ">Обследование #{{ selectedExam.id }}
-            </h3>
-            <Badge variant="outline">
-              {{ selectedExam.date }}
-            </Badge>
+          <div class="mb-1 flex items-center gap-2">
+            <h3 class="text-lg font-semibold text-foreground">Обследование #{{ selectedExam.id }}</h3>
+            <Badge variant="outline">{{ selectedExam.date }}</Badge>
           </div>
 
-          <p class="text-sm text-muted-foreground">
-             Врач: {{ selectedExam.doctor }}</p>
-          <p class="text-sm text-muted-foreground mt-1">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
+          <p class="text-sm text-muted-foreground">Врач: {{ selectedExam.doctor }}</p>
+          <p class="mt-1 text-sm text-muted-foreground">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
         </div>
 
         <div>
-          <p class="text-sm text-muted-foreground mb-3">Численные показатели</p>
+          <p class="mb-3 text-sm text-muted-foreground">Численные показатели</p>
           <div class="details-scroll max-h-[65vh] overflow-y-auto pr-2">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <div
-              v-for="(value, index) in selectedExam.indicators"
-              :key="`modal-${selectedExam.id}-indicator-${index}`"
-              class="text-sm rounded-md bg-secondary/40 px-3 py-2"
-            >
-              <span class="text-muted-foreground">Показатель {{ index + 1 }}:</span>
-              <span class="ml-1 font-medium text-foreground">{{ value }}</span>
-            </div>
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div
+                v-for="(value, index) in selectedExam.indicators"
+                :key="`modal-${selectedExam.id}-indicator-${index}`"
+                class="rounded-md bg-secondary/40 px-3 py-2 text-left text-sm"
+              >
+                <span class="text-muted-foreground">Показатель {{ index + 1 }}:</span>
+                <span class="ml-1 font-medium text-foreground">{{ value }}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </Dialog>
+
+    <IndicatorTrendDialog
+      v-model="isIndicatorTrendOpen"
+      :indicator-index="selectedIndicatorIndex"
+      :exams="sortedExaminations"
+    />
   </div>
 </template>
 

@@ -14,6 +14,10 @@ const props = defineProps<{
   examinations?: Examination[]
 }>()
 
+const emit = defineEmits<{
+  (e: 'select-indicator', index: number): void
+}>()
+
 const { examinations } = useExaminationStore()
 
 const sourceExaminations = computed<Examination[]>(() => {
@@ -34,6 +38,10 @@ const indicatorColumns = 50
 const indicatorIndexes = computed<number[]>(() => {
   return Array.from({ length: indicatorColumns }, (_, index) => index)
 })
+
+const selectIndicator = (index: number) => {
+  emit('select-indicator', index)
+}
 </script>
 
 <template>
@@ -52,14 +60,16 @@ const indicatorIndexes = computed<number[]>(() => {
         <p class="text-xs text-muted-foreground mb-2">Врач: {{ exam.doctor }}</p>
 
         <div class="max-h-52 overflow-y-auto pr-1 space-y-1">
-          <div
+          <button
             v-for="(value, index) in exam.indicators"
             :key="`mobile-cell-${exam.id}-${index}`"
-            class="flex items-start justify-between gap-3 rounded bg-secondary/40 px-2 py-1.5 text-xs"
+            type="button"
+            class="flex w-full items-start justify-between gap-3 rounded bg-secondary/40 px-2 py-1.5 text-xs transition-colors hover:bg-secondary/70"
+            @click="selectIndicator(index)"
           >
             <span class="text-muted-foreground">Показатель {{ index + 1 }}</span>
             <span class="font-medium text-right">{{ value ?? '—' }}</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -85,7 +95,13 @@ const indicatorIndexes = computed<number[]>(() => {
               Показатель {{ index + 1 }}
             </TableCell>
             <TableCell v-for="exam in sortedExaminations" :key="`cell-${index}-${exam.id}`">
-              {{ exam.indicators[index] ?? '—' }}
+              <button
+                type="button"
+                class="w-full rounded px-1 py-1 transition-colors hover:bg-secondary/40"
+                @click="selectIndicator(index)"
+              >
+                {{ exam.indicators[index] ?? '—' }}
+              </button>
             </TableCell>
           </TableRow>
 
