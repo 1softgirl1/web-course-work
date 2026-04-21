@@ -1,0 +1,22 @@
+meta {
+  name: 03a list doctors by role
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/doctors?role=DOCTOR_EXTENDED&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("role filter returns only extended doctors", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+    body.items.forEach(item => expect(item.role).to.equal("DOCTOR_EXTENDED"));
+  });
+}

@@ -21,19 +21,20 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import ru.webcourse.backend.config.ActorPrincipal
+import ru.webcourse.backend.error.ApiErrorResponse
 import ru.webcourse.backend.service.PatientService
 
 @RestController
 @RequestMapping("/api/patients")
-@Tag(name = "Patients")
+@Tag(name = "Пациенты")
 class PatientCardController(
     private val patientService: PatientService,
 ) {
 
     @GetMapping("/{id}")
     @Operation(
-        summary = "Get patient card",
-        description = "Returns a patient card in FULL or ANONYMIZED mode depending on the actor role and region access. Patients can access only their own card.",
+        summary = "Получить карточку пациента",
+        description = "Возвращает карточку пациента в режиме FULL или ANONYMIZED в зависимости от роли и доступа по региону. Пациент может открыть только свою карточку.",
         operationId = "getPatientCard",
         security = [SecurityRequirement(name = "bearerAuth")],
     )
@@ -41,21 +42,22 @@ class PatientCardController(
         value = [
             ApiResponse(
                 responseCode = "200",
-                description = "Patient card",
+                description = "Карточка пациента",
                 content = [Content(
                     schema = Schema(implementation = PatientCardResponse::class),
                     examples = [ExampleObject(
                         name = "patientCardFull",
+                        summary = "Полная карточка пациента",
                         value = """
                         {
-                          "id": 3,
+                          "id": 1,
                           "viewMode": "FULL",
                           "patientCode": "PT-DEMO-001",
-                          "lastName": "Petrov",
-                          "firstName": "Petr",
-                          "middleName": "Petrovich",
+                          "lastName": "Петров",
+                          "firstName": "Петр",
+                          "middleName": "Петрович",
                           "regionId": 1,
-                          "regionName": "Region 1",
+                          "regionName": "Регион 1",
                           "birthDate": "1971-01-15",
                           "diagnosis": "Aortic valve stenosis",
                           "valve": {
@@ -69,75 +71,43 @@ class PatientCardController(
                             "deliverySystem": "Transfemoral"
                           },
                           "medications": "Bisoprolol 5 mg daily",
-                          "createdAt": "2026-04-13T10:15:30",
+                          "createdAt": "2026-03-01T09:30:00",
                           "vitalsHistory": []
                         }
                         """,
                     )],
                 )],
             ),
-            ApiResponse(
-                responseCode = "401",
-                description = "Authentication required",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "403",
-                description = "Patient is trying to access a foreign card",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "Patient card not found",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Пациент пытается открыть чужую карточку", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Карточка пациента не найдена", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
     fun getPatientCard(
-        @Parameter(description = "Patient identifier.", example = "1")
+        @Parameter(description = "Идентификатор пациента.", example = "1")
         @PathVariable id: Long,
         @AuthenticationPrincipal actor: ActorPrincipal,
     ): PatientCardResponse = patientService.getPatientCard(patientId = id, actor = actor)
 
     @PatchMapping("/{id}")
     @Operation(
-        summary = "Edit patient card",
-        description = "Updates the patient card. A regular doctor can edit only patients from the doctor's own region. A doctor with extended permissions can edit any patient. The patient login cannot be changed.",
+        summary = "Редактировать карточку пациента",
+        description = "Частично обновляет карточку пациента. Обычный врач редактирует только пациентов своего региона, DOCTOR_EXTENDED - любого пациента. Логин пациента через этот endpoint не меняется.",
         operationId = "updatePatientCard",
         security = [SecurityRequirement(name = "bearerAuth")],
     )
     @ApiResponses(
         value = [
-            ApiResponse(
-                responseCode = "200",
-                description = "Patient card updated",
-                content = [Content(schema = Schema(implementation = PatientCardResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "Validation failed",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "401",
-                description = "Authentication required",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "403",
-                description = "Access denied for patient card update",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "Patient card not found",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
+            ApiResponse(responseCode = "200", description = "Карточка пациента обновлена", content = [Content(schema = Schema(implementation = PatientCardResponse::class))]),
+            ApiResponse(responseCode = "400", description = "Ошибка валидации", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Доступ к редактированию карточки пациента запрещен", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Карточка пациента не найдена", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         required = true,
-        description = "Partial patient card update payload.",
+        description = "Поля для частичного обновления карточки пациента.",
         content = [Content(
             schema = Schema(implementation = UpdatePatientRequest::class),
             examples = [ExampleObject(
@@ -147,24 +117,14 @@ class PatientCardController(
                   "diagnosis": "Aortic valve stenosis, postoperative follow-up",
                   "regionId": 2,
                   "medications": "Bisoprolol 5 mg daily; Aspirin 75 mg daily",
-                  "password": "newSecret123",
-                  "valve": {
-                    "name": "Medtronic Evolut",
-                    "size": "26 mm",
-                    "material": "Bioprosthetic"
-                  },
-                  "operationParameters": {
-                    "anesthesia": "General anesthesia",
-                    "durationMinutes": 130,
-                    "deliverySystem": "Transfemoral"
-                  }
+                  "password": "newSecret123"
                 }
                 """,
             )],
         )],
     )
     fun updatePatientCard(
-        @Parameter(description = "Patient identifier.", example = "1")
+        @Parameter(description = "Идентификатор пациента.", example = "1")
         @PathVariable id: Long,
         @AuthenticationPrincipal actor: ActorPrincipal,
         @Valid @RequestBody request: UpdatePatientRequest,
@@ -173,67 +133,24 @@ class PatientCardController(
     @PostMapping("/{id}/examinations")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
-        summary = "Add patient examination record",
-        description = "Creates a new append-only examination record. A regular doctor can add examinations only for a patient from the doctor's own region. A doctor with extended permissions can add an examination for any patient.",
+        summary = "Добавить обследование",
+        description = "Создает новую append-only запись обследования. Обычный врач может добавлять обследование только пациенту своего региона, DOCTOR_EXTENDED - любому пациенту.",
         operationId = "addPatientExamination",
-        tags = ["Examinations"],
+        tags = ["Обследования"],
         security = [SecurityRequirement(name = "bearerAuth")],
     )
     @ApiResponses(
         value = [
-            ApiResponse(
-                responseCode = "201",
-                description = "Examination record created",
-                content = [Content(
-                    schema = Schema(implementation = ExaminationResponse::class),
-                    examples = [ExampleObject(
-                        name = "createdExamination",
-                        value = """
-                        {
-                          "examId": 11,
-                          "title": "Quarterly follow-up",
-                          "examDate": "2026-04-10",
-                          "comment": "Stable postoperative condition",
-                          "measurements": [
-                            {
-                              "characteristicId": 5,
-                              "characteristicCode": "metric_01",
-                              "characteristicName": "Metric 01",
-                              "value": "68.00",
-                              "unit": "unit_01",
-                              "comment": "Measured at rest"
-                            }
-                          ]
-                        }
-                        """,
-                    )],
-                )],
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "Validation failed",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "401",
-                description = "Authentication required",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "403",
-                description = "Access denied for patient examination update",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "Patient card or characteristic was not found",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
+            ApiResponse(responseCode = "201", description = "Обследование создано", content = [Content(schema = Schema(implementation = ExaminationResponse::class))]),
+            ApiResponse(responseCode = "400", description = "Ошибка валидации", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Доступ к добавлению обследования запрещен", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Карточка пациента или характеристика не найдены", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         required = true,
-        description = "Append-only examination payload.",
+        description = "Данные нового обследования.",
         content = [Content(
             schema = Schema(implementation = CreateExaminationRequest::class),
             examples = [ExampleObject(
@@ -248,11 +165,6 @@ class PatientCardController(
                       "characteristicCode": "metric_01",
                       "value": 72,
                       "comment": "Measured at rest"
-                    },
-                    {
-                      "characteristicCode": "metric_02",
-                      "value": 120,
-                      "comment": "Systolic pressure"
                     }
                   ]
                 }
@@ -261,7 +173,7 @@ class PatientCardController(
         )],
     )
     fun addExamination(
-        @Parameter(description = "Patient identifier.", example = "1")
+        @Parameter(description = "Идентификатор пациента.", example = "1")
         @PathVariable id: Long,
         @AuthenticationPrincipal actor: ActorPrincipal,
         @Valid @RequestBody request: CreateExaminationRequest,
@@ -269,75 +181,24 @@ class PatientCardController(
 
     @PatchMapping("/{patientId}/examinations/{examId}")
     @Operation(
-        summary = "Edit patient examination record",
-        description = "Partially updates an existing examination record. A regular doctor can edit examinations only for patients from the doctor's own region. A doctor with extended permissions can edit examinations for any patient. Measurements are applied as upserts by characteristicCode: omitted measurements remain unchanged.",
+        summary = "Редактировать обследование",
+        description = "Частично обновляет запись обследования. Measurements применяются как upsert по `characteristicCode`: существующие показатели обновляются, новые добавляются, непереданные остаются без изменений.",
         operationId = "updatePatientExamination",
-        tags = ["Examinations"],
+        tags = ["Обследования"],
         security = [SecurityRequirement(name = "bearerAuth")],
     )
     @ApiResponses(
         value = [
-            ApiResponse(
-                responseCode = "200",
-                description = "Examination record updated",
-                content = [Content(
-                    schema = Schema(implementation = ExaminationResponse::class),
-                    examples = [ExampleObject(
-                        name = "updatedExamination",
-                        value = """
-                        {
-                          "examId": 11,
-                          "title": "Quarterly follow-up",
-                          "examDate": "2026-04-10",
-                          "comment": "Corrected after lab results",
-                          "measurements": [
-                            {
-                              "characteristicId": 5,
-                              "characteristicCode": "metric_01",
-                              "characteristicName": "Metric 01",
-                              "value": "78",
-                              "unit": "unit_01",
-                              "comment": "Corrected value"
-                            },
-                            {
-                              "characteristicId": 6,
-                              "characteristicCode": "metric_02",
-                              "characteristicName": "Metric 02",
-                              "value": "120",
-                              "unit": "unit_02",
-                              "comment": "Existing value remains"
-                            }
-                          ]
-                        }
-                        """,
-                    )],
-                )],
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "Validation failed",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "401",
-                description = "Authentication required",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "403",
-                description = "Access denied for patient examination update",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "Patient card, examination, or characteristic was not found",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
+            ApiResponse(responseCode = "200", description = "Обследование обновлено", content = [Content(schema = Schema(implementation = ExaminationResponse::class))]),
+            ApiResponse(responseCode = "400", description = "Ошибка валидации", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Доступ к редактированию обследования запрещен", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Пациент, обследование или характеристика не найдены", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         required = true,
-        description = "Partial examination update payload. Only provided fields are changed.",
+        description = "Поля для частичного обновления обследования.",
         content = [Content(
             schema = Schema(implementation = UpdateExaminationRequest::class),
             examples = [ExampleObject(
@@ -350,11 +211,6 @@ class PatientCardController(
                       "characteristicCode": "metric_01",
                       "value": 78,
                       "comment": "Corrected value"
-                    },
-                    {
-                      "characteristicCode": "metric_03",
-                      "value": 4.2,
-                      "comment": "New lab result"
                     }
                   ]
                 }
@@ -363,9 +219,9 @@ class PatientCardController(
         )],
     )
     fun updateExamination(
-        @Parameter(description = "Patient identifier.", example = "1")
+        @Parameter(description = "Идентификатор пациента.", example = "1")
         @PathVariable patientId: Long,
-        @Parameter(description = "Examination identifier.", example = "11")
+        @Parameter(description = "Идентификатор обследования.", example = "11")
         @PathVariable examId: Long,
         @AuthenticationPrincipal actor: ActorPrincipal,
         @Valid @RequestBody request: UpdateExaminationRequest,
@@ -378,81 +234,22 @@ class PatientCardController(
 
     @GetMapping("/{id}/examinations")
     @Operation(
-        summary = "Get patient examination records",
-        description = "Returns the full examination history for the patient in chronological order. Patients can access only their own examination history. Doctors can read history for patients from any region.",
+        summary = "Получить обследования пациента",
+        description = "Возвращает журнал обследований пациента в хронологическом порядке. Пациент видит только свою историю, врач может читать историю пациентов из любого региона.",
         operationId = "listPatientExaminations",
-        tags = ["Examinations"],
+        tags = ["Обследования"],
         security = [SecurityRequirement(name = "bearerAuth")],
     )
     @ApiResponses(
         value = [
-            ApiResponse(
-                responseCode = "200",
-                description = "Examination history",
-                content = [Content(
-                    schema = Schema(implementation = ExaminationListResponse::class),
-                    examples = [ExampleObject(
-                        name = "examinationHistory",
-                        value = """
-                        {
-                          "items": [
-                            {
-                              "examId": 10,
-                              "title": "Initial check",
-                              "examDate": "2026-02-15",
-                              "comment": "Baseline values",
-                              "measurements": [
-                                {
-                                  "characteristicId": 1,
-                                  "characteristicCode": "metric_01",
-                                  "characteristicName": "Metric 01",
-                                  "value": "72.00",
-                                  "unit": "unit_01",
-                                  "comment": "Measured at rest"
-                                }
-                              ]
-                            },
-                            {
-                              "examId": 11,
-                              "title": "Quarterly follow-up",
-                              "examDate": "2026-04-10",
-                              "comment": "Stable postoperative condition",
-                              "measurements": [
-                                {
-                                  "characteristicId": 1,
-                                  "characteristicCode": "metric_01",
-                                  "characteristicName": "Metric 01",
-                                  "value": "68.00",
-                                  "unit": "unit_01",
-                                  "comment": "Measured at rest"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                        """,
-                    )],
-                )],
-            ),
-            ApiResponse(
-                responseCode = "401",
-                description = "Authentication required",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "403",
-                description = "Access denied for patient examination history",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
-            ApiResponse(
-                responseCode = "404",
-                description = "Patient card not found",
-                content = [Content(schema = Schema(implementation = ApiErrorResponse::class))],
-            ),
+            ApiResponse(responseCode = "200", description = "История обследований", content = [Content(schema = Schema(implementation = ExaminationListResponse::class))]),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Доступ к истории обследований запрещен", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Карточка пациента не найдена", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
     fun listExaminations(
-        @Parameter(description = "Patient identifier.", example = "1")
+        @Parameter(description = "Идентификатор пациента.", example = "1")
         @PathVariable id: Long,
         @AuthenticationPrincipal actor: ActorPrincipal,
     ): ExaminationListResponse = patientService.listExaminations(patientId = id, actor = actor)

@@ -1,0 +1,27 @@
+meta {
+  name: 17 patch examination not found
+  type: http
+  seq: 17
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations/999999
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Missing examination"
+  }
+}
+
+tests {
+  test("missing examination returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

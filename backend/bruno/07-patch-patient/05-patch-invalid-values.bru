@@ -1,0 +1,28 @@
+meta {
+  name: 05 patch invalid values
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "birthDate": "3026-01-01",
+    "password": "123"
+  }
+}
+
+tests {
+  test("invalid patch returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

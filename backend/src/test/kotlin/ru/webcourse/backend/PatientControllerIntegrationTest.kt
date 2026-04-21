@@ -374,6 +374,251 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
+    fun patientCanChangeOwnPasswordAndKeepOnlyCurrentRefreshSession() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        val currentSession = loginSession(created.patientCode, created.temporaryPassword)
+        val otherSession = loginSession(created.patientCode, created.temporaryPassword)
+
+        val changeResponse = mockMvc.post("/auth/password/change") {
+            with(bearer(currentSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "${created.temporaryPassword}",
+                  "newPassword": "patient-new-password",
+                  "refreshToken": "${currentSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.accessToken") { isString() }
+            jsonPath("$.refreshToken") { isString() }
+            jsonPath("$.user.role") { value(UserRole.PATIENT.name) }
+            jsonPath("$.user.patientCode") { value(created.patientCode) }
+        }.andReturn()
+
+        val newRefreshToken = extractJsonString(changeResponse.response.contentAsString, "refreshToken")
+        assertNotEquals(currentSession.refreshToken, newRefreshToken)
+        assertTrue(
+            passwordEncoder.matches(
+                "patient-new-password",
+                userRepository.findByUsername(created.patientCode)!!.passwordHash,
+            )
+        )
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "username": "${created.patientCode}",
+                  "password": "${created.temporaryPassword}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "username": "${created.patientCode}",
+                  "password": "patient-new-password"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${currentSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${otherSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "$newRefreshToken"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }
+    }
+
+    @Test
+    fun doctorsCanChangeOwnPassword() {
+        createDoctor(login = DOCTOR_EMAIL)
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        listOf(DOCTOR_EMAIL, HEAD_DOCTOR_EMAIL).forEachIndexed { index, username ->
+            val session = loginSession(username, DOCTOR_PASSWORD)
+            val newPassword = "doctor-new-password-$index"
+
+            mockMvc.post("/auth/password/change") {
+                with(bearer(session.accessToken))
+                contentType = MediaType.APPLICATION_JSON
+                content = """
+                    {
+                      "currentPassword": "$DOCTOR_PASSWORD",
+                      "newPassword": "$newPassword",
+                      "refreshToken": "${session.refreshToken}"
+                    }
+                """.trimIndent()
+            }.andExpect {
+                status { isOk() }
+                jsonPath("$.user.email") { value(username) }
+            }
+
+            mockMvc.post("/auth/login") {
+                contentType = MediaType.APPLICATION_JSON
+                content = """
+                    {
+                      "username": "$username",
+                      "password": "$newPassword"
+                    }
+                """.trimIndent()
+            }.andExpect {
+                status { isOk() }
+            }
+        }
+    }
+
+    @Test
+    fun changePasswordRejectsWrongCurrentPasswordOtherUserRefreshAndInvalidBody() {
+        createDoctor(login = DOCTOR_EMAIL)
+        createDoctor(login = SECOND_DOCTOR_EMAIL)
+        val doctorSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        val otherDoctorSession = loginSession(SECOND_DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(doctorSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "wrong-password",
+                  "newPassword": "doctor-new-password",
+                  "refreshToken": "${doctorSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(doctorSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "$DOCTOR_PASSWORD",
+                  "newPassword": "doctor-new-password",
+                  "refreshToken": "${otherDoctorSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isForbidden() }
+        }
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(doctorSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "$DOCTOR_PASSWORD",
+                  "newPassword": "123",
+                  "refreshToken": "${doctorSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(doctorSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "$DOCTOR_PASSWORD",
+                  "newPassword": " 12345 ",
+                  "refreshToken": "${doctorSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(doctorSession.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = "{}"
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.post("/auth/password/change") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "$DOCTOR_PASSWORD",
+                  "newPassword": "doctor-new-password",
+                  "refreshToken": "${doctorSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+    }
+
+    @Test
+    fun inactiveUserCannotChangePassword() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        val user = userRepository.findByUsername(DOCTOR_EMAIL) ?: error("Doctor was not found")
+        userRepository.save(
+            UserEntity(
+                id = user.id,
+                username = user.username,
+                passwordHash = user.passwordHash,
+                role = user.role,
+                status = UserStatus.INACTIVE,
+            )
+        )
+
+        mockMvc.post("/auth/password/change") {
+            with(bearer(session.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "currentPassword": "$DOCTOR_PASSWORD",
+                  "newPassword": "doctor-new-password",
+                  "refreshToken": "${session.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
     fun doctorExtendedRoleCanUseDoctorEndpoints() {
         createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
 
@@ -388,6 +633,278 @@ class PatientControllerIntegrationTest {
             content = validCreateRequest()
         }.andExpect {
             status { isCreated() }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanCreateDoctorAndCreatedDoctorCanLogin() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        val response = mockMvc.post("/api/doctors") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest(username = "created.doctor@example.com", role = UserRole.DOCTOR)
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.doctor.username") { value("created.doctor@example.com") }
+            jsonPath("$.doctor.role") { value("DOCTOR") }
+            jsonPath("$.doctor.workplace") { value("Regional Cardiology Center") }
+            jsonPath("$.temporaryPassword") { isString() }
+        }.andReturn()
+
+        val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "username": "created.doctor@example.com",
+                  "password": ${jsonString(temporaryPassword)}
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.user.role") { value("DOCTOR") }
+            jsonPath("$.user.email") { value("created.doctor@example.com") }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanCreateAnotherDoctorExtended() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        mockMvc.post("/api/doctors") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest(
+                username = "created.extended@example.com",
+                role = UserRole.DOCTOR_EXTENDED,
+            )
+        }.andExpect {
+            status { isCreated() }
+            jsonPath("$.doctor.role") { value("DOCTOR_EXTENDED") }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanListAndFilterDoctors() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 1L, role = UserRole.DOCTOR_EXTENDED)
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+
+        mockMvc.get("/api/doctors?page=0&limit=10&regionId=2&role=DOCTOR&status=ACTIVE&search=ivan") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.items.length()") { value(1) }
+            jsonPath("$.items[0].username") { value(SECOND_DOCTOR_EMAIL) }
+            jsonPath("$.items[0].workplace") { value("Regional Cardiology Center") }
+            jsonPath("$.total") { value(1) }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanPatchDoctorProfileUsernameRoleStatusAndRegion() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 1L, role = UserRole.DOCTOR_EXTENDED)
+        val doctor = createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+
+        mockMvc.patch("/api/doctors/${doctor.id}") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchDoctorRequest(
+                username = "updated.doctor@example.com",
+                role = UserRole.DOCTOR_EXTENDED,
+                status = UserStatus.INACTIVE,
+                lastName = "Updated",
+                firstName = "Doctor",
+                specialization = "Cardiologist",
+                workplace = "Federal Cardiology Center",
+                regionId = 2L,
+            )
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.username") { value("updated.doctor@example.com") }
+            jsonPath("$.role") { value("DOCTOR_EXTENDED") }
+            jsonPath("$.status") { value("INACTIVE") }
+            jsonPath("$.lastName") { value("Updated") }
+            jsonPath("$.firstName") { value("Doctor") }
+            jsonPath("$.specialization") { value("Cardiologist") }
+            jsonPath("$.workplace") { value("Federal Cardiology Center") }
+            jsonPath("$.regionId") { value(2) }
+        }
+
+        assertEquals(null, userRepository.findByUsername(DOCTOR_EMAIL))
+        assertNotNull(userRepository.findByUsername("updated.doctor@example.com"))
+    }
+
+    @Test
+    fun doctorExtendedCannotPatchOwnRoleOrStatus() {
+        val headDoctor = createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        mockMvc.patch("/api/doctors/${headDoctor.id}") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchDoctorRequest(role = UserRole.DOCTOR)
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.patch("/api/doctors/${headDoctor.id}") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchDoctorRequest(status = UserStatus.INACTIVE)
+        }.andExpect {
+            status { isBadRequest() }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanResetDoctorPasswordAndOldPasswordStopsWorking() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+        val doctor = createDoctor(login = DOCTOR_EMAIL)
+        val oldSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        val response = mockMvc.post("/api/doctors/${doctor.id}/password-reset") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.username") { value(DOCTOR_EMAIL) }
+            jsonPath("$.temporaryPassword") { isString() }
+        }.andReturn()
+
+        val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{ "username": "$DOCTOR_EMAIL", "password": "$DOCTOR_PASSWORD" }"""
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${oldSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
+
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "username": "$DOCTOR_EMAIL",
+                  "password": ${jsonString(temporaryPassword)}
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanResetOwnPassword() {
+        val headDoctor = createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+
+        val response = mockMvc.post("/api/doctors/${headDoctor.id}/password-reset") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.username") { value(HEAD_DOCTOR_EMAIL) }
+        }.andReturn()
+
+        val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
+        mockMvc.post("/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "username": "$HEAD_DOCTOR_EMAIL",
+                  "password": ${jsonString(temporaryPassword)}
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.user.role") { value("DOCTOR_EXTENDED") }
+        }
+    }
+
+    @Test
+    fun regularDoctorAndPatientCannotManageDoctors() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+        createDoctor(login = DOCTOR_EMAIL)
+        val createdPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.get("/api/doctors") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isForbidden() }
+        }
+
+        mockMvc.post("/api/doctors") {
+            with(patientBearer(createdPatient.patientCode, createdPatient.temporaryPassword))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest()
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun doctorManagementRejectsUnauthenticatedRequests() {
+        mockMvc.get("/api/doctors")
+            .andExpect {
+                status { isUnauthorized() }
+            }
+    }
+
+    @Test
+    fun doctorManagementReturns404And409And400ForInvalidRequests() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+        createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.post("/api/doctors") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest(username = "bad-doctor-login")
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.post("/api/doctors") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest(username = DOCTOR_EMAIL)
+        }.andExpect {
+            status { isConflict() }
+        }
+
+        mockMvc.post("/api/doctors") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateDoctorRequest(regionId = 999999)
+        }.andExpect {
+            status { isNotFound() }
+        }
+
+        mockMvc.patch("/api/doctors/999999") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchDoctorRequest(firstName = "Missing")
+        }.andExpect {
+            status { isNotFound() }
+        }
+
+        mockMvc.get("/api/doctors?page=-1&limit=20") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
+        }
+
+        mockMvc.get("/api/doctors?page=0&limit=101") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isBadRequest() }
         }
     }
 
@@ -1428,6 +1945,7 @@ class PatientControllerIntegrationTest {
     fun doctorCanPatchPatientFieldsAndPasswordExceptLogin() {
         createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+        val oldPatientSession = loginSession(created.patientCode, created.temporaryPassword)
 
         mockMvc.patch("/api/patients/${created.id}") {
             with(doctorBearer(DOCTOR_EMAIL))
@@ -1468,6 +1986,17 @@ class PatientControllerIntegrationTest {
         assertNotNull(storedUser)
         assertEquals(created.patientCode, storedUser.username)
         assertTrue(passwordEncoder.matches("new-secret-password", storedUser.passwordHash))
+
+        mockMvc.post("/auth/refresh") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "refreshToken": "${oldPatientSession.refreshToken}"
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isUnauthorized() }
+        }
     }
 
     @Test
@@ -1594,6 +2123,7 @@ class PatientControllerIntegrationTest {
             DoctorProfileEntity(
                 user = doctorUser,
                 specialization = "Cardiac surgeon",
+                workplace = "Regional Cardiology Center",
                 lastName = "Ivanov",
                 firstName = "Ivan",
                 middleName = "Ivanovich",
@@ -1752,6 +2282,64 @@ class PatientControllerIntegrationTest {
 
     private fun seedExaminationWithDate(patientId: Long, examDate: LocalDate) {
         seedExaminationWithMeasurements(patientId, examDate)
+    }
+
+    private fun validCreateDoctorRequest(
+        username: String = "new.doctor@example.com",
+        role: UserRole = UserRole.DOCTOR,
+        lastName: String = "Created",
+        firstName: String = "Doctor",
+        middleName: String? = "Middle",
+        specialization: String = "Cardiac surgeon",
+        workplace: String = "Regional Cardiology Center",
+        regionId: Long = 1L,
+    ): String = """
+        {
+          "username": ${jsonString(username)},
+          "role": ${jsonString(role.name)},
+          "lastName": ${jsonString(lastName)},
+          "firstName": ${jsonString(firstName)},
+          "middleName": ${jsonNullableString(middleName)},
+          "specialization": ${jsonString(specialization)},
+          "workplace": ${jsonString(workplace)},
+          "regionId": $regionId
+        }
+    """.trimIndent()
+
+    private fun validPatchDoctorRequest(
+        username: String? = null,
+        role: UserRole? = null,
+        status: UserStatus? = null,
+        lastName: String? = null,
+        firstName: String? = null,
+        middleName: String? = null,
+        includeMiddleName: Boolean = false,
+        specialization: String? = null,
+        workplace: String? = null,
+        regionId: Long? = null,
+    ): String {
+        val fields = mutableListOf<String>()
+        username?.let { fields += "\"username\": ${jsonString(it)}" }
+        role?.let { fields += "\"role\": ${jsonString(it.name)}" }
+        status?.let { fields += "\"status\": ${jsonString(it.name)}" }
+        lastName?.let { fields += "\"lastName\": ${jsonString(it)}" }
+        firstName?.let { fields += "\"firstName\": ${jsonString(it)}" }
+        if (includeMiddleName) {
+            fields += "\"middleName\": ${jsonNullableString(middleName)}"
+        }
+        specialization?.let { fields += "\"specialization\": ${jsonString(it)}" }
+        workplace?.let { fields += "\"workplace\": ${jsonString(it)}" }
+        regionId?.let { fields += "\"regionId\": $it" }
+
+        return buildString {
+            append("{")
+            if (fields.isNotEmpty()) {
+                append("\n  ")
+                append(fields.joinToString(",\n  "))
+                append("\n")
+            }
+            append("}")
+        }
     }
 
     private fun validCreateRequest(

@@ -1,0 +1,41 @@
+meta {
+  name: 02 add examination extended doctor foreign region
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}/examinations
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Extended doctor foreign-region follow-up",
+    "examDate": "2026-04-13",
+    "comment": "Created by DOCTOR_EXTENDED",
+    "measurements": [
+      {
+        "characteristicCode": "metric_01",
+        "value": 73,
+        "comment": "Measured at rest"
+      },
+      {
+        "characteristicCode": "metric_02",
+        "value": 121,
+        "comment": "Systolic pressure"
+      }
+    ]
+  }
+}
+
+tests {
+  test("extended doctor can add examination for foreign region", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

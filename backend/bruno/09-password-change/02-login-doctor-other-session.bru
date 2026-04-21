@@ -1,0 +1,32 @@
+meta {
+  name: 02 login doctor other session
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{doctorEmail}}",
+    "password": "{{doctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("changeDoctorOtherRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("second doctor session returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

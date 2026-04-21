@@ -1,0 +1,35 @@
+meta {
+  name: 01a login created doctor before reset
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{createdDoctorUsername}}",
+    "password": "{{createdDoctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("oldCreatedDoctorRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("created doctor can login before reset", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.user.email).to.equal(bru.getVar("createdDoctorUsername"));
+    expect(body.refreshToken).to.exist;
+  });
+}

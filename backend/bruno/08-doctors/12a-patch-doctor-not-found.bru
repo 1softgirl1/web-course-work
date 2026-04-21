@@ -1,0 +1,27 @@
+meta {
+  name: 12a patch doctor not found
+  type: http
+  seq: 13
+}
+
+patch {
+  url: {{baseUrl}}/api/doctors/999999
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lastName": "Missing"
+  }
+}
+
+tests {
+  test("patch missing doctor returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

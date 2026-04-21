@@ -1,0 +1,26 @@
+meta {
+  name: 08 refresh old token rejected
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{oldDoctorRefreshToken}}"
+  }
+}
+
+tests {
+  test("old rotated refresh token returns 401", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

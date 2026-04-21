@@ -1,0 +1,43 @@
+meta {
+  name: 04 create patient as patient forbidden
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/doctor/patients
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lastName": "Nope",
+    "firstName": "Patient",
+    "middleName": null,
+    "birthDate": "1980-01-01",
+    "diagnosis": "Should fail",
+    "regionId": 1,
+    "valve": {
+      "name": "Valve",
+      "size": "25 mm",
+      "material": "Bio"
+    },
+    "operationParameters": {
+      "anesthesia": "General anesthesia",
+      "durationMinutes": 100,
+      "deliverySystem": "Transfemoral"
+    },
+    "medications": "None"
+  }
+}
+
+tests {
+  test("patient cannot create patient cards", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

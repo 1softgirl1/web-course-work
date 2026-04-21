@@ -1,0 +1,26 @@
+meta {
+  name: 13 refresh unknown token rejected
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "unknown-refresh-token"
+  }
+}
+
+tests {
+  test("unknown refresh token returns 401", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

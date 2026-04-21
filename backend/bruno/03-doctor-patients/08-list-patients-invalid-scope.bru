@@ -1,0 +1,19 @@
+meta {
+  name: 08 list patients invalid scope
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=weird&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("invalid scope returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

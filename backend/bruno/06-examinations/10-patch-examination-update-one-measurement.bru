@@ -1,0 +1,40 @@
+meta {
+  name: 10 patch examination update one measurement
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations/{{createdExaminationId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "measurements": [
+      {
+        "characteristicCode": "metric_01",
+        "value": 76,
+        "comment": "Corrected from Bruno"
+      }
+    ]
+  }
+}
+
+tests {
+  test("doctor can update one measurement without removing others", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.measurements.length).to.equal(2);
+    const metric01 = body.measurements.find(item => item.characteristicCode === "metric_01");
+    const metric02 = body.measurements.find(item => item.characteristicCode === "metric_02");
+    expect(metric01.value).to.equal("76");
+    expect(metric01.comment).to.equal("Corrected from Bruno");
+    expect(metric02).to.exist;
+  });
+}

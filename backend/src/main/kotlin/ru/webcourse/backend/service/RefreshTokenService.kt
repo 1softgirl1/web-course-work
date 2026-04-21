@@ -32,6 +32,7 @@ class RefreshTokenService(
         )
 
         return IssuedRefreshToken(
+            sessionId = session.id,
             token = rawToken,
             expiresAt = session.expiresAt,
         )
@@ -73,11 +74,42 @@ class RefreshTokenService(
     }
 
     @Transactional
+    fun rotateAndRevokeOtherSessions(
+        rawToken: String,
+        userId: Long,
+        now: Instant = Instant.now(),
+        validateUser: (UserEntity) -> Unit = {},
+    ): RotatedRefreshToken {
+        val rotated = rotate(rawToken = rawToken, now = now) { user ->
+            if (user.id != userId) {
+                throw org.springframework.security.access.AccessDeniedException("Refresh token belongs to another user")
+            }
+            validateUser(user)
+        }
+
+        refreshTokenSessionRepository.revokeActiveByUserIdExceptSessionId(
+            userId = userId,
+            exceptSessionId = rotated.newToken.sessionId,
+            revokedAt = now,
+        )
+
+        return rotated
+    }
+
+    @Transactional
     fun revoke(rawToken: String, now: Instant = Instant.now()) {
-        val session = refreshTokenSessionRepository.findByTokenHash(hashToken(rawToken)) ?: return
+        val session = refreshTokenSessionRepository.findByTokenHashForUpdate(hashToken(rawToken)) ?: return
         if (session.revokedAt == null) {
             session.revoke(now)
         }
+    }
+
+    @Transactional
+    fun revokeAllForUser(userId: Long, now: Instant = Instant.now()) {
+        refreshTokenSessionRepository.revokeActiveByUserId(
+            userId = userId,
+            revokedAt = now,
+        )
     }
 
     private fun generateRawToken(): String {
@@ -98,6 +130,7 @@ class RefreshTokenService(
 }
 
 data class IssuedRefreshToken(
+    val sessionId: Long,
     val token: String,
     val expiresAt: Instant,
 )

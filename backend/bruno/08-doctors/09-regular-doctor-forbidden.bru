@@ -1,0 +1,19 @@
+meta {
+  name: 09 regular doctor forbidden
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/doctors
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("regular doctor cannot list doctors", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

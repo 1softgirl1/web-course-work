@@ -1,0 +1,26 @@
+meta {
+  name: 10 logout doctor session
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/auth/logout
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{logoutRefreshToken}}"
+  }
+}
+
+tests {
+  test("logout returns 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

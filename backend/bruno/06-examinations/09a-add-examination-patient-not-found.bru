@@ -1,0 +1,35 @@
+meta {
+  name: 09a add examination patient not found
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/patients/999999/examinations
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Missing patient",
+    "examDate": "2026-04-13",
+    "comment": "Should fail",
+    "measurements": [
+      {
+        "characteristicCode": "metric_01",
+        "value": 70
+      }
+    ]
+  }
+}
+
+tests {
+  test("missing patient returns 404 on examination create", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

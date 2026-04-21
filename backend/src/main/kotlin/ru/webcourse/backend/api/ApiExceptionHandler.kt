@@ -1,17 +1,20 @@
 package ru.webcourse.backend.api
 
 import io.swagger.v3.oas.annotations.media.Schema
+import jakarta.validation.ConstraintViolationException
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.validation.FieldError
-import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import ru.webcourse.backend.error.ApiErrorResponse
+import ru.webcourse.backend.service.ConflictException
 import ru.webcourse.backend.service.InvalidCredentialsException
 import ru.webcourse.backend.service.NotFoundException
-import jakarta.validation.ConstraintViolationException
 import java.time.OffsetDateTime
 
 @RestControllerAdvice
@@ -20,6 +23,14 @@ class ApiExceptionHandler {
     @ExceptionHandler(NotFoundException::class)
     fun handleNotFound(exception: NotFoundException): ResponseEntity<ApiErrorResponse> =
         buildError(HttpStatus.NOT_FOUND, exception.message ?: "Resource was not found")
+
+    @ExceptionHandler(ConflictException::class)
+    fun handleConflict(exception: ConflictException): ResponseEntity<ApiErrorResponse> =
+        buildError(HttpStatus.CONFLICT, exception.message ?: "Resource conflict")
+
+    @ExceptionHandler(DataIntegrityViolationException::class)
+    fun handleDataIntegrityViolation(exception: DataIntegrityViolationException): ResponseEntity<ApiErrorResponse> =
+        buildError(HttpStatus.CONFLICT, "Resource conflict")
 
     @ExceptionHandler(AccessDeniedException::class)
     fun handleAccessDenied(exception: AccessDeniedException): ResponseEntity<ApiErrorResponse> =
@@ -84,17 +95,3 @@ class ApiExceptionHandler {
         )
     )
 }
-
-@Schema(description = "Standard API error response.")
-data class ApiErrorResponse(
-    @field:Schema(description = "HTTP status code.", example = "400")
-    val status: Int,
-    @field:Schema(description = "HTTP reason phrase.", example = "Bad Request")
-    val error: String,
-    @field:Schema(description = "Human-readable error message.", example = "Validation failed")
-    val message: String,
-    @field:Schema(description = "Optional validation or domain-specific details.")
-    val details: List<String>,
-    @field:Schema(description = "Timestamp when the error response was generated.", example = "2026-04-13T12:00:00+07:00")
-    val timestamp: OffsetDateTime,
-)

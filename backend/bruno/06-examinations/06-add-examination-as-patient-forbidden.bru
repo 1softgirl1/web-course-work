@@ -1,0 +1,35 @@
+meta {
+  name: 06 add examination as patient forbidden
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/patients/{{seedOwnPatientId}}/examinations
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Should fail",
+    "examDate": "2026-04-13",
+    "comment": "Forbidden scenario",
+    "measurements": [
+      {
+        "characteristicCode": "metric_01",
+        "value": 70
+      }
+    ]
+  }
+}
+
+tests {
+  test("patient cannot add examination", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

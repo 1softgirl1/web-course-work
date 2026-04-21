@@ -1,0 +1,27 @@
+meta {
+  name: 14 patch examination as patient forbidden
+  type: http
+  seq: 14
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{seedOwnPatientId}}/examinations/{{seedOwnExaminationId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Should be forbidden"
+  }
+}
+
+tests {
+  test("patient cannot patch examination", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import ru.webcourse.backend.api.AuthResponse
 import ru.webcourse.backend.api.AuthUserResponse
+import ru.webcourse.backend.api.ChangePasswordRequest
 import ru.webcourse.backend.api.LoginRequest
 import ru.webcourse.backend.api.RefreshTokenRequest
 import ru.webcourse.backend.config.ActorPrincipal
@@ -52,6 +53,44 @@ class AuthService(
     @Transactional
     fun logout(request: RefreshTokenRequest) {
         refreshTokenService.revoke(request.refreshToken.trim())
+    }
+
+    @Transactional
+    fun changePassword(
+        actor: ActorPrincipal,
+        request: ChangePasswordRequest,
+    ): AuthResponse {
+        val user = userRepository.findById(actor.id)
+            .orElseThrow { InvalidCredentialsException("Invalid credentials") }
+
+        validateCredentials(user, request.currentPassword)
+
+        val newPassword = request.newPassword.trim()
+        require(newPassword.length >= MIN_PASSWORD_LENGTH) {
+            "newPassword must be at least $MIN_PASSWORD_LENGTH characters"
+        }
+        val updatedUser = userRepository.save(
+            UserEntity(
+                id = user.id,
+                username = user.username,
+                passwordHash = requireNotNull(passwordEncoder.encode(newPassword)) {
+                    "Password encoder returned null hash"
+                },
+                role = user.role,
+                status = user.status,
+            )
+        )
+
+        val rotated = refreshTokenService.rotateAndRevokeOtherSessions(
+            rawToken = request.refreshToken.trim(),
+            userId = updatedUser.id,
+        ) { refreshUser ->
+            if (!refreshUser.status.isActive()) {
+                throw AccessDeniedException("User is inactive")
+            }
+        }
+
+        return issueTokens(updatedUser, rotated.newToken)
     }
 
     private fun loginDoctorByEmail(email: String, password: String): AuthResponse {
@@ -160,6 +199,10 @@ class AuthService(
         add(firstName)
         middleName?.takeIf { it.isNotBlank() }?.let(::add)
     }.joinToString(" ")
+
+    companion object {
+        private const val MIN_PASSWORD_LENGTH = 6
+    }
 }
 
 class InvalidCredentialsException(message: String) : RuntimeException(message)

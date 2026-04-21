@@ -1,0 +1,43 @@
+meta {
+  name: 03 create patient invalid body
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/doctor/patients
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lastName": "",
+    "firstName": "",
+    "middleName": null,
+    "birthDate": "3026-01-15",
+    "diagnosis": "",
+    "regionId": 1,
+    "valve": {
+      "name": "",
+      "size": "",
+      "material": ""
+    },
+    "operationParameters": {
+      "anesthesia": "",
+      "durationMinutes": 0,
+      "deliverySystem": ""
+    },
+    "medications": ""
+  }
+}
+
+tests {
+  test("invalid create body returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

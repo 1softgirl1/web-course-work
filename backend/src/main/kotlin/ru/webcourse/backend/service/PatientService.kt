@@ -48,6 +48,7 @@ class PatientService(
     private val userRepository: UserRepository,
     private val passwordEncoder: PasswordEncoder,
     private val credentialsGenerator: PatientCredentialsGenerator,
+    private val refreshTokenService: RefreshTokenService,
 ) {
 
     @Transactional
@@ -318,6 +319,9 @@ class PatientService(
         val updatedUser = userRepository.save(
             patient.updatedUser(request.password, passwordEncoder)
         )
+        if (request.password != null) {
+            refreshTokenService.revokeAllForUser(updatedUser.id)
+        }
 
         val updatedPatient = patientProfileRepository.saveAndFlush(
             PatientProfileEntity(

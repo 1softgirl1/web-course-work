@@ -1,0 +1,26 @@
+meta {
+  name: 07 refresh other doctor session rejected
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{changeDoctorOtherRefreshToken}}"
+  }
+}
+
+tests {
+  test("other doctor refresh session is revoked", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

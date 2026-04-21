@@ -22,6 +22,8 @@ class DoctorProfileEntity(
     val user: UserEntity,
     @Column(name = "specialization", nullable = false)
     val specialization: String,
+    @Column(name = "workplace", nullable = false)
+    val workplace: String,
     @Column(name = "last_name", nullable = false)
     val lastName: String,
     @Column(name = "first_name", nullable = false)

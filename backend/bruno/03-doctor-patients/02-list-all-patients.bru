@@ -1,0 +1,27 @@
+meta {
+  name: 02 list all patients
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=all&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("all patients returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("all scope anonymizes names and includes multiple regions", function () {
+    const body = res.getBody();
+    const regions = [...new Set(body.items.map(item => item.regionId))];
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.items.every(item => item.lastName === null && item.firstName === null && item.middleName === null)).to.equal(true);
+    expect(regions.length).to.be.greaterThan(1);
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: 12b reset doctor not found
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/doctors/999999/password-reset
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("reset missing doctor returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

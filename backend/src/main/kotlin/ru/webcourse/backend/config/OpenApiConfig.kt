@@ -12,20 +12,21 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @OpenAPIDefinition(
     info = Info(
-        title = "Patient API",
+        title = "API мониторинга пациентов",
         version = "1.0.0",
-        description = "Runtime Swagger documentation for the patient monitoring backend.",
+        description = "Runtime-документация backend API для системы мониторинга пациентов после операций.",
     ),
     servers = [
         Server(
             url = "http://localhost:8080",
-            description = "Local backend server",
+            description = "Локальный backend-сервер",
         ),
     ],
     tags = [
-        Tag(name = "Auth", description = "Authentication endpoints"),
-        Tag(name = "Patients", description = "Patient cards and doctor patient access"),
-        Tag(name = "Examinations", description = "Patient examination journal"),
+        Tag(name = "Авторизация", description = "Вход, refresh token, logout и смена собственного пароля"),
+        Tag(name = "Пациенты", description = "Карточки пациентов, списки и правила доступа врачей"),
+        Tag(name = "Обследования", description = "Журнал обследований пациента и показатели измерений"),
+        Tag(name = "Врачи", description = "Управление врачами для пользователя с ролью DOCTOR_EXTENDED"),
     ],
 )
 @SecurityScheme(
