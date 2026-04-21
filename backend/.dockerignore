@@ -1,0 +1,11 @@
+.gradle/
+.idea/
+.kotlin/
+build/
+out/
+bin/
+agents/
+bruno/results.json
+*.iml
+*.iws
+*.ipr
