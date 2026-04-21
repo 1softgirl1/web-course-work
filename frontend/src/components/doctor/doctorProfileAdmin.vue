@@ -13,9 +13,11 @@ import SelectItem from '@/components/ui/select/selectItem.vue'
 import { MapPin, Undo2, Mail, Stethoscope, Hospital, User } from 'lucide-vue-next'
 import { mockPatientApi, type MockDoctorRecord } from '@/mocks/openapi/mockPatientApi'
 import { RegionsStore } from '@/stores/regionsStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 interface SelectableRegion {
   regionId: number
@@ -111,6 +113,9 @@ const finalizeRegionTransfer = () => {
   const updated = mockPatientApi.updateDoctorRegion(doctorId.value, nextRegionId)
   if (updated) {
     doctorData.value = updated
+    if (authStore.user.value?.id === updated.id) {
+      authStore.updateDoctorRegion(updated.regionId, updated.regionName)
+    }
   }
 
   resetTransferFlow()
@@ -255,7 +260,7 @@ onBeforeUnmount(() => {
           <SelectTrigger>
             <SelectValue placeholder="Выберите регион" />
           </SelectTrigger>
-          <SelectContent class="details-scroll max-h-56 overflow-y-auto">
+          <SelectContent class="z-[4000]">
             <SelectItem v-for="region in availableRegions" :key="region.regionId" :value="String(region.regionId)">
               {{ region.name }}
             </SelectItem>

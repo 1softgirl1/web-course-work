@@ -2,8 +2,8 @@
 import { onMounted, ref } from 'vue'
 import Card from '@/components/ui/card.vue'
 import DoctorCardContent, { type DoctorProfile } from '@/components/doctor/doctorCardContent.vue'
-import { resolveSelectedRegionName } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
+import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
 
 const DEFAULT_DOCTOR_PROFILE: Omit<DoctorProfile, 'region'> = {
   fullName: 'Борискова Д.В.',
@@ -16,24 +16,15 @@ const doctorData = ref<DoctorProfile | null>(null)
 const authStore = useAuthStore()
 
 const buildDoctorProfile = (): DoctorProfile => {
-  if (typeof window === 'undefined') {
-    return {
-      ...DEFAULT_DOCTOR_PROFILE,
-      region: resolveSelectedRegionName(),
-    }
-  }
-
-  const fullName = localStorage.getItem('doctorFullName')?.trim() || DEFAULT_DOCTOR_PROFILE.fullName
-  const email = authStore.user.value?.email?.trim() || localStorage.getItem('doctorEmail')?.trim() || DEFAULT_DOCTOR_PROFILE.email
-  const specialty = localStorage.getItem('doctorSpecialty')?.trim() || DEFAULT_DOCTOR_PROFILE.specialty
-  const workplace = localStorage.getItem('doctorWorkplace')?.trim() || DEFAULT_DOCTOR_PROFILE.workplace
+  const doctor = mockPatientApi.getCurrentDoctor()
+  const email = authStore.user.value?.email?.trim() || doctor?.email || DEFAULT_DOCTOR_PROFILE.email
 
   return {
-    fullName: authStore.user.value?.displayName || fullName,
+    fullName: authStore.user.value?.displayName || doctor?.fullName || DEFAULT_DOCTOR_PROFILE.fullName,
     email,
-    specialty,
-    workplace,
-    region: resolveSelectedRegionName(),
+    specialty: doctor?.specialty || DEFAULT_DOCTOR_PROFILE.specialty,
+    workplace: doctor?.workplace || DEFAULT_DOCTOR_PROFILE.workplace,
+    region: authStore.doctorRegionName.value,
   }
 }
 

@@ -29,7 +29,7 @@ const features = [
 </script>
 
 <template>
-  <section id="about" class="bg-background py-12 sm:py-16 lg:py-28">
+  <section id="about" class="scroll-mt-20 bg-background py-12 sm:py-16 lg:py-28">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <!-- Header -->
       <div class="mx-auto mb-10 max-w-3xl text-center sm:mb-14 lg:mb-16">

@@ -1,6 +1,7 @@
 import { computed, reactive } from 'vue'
 import type { AuthResponse, ChangePasswordRequest, LoginRequest, UserRole } from '@/api/patientApi.contract'
 import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
+import { DEFAULT_REGION_ID, getRegionNameById, RegionsStore } from '@/stores/regionsStore'
 
 const AUTH_STORAGE_KEY = 'authSession'
 
@@ -45,6 +46,7 @@ const applySession = (response: AuthResponse) => {
     displayName: response.user.displayName,
     email: response.user.email,
     patientCode: response.user.patientCode,
+    doctorRegionId: response.user.doctorRegionId ?? null,
   })
 
   persistSession()
@@ -80,6 +82,7 @@ const hydrateSession = () => {
       displayName: parsed.user.displayName,
       email: parsed.user.email,
       patientCode: parsed.user.patientCode,
+      doctorRegionId: parsed.user.doctorRegionId ?? null,
     })
   } catch {
     clearSession()
@@ -94,6 +97,17 @@ export const useAuthStore = () => {
   const isDoctor = computed(() => role.value === 'DOCTOR' || role.value === 'DOCTOR_EXTENDED')
   const isDoctorExtended = computed(() => role.value === 'DOCTOR_EXTENDED')
   const isPatient = computed(() => role.value === 'PATIENT')
+  const doctorRegionName = computed<string>(() => {
+    const regionName = state.user?.doctorRegionName
+    if (regionName) return regionName
+
+    const regionId = state.user?.doctorRegionId
+    if (typeof regionId === 'number' && regionId > 0) {
+      return getRegionNameById(RegionsStore[regionId - 1]?.id ?? DEFAULT_REGION_ID)
+    }
+
+    return getRegionNameById(DEFAULT_REGION_ID)
+  })
 
   const login = (payload: LoginRequest) => {
     const response = mockPatientApi.login(payload)
@@ -109,6 +123,26 @@ export const useAuthStore = () => {
     return mockPatientApi.changeOwnPassword(payload)
   }
 
+  const updateDoctorRegion = (regionId: number, regionName: string) => {
+    if (!state.user) return
+    if (state.user.role !== 'DOCTOR' && state.user.role !== 'DOCTOR_EXTENDED') return
+
+    state.user = {
+      ...state.user,
+      doctorRegionId: regionId,
+      doctorRegionName: regionName,
+    }
+    persistSession()
+    mockPatientApi.restoreSession({
+      id: state.user.id,
+      role: state.user.role,
+      displayName: state.user.displayName,
+      email: state.user.email,
+      patientCode: state.user.patientCode,
+      doctorRegionId: regionId,
+    })
+  }
+
   return {
     accessToken: computed(() => state.accessToken),
     user: computed(() => state.user),
@@ -117,8 +151,10 @@ export const useAuthStore = () => {
     isDoctor,
     isDoctorExtended,
     isPatient,
+    doctorRegionName,
     login,
     changePassword,
+    updateDoctorRegion,
     logout,
   }
 }

@@ -13,7 +13,7 @@ import SelectItem from '@/components/ui/select/selectItem.vue'
 import { Undo2, Calendar, FileText, Eye, Plus, Pencil } from 'lucide-vue-next'
 import { usePatientStore } from '@/stores/patientStore'
 import { useExaminationStore, type Examination, parseExamDate } from '@/stores/examinationStore'
-import { RegionsStore, resolveSelectedRegionName } from '@/stores/regionsStore'
+import { RegionsStore } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
@@ -48,7 +48,7 @@ const patientData = computed(() => {
   return patientStore.patients.find(patient => patient.code === patientCode.value)
 })
 
-const doctorRegionName = computed(() => resolveSelectedRegionName())
+const doctorRegionName = computed(() => authStore.doctorRegionName.value)
 
 const currentDoctorFullName = computed(() => {
   return authStore.user.value?.displayName || 'Неизвестный врач'
@@ -64,6 +64,12 @@ const canChangeRegion = computed(() => {
   if (!patientData.value) return false
   if (authStore.isDoctorExtended.value) return true
   return canShowPatientFullName.value
+})
+
+const canEditPatientExaminations = computed(() => {
+  if (!patientData.value) return false
+  if (authStore.isDoctorExtended.value) return true
+  return patientData.value.region === doctorRegionName.value
 })
 
 const availableRegions = computed(() => {
@@ -218,7 +224,7 @@ onBeforeUnmount(() => {
           <p class="text-muted-foreground">Персональные данные и медицинская информация</p>
         </div>
 
-        <div v-if="patientData && canShowPatientFullName" class="flex w-full justify-end sm:ml-auto sm:w-auto sm:items-end sm:gap-2">
+        <div v-if="patientData && canEditPatientExaminations" class="flex w-full justify-end sm:ml-auto sm:w-auto sm:items-end sm:gap-2">
           <router-link :to="addExaminationPath" class="w-full sm:w-auto">
             <Button variant="default" class="w-full sm:w-auto">
               <Plus class="mr-2 h-4 w-4" />
@@ -278,7 +284,7 @@ onBeforeUnmount(() => {
                   <Calendar class="h-4 w-4" />
                   <span>{{ exam.date }}</span>
                 </div>
-                <router-link :to="editExaminationPath(exam.id)">
+                <router-link v-if="canEditPatientExaminations" :to="editExaminationPath(exam.id)">
                   <Button type="button" variant="ghost" size="icon">
                     <Pencil class="h-4 w-4" />
                   </Button>
@@ -312,7 +318,7 @@ onBeforeUnmount(() => {
             <SelectTrigger>
               <SelectValue placeholder="Выберите регион" />
             </SelectTrigger>
-            <SelectContent class="details-scroll max-h-56 overflow-y-auto">
+            <SelectContent class="z-[4000]">
               <SelectItem v-for="region in availableRegions" :key="region.id" :value="region.name">
                 {{ region.name }}
               </SelectItem>

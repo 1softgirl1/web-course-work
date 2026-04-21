@@ -1,5 +1,6 @@
 <script setup lang="ts" >
-import { ref } from "vue"
+import { computed, ref } from "vue"
+import { useRoute } from 'vue-router'
 import Card from "@/components/ui/card.vue";
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
@@ -18,6 +19,7 @@ import Badge from "@/components/ui/badge.vue";
 import { usePatientStore } from '@/stores/patientStore'
 
 const submitted = ref(false)
+const route = useRoute()
 const lastName = ref("")
 const firstName = ref("")
 const middleName = ref("")
@@ -29,6 +31,9 @@ const valveSize = ref("")
 const valveMaterial = ref("")
 const createdPatientCode = ref("")
 const createdPatientPassword = ref("")
+const backPath = computed(() => {
+  return route.query.from === 'allPatients' ? '/doctor/allPatients' : '/doctor/myPatients'
+})
 
 interface OperationItem {
   name: string
@@ -187,7 +192,7 @@ const handleSubmit = (e: Event) => {
     <div v-else>
       <div class="mb-6">
         <div class="mb-2 flex items-start gap-3 sm:gap-4">
-          <router-link to="/doctor/myPatients">
+          <router-link :to="backPath">
             <Undo2 class="mt-1"></Undo2>
           </router-link>
           <div>

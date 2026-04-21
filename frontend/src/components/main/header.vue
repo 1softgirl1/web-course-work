@@ -1,14 +1,17 @@
 <script setup>
 import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Heart, Menu, X, LogIn } from 'lucide-vue-next'
 import Button from '../ui/button.vue'
 
 const mobileMenuOpen = ref(false)
+const route = useRoute()
+const router = useRouter()
 
 const navLinks = [
-  { href: '/#about', label: 'О проекте' },
-  { href: '/#faq', label: 'Частые вопросы' },
-  { href: '/#contacts', label: 'Контакты' },
+  { id: 'about', label: 'О проекте' },
+  { id: 'faq', label: 'Частые вопросы' },
+  { id: 'contacts', label: 'Контакты' },
 ]
 
 const toggleMenu = () => {
@@ -17,6 +20,24 @@ const toggleMenu = () => {
 
 const closeMenu = () => {
   mobileMenuOpen.value = false
+}
+
+const scrollToSection = (sectionId) => {
+  const target = document.getElementById(sectionId)
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const handleNavClick = async (sectionId) => {
+  closeMenu()
+
+  if (route.path !== '/') {
+    await router.push('/')
+    requestAnimationFrame(() => scrollToSection(sectionId))
+    return
+  }
+
+  scrollToSection(sectionId)
 }
 </script>
 
@@ -39,14 +60,15 @@ const closeMenu = () => {
         </router-link>
 
         <nav class="hidden items-center gap-6 lg:flex">
-          <a
+          <button
             v-for="link in navLinks"
-            :key="link.href"
-            :href="link.href"
+            :key="link.id"
+            type="button"
             class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            @click="handleNavClick(link.id)"
           >
             {{ link.label }}
-          </a>
+          </button>
         </nav>
 
         <div class="hidden items-center gap-3 lg:flex">
@@ -73,15 +95,15 @@ const closeMenu = () => {
         class="border-t border-border py-4 lg:hidden"
       >
         <nav class="flex flex-col gap-4">
-          <a
+          <button
             v-for="link in navLinks"
-            :key="`mobile-${link.href}`"
-            :href="link.href"
-            class="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-            @click="closeMenu"
+            :key="`mobile-${link.id}`"
+            type="button"
+            class="text-left text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            @click="handleNavClick(link.id)"
           >
             {{ link.label }}
-          </a>
+          </button>
 
           <div class="border-t border-border pt-4">
             <router-link to="/login" @click="closeMenu">

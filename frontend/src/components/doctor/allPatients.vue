@@ -181,7 +181,7 @@ const openPatientCard = (code: string) => {
       <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
         <router-link
           v-if="isDoctorExtended"
-          to="/doctor/myPatients/addPatient"
+          :to="{ path: '/doctor/myPatients/addPatient', query: { from: 'allPatients' } }"
           class="w-full sm:w-auto"
         >
           <Button class="w-full sm:w-auto">

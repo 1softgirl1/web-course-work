@@ -84,12 +84,12 @@ function handleLogin() {
       <form v-if="activeTab === 'patient'" @submit.prevent="handleLogin">
         <FieldGroup>
           <Field>
-            <FieldLabel for="patient-email">Email</FieldLabel>
+            <FieldLabel for="patient-code">Код пациента</FieldLabel>
             <div class="relative">
               <Mail class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 v-model="patientLogin"
-                id="patient-email"
+                id="patient-code"
                 type="text"
                 placeholder="Код пациента, например PT-7GZVL7PT"
                 class="h-11 pl-10"

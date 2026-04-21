@@ -6,7 +6,7 @@ import {RouterLink} from "vue-router";
 </script>
 
 <template>
-  <footer id="contacts" class="bg-foreground py-12 text-background sm:py-14 lg:py-16">
+  <footer id="contacts" class="scroll-mt-20 bg-foreground py-12 text-background sm:py-14 lg:py-16">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <div class="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
 

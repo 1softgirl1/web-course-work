@@ -9,11 +9,13 @@ import FieldLabel from "@/components/ui/field/field-label.vue";
 import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
 import { useExaminationStore, toRuExamDate } from '@/stores/examinationStore'
 import { useAuthStore } from '@/stores/authStore'
+import { usePatientStore } from '@/stores/patientStore'
 
 
 const submitted = ref(false)
 const route = useRoute()
 const authStore = useAuthStore()
+const patientStore = usePatientStore()
 const examDate = ref("")
 const conclusion = ref("")
 const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
@@ -26,6 +28,13 @@ const patientCode = computed(() => {
 
 const resolvedDoctorFullName = computed(() => {
   return authStore.user.value?.displayName || 'Борискова Д.В.'
+})
+
+const canEditPatientExaminations = computed(() => {
+  if (authStore.isDoctorExtended.value) return true
+  const patient = patientStore.patients.find(item => item.code === patientCode.value)
+  if (!patient) return false
+  return patient.region === authStore.doctorRegionName.value
 })
 
 const editId = computed<number | null>(() => {
@@ -76,6 +85,11 @@ const handleSubmit = (e: Event) => {
 
   if (!editingExam.value && !patientCode.value) {
     alert('Не удалось определить пациента для сохранения обследования')
+    return
+  }
+
+  if (!canEditPatientExaminations.value) {
+    alert('Редактирование обследований пациента из другого региона для обычного врача недоступно')
     return
   }
 
@@ -171,7 +185,7 @@ const handleSubmit = (e: Event) => {
 
 
 
-          <form @submit.prevent="handleSubmit" class="space-y-6">
+          <form v-if="canEditPatientExaminations" @submit.prevent="handleSubmit" class="space-y-6">
             <div class="grid sm:grid-cols-1 gap-4">
               <Field>
                 <FieldLabel>Дата обследования *</FieldLabel>
@@ -207,6 +221,10 @@ const handleSubmit = (e: Event) => {
               {{ editingExam ? 'Сохранить изменения' : 'Загрузить обследование' }}
             </Button>
           </form>
+
+          <div v-else class="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-foreground">
+            Редактирование обследований пациента из другого региона для обычного врача недоступно.
+          </div>
 
       </Card>
     </div>

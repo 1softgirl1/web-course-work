@@ -16,6 +16,8 @@ export interface AuthUserResponse {
   displayName: string
   email: string | null
   patientCode: string | null
+  doctorRegionId?: number | null
+  doctorRegionName?: string | null
 }
 
 export interface AuthResponse {

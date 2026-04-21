@@ -13,7 +13,6 @@ import {
 } from 'lucide-vue-next'
 import Button from '@/components/ui/button.vue'
 import { cn } from '@/lib/utils'
-import { DEFAULT_REGION_ID, resolveSelectedRegionName } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
@@ -51,6 +50,11 @@ const getSavedActiveHref = () => {
 }
 
 const resolveActiveHref = () => {
+  if (route.path.startsWith('/doctor/myPatients/addPatient')) {
+    if (route.query.from === 'allPatients') return '/doctor/allPatients'
+    return '/doctor/myPatients'
+  }
+
   if (route.path.startsWith('/doctor/allPatients')) return '/doctor/allPatients'
   if (route.path.startsWith('/doctor/myPatients')) return '/doctor/myPatients'
   if (route.path.startsWith('/doctor/allDoctors')) return '/doctor/allDoctors'
@@ -69,7 +73,7 @@ const resolveActiveHref = () => {
 }
 
 const activeHref = ref(resolveActiveHref())
-const selectedRegionName = computed(() => resolveSelectedRegionName())
+const selectedRegionName = computed(() => authStore.doctorRegionName.value)
 const doctorFullName = ref('Борискова Д.В.')
 const isDoctorExtended = computed(() => authStore.isDoctorExtended.value)
 
@@ -91,10 +95,6 @@ const toInitialsName = (value) => {
 
 onMounted(() => {
   if (typeof window === 'undefined') return
-
-  if (!localStorage.getItem('selectedRegion')) {
-    localStorage.setItem('selectedRegion', DEFAULT_REGION_ID)
-  }
 
   const savedDoctorName = localStorage.getItem('doctorFullName')
   if (authStore.user.value?.displayName) {

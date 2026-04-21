@@ -17,12 +17,13 @@ import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
-import { resolveSelectedRegionName } from '@/stores/regionsStore'
+import { useAuthStore } from '@/stores/authStore'
 import { Search, Download, Calendar, MapPin, Plus, Funnel } from 'lucide-vue-next'
 
 type ExamStatus = 'green' | 'yellow' | 'red'
 
 const patientStore = usePatientStore()
+const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -43,7 +44,7 @@ const diagnosisQuery = ref<string>(getQueryString('diagnosis', 'all'))
 const currentPage = ref<number>(getQueryPage())
 const itemsPerPage = 300
 
-const doctorRegionName = computed<string>(() => resolveSelectedRegionName())
+const doctorRegionName = computed<string>(() => authStore.doctorRegionName.value)
 
 const regionPatients = computed<Patient[]>(() => {
   return patientStore.patients.filter(patient => patient.region === doctorRegionName.value)

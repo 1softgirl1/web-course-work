@@ -346,9 +346,11 @@ const isDoctorExtended = (role: UserRole | null | undefined) => role === 'DOCTOR
 
 const resolveDoctorRegionId = (): number => {
   if (currentSession?.doctorRegionId) return currentSession.doctorRegionId
-  if (typeof window === 'undefined') return toRegionIdByStoreKey(DEFAULT_REGION_ID)
-  const selected = localStorage.getItem('selectedRegion') ?? DEFAULT_REGION_ID
-  return toRegionIdByStoreKey(selected)
+  if (isDoctorRole(currentSession?.role) && currentSession?.email) {
+    const doctor = doctorSeed.find(item => item.email.toLowerCase() === currentSession?.email?.toLowerCase())
+    if (doctor) return doctor.regionId
+  }
+  return toRegionIdByStoreKey(DEFAULT_REGION_ID)
 }
 
 const canEditPatient = (patient: MockPatientRecord): boolean => {
@@ -493,6 +495,8 @@ export const mockPatientApi = {
         displayName: currentSession.displayName,
         email: currentSession.email,
         patientCode: currentSession.patientCode,
+        doctorRegionId: doctorRegionId ?? null,
+        doctorRegionName: doctorRegionId ? toRegionNameById(doctorRegionId) : null,
       },
     }
   },
@@ -749,13 +753,17 @@ export const mockPatientApi = {
     patientCode: string | null
     doctorRegionId?: number | null
   }) {
+    const restoredRegionId = session.doctorRegionId
+      ?? (isDoctorRole(session.role) && session.email
+        ? (doctorSeed.find(item => item.email.toLowerCase() === session.email?.toLowerCase())?.regionId ?? toRegionIdByStoreKey(DEFAULT_REGION_ID))
+        : null)
     currentSession = {
       userId: session.id,
       role: session.role,
       displayName: session.displayName,
       email: session.email,
       patientCode: session.patientCode,
-      doctorRegionId: session.doctorRegionId ?? (isDoctorRole(session.role) ? resolveDoctorRegionId() : null),
+      doctorRegionId: restoredRegionId,
     }
   },
 
@@ -785,12 +793,6 @@ export const mockPatientApi = {
 
     if (currentSession?.userId === doctorId) {
       currentSession.doctorRegionId = regionId
-      if (typeof window !== 'undefined') {
-        const regionStoreId = RegionsStore[regionId - 1]?.id
-        if (regionStoreId) {
-          localStorage.setItem('selectedRegion', regionStoreId)
-        }
-      }
     }
 
     return { ...doctor }
@@ -882,6 +884,12 @@ export const mockPatientApi = {
 
   listAllExaminationsRaw(): MockExaminationRecord[] {
     return db.examinations.map(exam => ({ ...exam, measurements: exam.measurements.map(item => ({ ...item })) }))
+  },
+
+  getCurrentDoctor(): MockDoctorRecord | null {
+    if (!isDoctorRole(currentSession?.role) || !currentSession?.email) return null
+    const doctor = doctorSeed.find(item => item.email.toLowerCase() === currentSession?.email?.toLowerCase())
+    return doctor ? { ...doctor } : null
   },
 
   toRuDateFromIso,

@@ -53,7 +53,7 @@ const faqs = ref([
 </script>
 
 <template>
-  <section id="faq" class="bg-secondary/30 py-12 sm:py-16 lg:py-28">
+  <section id="faq" class="scroll-mt-20 bg-secondary/30 py-12 sm:py-16 lg:py-28">
     <div class="container mx-auto px-4 sm:px-6 lg:px-8">
       <div class="mb-10 text-center sm:mb-12">
         <div class="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
