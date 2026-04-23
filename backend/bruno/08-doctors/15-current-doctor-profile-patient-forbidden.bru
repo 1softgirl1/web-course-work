@@ -1,0 +1,19 @@
+meta {
+  name: 15 current doctor profile patient forbidden
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/doctors/me
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+tests {
+  test("patient cannot get doctor profile", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

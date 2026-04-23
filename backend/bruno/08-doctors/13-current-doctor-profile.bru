@@ -1,0 +1,25 @@
+meta {
+  name: 13 current doctor profile
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/doctors/me
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("regular doctor can get own profile", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.role).to.equal("DOCTOR");
+    expect(body.username).to.equal("doctor.demo@example.com");
+    expect(body.specialization).to.be.a("string");
+    expect(body.workplace).to.be.a("string");
+    expect(body.regionId).to.be.a("number");
+  });
+}

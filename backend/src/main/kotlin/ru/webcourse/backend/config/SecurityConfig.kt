@@ -45,6 +45,7 @@ class SecurityConfig(
                 it.requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/auth/password/change").authenticated()
                 it.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                it.requestMatchers(HttpMethod.GET, "/api/doctors/me").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers("/api/doctors/**").hasRole(UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers(HttpMethod.POST, "/api/doctor/patients").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers(HttpMethod.GET, "/api/doctor/patients").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
