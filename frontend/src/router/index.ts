@@ -66,9 +66,20 @@ router.beforeEach((to) => {
     const requiresAuth = Boolean(to.meta.requiresAuth)
     const guestOnly = Boolean(to.meta.guestOnly)
     const allowedRoles = Array.isArray(to.meta.roles) ? to.meta.roles as string[] : []
+    const selectedLoginRole = authStore.selectedLoginRole.value
+
+    if (to.path.startsWith('/patient') && selectedLoginRole === 'doctor') {
+        if (authStore.isDoctor.value) return { path: '/doctor' }
+        return { path: '/login', query: { role: 'doctor' } }
+    }
+
+    if (to.path.startsWith('/doctor') && selectedLoginRole === 'patient') {
+        if (authStore.isPatient.value) return { path: '/patient' }
+        return { path: '/login', query: { role: 'patient' } }
+    }
 
     if (requiresAuth && !authStore.isAuthenticated.value) {
-        return { path: '/login' }
+        return { path: '/login', query: { role: selectedLoginRole } }
     }
 
     if (requiresAuth && allowedRoles.length > 0) {

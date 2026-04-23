@@ -8,14 +8,24 @@ import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { useExaminationStore, type Examination, parseExamDate } from '@/stores/examinationStore'
-import Badge from "@/components/ui/badge.vue";
+import Badge from '@/components/ui/badge.vue'
+
+interface IndicatorSelection {
+  code: string
+  label: string
+}
+
+interface MetricRow {
+  characteristicCode: string
+  characteristicName: string
+}
 
 const props = defineProps<{
   examinations?: Examination[]
 }>()
 
 const emit = defineEmits<{
-  (e: 'select-indicator', index: number): void
+  (e: 'select-indicator', payload: IndicatorSelection): void
 }>()
 
 const { examinations } = useExaminationStore()
@@ -33,80 +43,123 @@ const sortedExaminations = computed<Examination[]>(() => {
   })
 })
 
-const indicatorColumns = 50
+const metricRows = computed<MetricRow[]>(() => {
+  const map = new Map<string, MetricRow>()
+  sortedExaminations.value.forEach(exam => {
+    exam.metrics.forEach(metric => {
+      if (map.has(metric.characteristicCode)) return
+      map.set(metric.characteristicCode, {
+        characteristicCode: metric.characteristicCode,
+        characteristicName: metric.characteristicName || metric.characteristicCode,
+      })
+    })
+  })
 
-const indicatorIndexes = computed<number[]>(() => {
-  return Array.from({ length: indicatorColumns }, (_, index) => index)
+  return [...map.values()].sort((left, right) =>
+    left.characteristicCode.localeCompare(right.characteristicCode),
+  )
 })
 
-const selectIndicator = (index: number) => {
-  emit('select-indicator', index)
+const horizontalScrollThreshold = 7
+
+const shouldShowHorizontalScroll = computed<boolean>(() => {
+  return sortedExaminations.value.length > horizontalScrollThreshold
+})
+
+const tableMinWidth = computed<string | undefined>(() => {
+  if (!shouldShowHorizontalScroll.value) return undefined
+  const firstColumnWidth = 260
+  const examColumnWidth = 165
+  return `${firstColumnWidth + sortedExaminations.value.length * examColumnWidth}px`
+})
+
+const getMetricForExam = (exam: Examination, characteristicCode: string) => {
+  return exam.metrics.find(metric => metric.characteristicCode === characteristicCode) ?? null
+}
+
+const selectIndicator = (row: MetricRow) => {
+  emit('select-indicator', {
+    code: row.characteristicCode,
+    label: row.characteristicName,
+  })
 }
 </script>
 
 <template>
   <Card class="w-full max-w-none" title="Таблица обследований" description="Сравнение показателей по датам обследований">
-    <div class="sm:hidden space-y-3">
+    <div class="space-y-3 sm:hidden">
       <div
         v-for="exam in sortedExaminations"
         :key="`mobile-exam-${exam.id}`"
         class="rounded-lg border bg-card p-3"
       >
-        <div class="flex items-center justify-between gap-2 mb-2">
+        <div class="mb-2 flex items-center justify-between gap-2">
           <p class="text-sm font-medium">Обследование #{{ exam.id }}</p>
           <Badge variant="outline">{{ exam.date }}</Badge>
         </div>
 
-        <p class="text-xs text-muted-foreground mb-2">Врач: {{ exam.doctor }}</p>
+        <p class="mb-2 text-xs text-muted-foreground">Врач: {{ exam.doctor }}</p>
 
-        <div class="max-h-52 overflow-y-auto pr-1 space-y-1">
+        <div class="max-h-52 space-y-1 overflow-y-auto pr-1">
           <button
-            v-for="(value, index) in exam.indicators"
-            :key="`mobile-cell-${exam.id}-${index}`"
+            v-for="metric in exam.metrics"
+            :key="`mobile-cell-${exam.id}-${metric.characteristicCode}`"
             type="button"
             class="flex w-full items-start justify-between gap-3 rounded bg-secondary/40 px-2 py-1.5 text-xs transition-colors hover:bg-secondary/70"
-            @click="selectIndicator(index)"
+            @click="selectIndicator({ characteristicCode: metric.characteristicCode, characteristicName: metric.characteristicName })"
           >
-            <span class="text-muted-foreground">Показатель {{ index + 1 }}</span>
-            <span class="font-medium text-right">{{ value ?? '—' }}</span>
+            <span class="text-left text-muted-foreground">{{ metric.characteristicName || metric.characteristicCode }}</span>
+            <span class="font-medium text-right">{{ metric.value }}{{ metric.unit ? ` ${metric.unit}` : '' }}</span>
           </button>
         </div>
       </div>
 
-      <div v-if="sortedExaminations.length === 0" class="text-sm text-center text-muted-foreground py-6">
+      <div v-if="sortedExaminations.length === 0" class="py-6 text-center text-sm text-muted-foreground">
         Обследования отсутствуют
       </div>
     </div>
 
-    <div class="hidden sm:block overflow-x-auto">
-      <Table>
+    <div class="hidden w-full min-w-0 sm:block">
+      <Table :style="tableMinWidth ? { minWidth: tableMinWidth } : undefined" :class="tableMinWidth ? 'w-max' : ''">
         <TableHeader>
           <TableRow>
-            <TableHead class="sticky left-0 bg-background z-10 min-w-35">Показатель</TableHead>
-            <TableHead v-for="exam in sortedExaminations" :key="`head-date-${exam.id}`" class="text-center min-w-35">
+            <TableHead class="sticky left-0 z-10 min-w-56 bg-background">Показатель</TableHead>
+            <TableHead v-for="exam in sortedExaminations" :key="`head-date-${exam.id}`" class="min-w-36 text-center">
               <Badge variant="outline">{{ exam.date }}</Badge>
             </TableHead>
           </TableRow>
         </TableHeader>
 
         <TableBody>
-          <TableRow v-for="index in indicatorIndexes" :key="`indicator-row-${index}`" class="text-center">
-            <TableCell class="sticky left-0 bg-background z-10 text-left font-medium">
-              Показатель {{ index + 1 }}
-            </TableCell>
-            <TableCell v-for="exam in sortedExaminations" :key="`cell-${index}-${exam.id}`">
+          <TableRow v-for="metric in metricRows" :key="`metric-row-${metric.characteristicCode}`" class="text-center">
+            <TableCell class="sticky left-0 z-10 bg-background text-left font-medium">
               <button
                 type="button"
-                class="w-full rounded px-1 py-1 transition-colors hover:bg-secondary/40"
-                @click="selectIndicator(index)"
+                class="w-full text-left transition-colors hover:text-primary"
+                @click="selectIndicator(metric)"
               >
-                {{ exam.indicators[index] ?? '—' }}
+                {{ metric.characteristicName }}
+                <span class="ml-1 text-xs text-muted-foreground">({{ metric.characteristicCode }})</span>
               </button>
+            </TableCell>
+
+            <TableCell v-for="exam in sortedExaminations" :key="`cell-${metric.characteristicCode}-${exam.id}`">
+              <template v-if="getMetricForExam(exam, metric.characteristicCode)">
+                <button
+                  type="button"
+                  class="w-full rounded px-1 py-1 transition-colors hover:bg-secondary/40"
+                  @click="selectIndicator(metric)"
+                >
+                  {{ getMetricForExam(exam, metric.characteristicCode)?.value }}
+                  {{ getMetricForExam(exam, metric.characteristicCode)?.unit ? ` ${getMetricForExam(exam, metric.characteristicCode)?.unit}` : '' }}
+                </button>
+              </template>
+              <span v-else>—</span>
             </TableCell>
           </TableRow>
 
-          <TableRow v-if="sortedExaminations.length === 0">
-            <TableCell :colspan="sortedExaminations.length + 1" class="text-center text-muted-foreground py-6">
+          <TableRow v-if="metricRows.length === 0">
+            <TableCell :colspan="sortedExaminations.length + 1" class="py-6 text-center text-muted-foreground">
               Обследования отсутствуют
             </TableCell>
           </TableRow>
@@ -115,4 +168,3 @@ const selectIndicator = (index: number) => {
     </div>
   </Card>
 </template>
-

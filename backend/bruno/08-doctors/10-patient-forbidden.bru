@@ -1,0 +1,19 @@
+meta {
+  name: 10 patient forbidden
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/doctors
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+tests {
+  test("patient cannot list doctors", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

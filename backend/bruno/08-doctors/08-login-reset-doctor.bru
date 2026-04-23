@@ -1,0 +1,29 @@
+meta {
+  name: 08 login reset doctor
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{updatedDoctorUsername}}",
+    "password": "{{resetDoctorPassword}}"
+  }
+}
+
+tests {
+  test("reset doctor can login after reactivation", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.user.email).to.equal(bru.getVar("updatedDoctorUsername"));
+  });
+}

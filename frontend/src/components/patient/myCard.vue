@@ -1,20 +1,30 @@
 ﻿<script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import { usePatientStore } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
+import { toHumanErrorMessage } from '@/api/httpClient'
 
 const patientStore = usePatientStore()
 const authStore = useAuthStore()
 const route = useRoute()
+const loadError = ref('')
 
 const patientData = computed(() => {
   const routeCode = typeof route.params.code === 'string' ? route.params.code : ''
   const code = routeCode || authStore.user.value?.patientCode || ''
   if (!code) return undefined
   return patientStore.patients.find(patient => patient.code === code)
+})
+
+onMounted(async () => {
+  try {
+    await patientStore.loadCurrentPatientCard()
+  } catch (error) {
+    loadError.value = toHumanErrorMessage(error)
+  }
 })
 </script>
 
@@ -34,7 +44,7 @@ const patientData = computed(() => {
     />
 
     <Card v-else class="max-w-xl">
-      <div class="p-6 text-muted-foreground">Данные пациента отсутствуют</div>
+      <div class="p-6 text-muted-foreground">{{ loadError || 'Данные пациента отсутствуют' }}</div>
     </Card>
 
   </div>

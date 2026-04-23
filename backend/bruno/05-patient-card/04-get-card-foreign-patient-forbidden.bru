@@ -1,0 +1,19 @@
+meta {
+  name: 04 get card foreign patient forbidden
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+tests {
+  test("patient cannot access another patient card", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

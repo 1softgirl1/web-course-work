@@ -1,0 +1,26 @@
+meta {
+  name: 01 list own patients
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=own&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("own patients returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("own scope returns only doctor region with visible names", function () {
+    const body = res.getBody();
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.items.every(item => item.regionId === 1)).to.equal(true);
+    expect(body.items.every(item => item.lastName !== null && item.firstName !== null)).to.equal(true);
+  });
+}

@@ -1,45 +1,66 @@
 ﻿<script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Card from '@/components/ui/card.vue'
 import DoctorCardContent, { type DoctorProfile } from '@/components/doctor/doctorCardContent.vue'
 import { useAuthStore } from '@/stores/authStore'
-import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
-
-const DEFAULT_DOCTOR_PROFILE: Omit<DoctorProfile, 'region'> = {
-  fullName: 'Борискова Д.В.',
-  email: 'doctor@clinic.ru',
-  specialty: 'Кардиолог',
-  workplace: 'НМИЦ им. Е.Н. Мешалкина',
-}
+import { useDoctorStore, type UiDoctor } from '@/stores/doctorStore'
+import { usePatientStore } from '@/stores/patientStore'
+import { toHumanErrorMessage } from '@/api/httpClient'
 
 const doctorData = ref<DoctorProfile | null>(null)
-const authStore = useAuthStore()
+const loadError = ref('')
 
-const buildDoctorProfile = (): DoctorProfile => {
-  const doctor = mockPatientApi.getCurrentDoctor()
-  const email = authStore.user.value?.email?.trim() || doctor?.email || DEFAULT_DOCTOR_PROFILE.email
+const authStore = useAuthStore()
+const doctorStore = useDoctorStore()
+const patientStore = usePatientStore()
+
+const resolveRegionLabel = (doctorFromStore: UiDoctor | null): string => {
+  if (doctorFromStore?.regionName) return doctorFromStore.regionName
+
+  const knownDoctorRegionId = authStore.doctorRegionId.value
+  if (typeof knownDoctorRegionId === 'number' && knownDoctorRegionId > 0) {
+    return authStore.doctorRegionName.value
+  }
+
+  return 'Нет данных'
+}
+
+const buildDoctorProfile = (doctorFromStore: UiDoctor | null): DoctorProfile => {
+  const sessionUser = authStore.user.value
+  const fallbackEmail = sessionUser?.email?.trim() || ''
+  const fallbackName = sessionUser?.displayName?.trim() || ''
 
   return {
-    fullName: authStore.user.value?.displayName || doctor?.fullName || DEFAULT_DOCTOR_PROFILE.fullName,
-    email,
-    specialty: doctor?.specialty || DEFAULT_DOCTOR_PROFILE.specialty,
-    workplace: doctor?.workplace || DEFAULT_DOCTOR_PROFILE.workplace,
-    region: authStore.doctorRegionName.value,
+    fullName: doctorFromStore?.fullName || fallbackName || 'Нет данных',
+    email: doctorFromStore?.email || fallbackEmail || 'Нет данных',
+    specialty: doctorFromStore?.specialty || 'Нет данных',
+    workplace: doctorFromStore?.workplace || 'Нет данных',
+    region: resolveRegionLabel(doctorFromStore),
   }
 }
 
-const handleUpdateEmail = (nextEmail: string) => {
-  const normalizedEmail = nextEmail.trim().toLowerCase()
-  if (!normalizedEmail || !doctorData.value) return
+const canLoadDoctorsDirectory = computed(() => authStore.isDoctorExtended.value)
 
-  doctorData.value.email = normalizedEmail
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('doctorEmail', normalizedEmail)
+onMounted(async () => {
+  loadError.value = ''
+  const sessionEmail = authStore.user.value?.email?.trim() ?? ''
+
+  try {
+    await patientStore.loadPatients('own')
+  } catch {
+    // Doctor card can still be rendered from session data.
   }
-}
 
-onMounted(() => {
-  doctorData.value = buildDoctorProfile()
+  try {
+    const doctorFromStore = await doctorStore.resolveCurrentDoctorProfile({
+      email: sessionEmail || null,
+      canQueryDirectory: canLoadDoctorsDirectory.value,
+    })
+    doctorData.value = buildDoctorProfile(doctorFromStore)
+  } catch (error) {
+    loadError.value = toHumanErrorMessage(error)
+    doctorData.value = buildDoctorProfile(doctorStore.getDoctorByEmail(sessionEmail))
+  }
 })
 </script>
 
@@ -50,15 +71,15 @@ onMounted(() => {
       <p class="text-muted-foreground">Персональные данные</p>
     </div>
 
+    <p v-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
+
     <DoctorCardContent
       v-if="doctorData"
       :doctor="doctorData"
-      @update-email="handleUpdateEmail"
     />
 
     <Card v-else class="max-w-xl">
       <div class="p-6 text-muted-foreground">Данные врача отсутствуют</div>
     </Card>
-
   </div>
 </template>

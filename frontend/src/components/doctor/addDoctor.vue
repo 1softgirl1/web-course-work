@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Undo2, UserRoundPlus, CheckCircle } from 'lucide-vue-next'
 import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
@@ -12,8 +12,9 @@ import SelectTrigger from '@/components/ui/select/selectTrigger.vue'
 import SelectValue from '@/components/ui/select/selectValue.vue'
 import SelectContent from '@/components/ui/select/selectContent.vue'
 import SelectItem from '@/components/ui/select/selectItem.vue'
-import { RegionsStore } from '@/stores/regionsStore'
-import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
+import { useDoctorStore } from '@/stores/doctorStore'
+import { usePatientStore } from '@/stores/patientStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const submitted = ref(false)
 
@@ -23,16 +24,41 @@ const middleName = ref('')
 const email = ref('')
 const specialty = ref('')
 const workplace = ref('')
-const regionStoreId = ref('')
+const regionId = ref('')
 
 const createdDoctorEmail = ref('')
 const createdDoctorPassword = ref('')
 const formError = ref('')
 
-const resolveRegionIdByStoreId = (storeId: string): number => {
-  const index = RegionsStore.findIndex(item => item.id === storeId)
-  return index >= 0 ? index + 1 : 1
-}
+const doctorStore = useDoctorStore()
+const patientStore = usePatientStore()
+const authStore = useAuthStore()
+
+const availableRegions = computed(() => {
+  const unique = new Map<number, string>()
+
+  doctorStore.doctors.value.forEach((doctor) => {
+    if (doctor.regionId > 0 && doctor.regionName) {
+      unique.set(doctor.regionId, doctor.regionName)
+    }
+  })
+
+  patientStore.getKnownRegions().forEach((region) => {
+    if (region.id > 0 && region.name) {
+      unique.set(region.id, region.name)
+    }
+  })
+
+  const ownRegionId = authStore.doctorRegionId.value
+  const ownRegionName = authStore.doctorRegionName.value
+  if (typeof ownRegionId === 'number' && ownRegionId > 0 && ownRegionName) {
+    unique.set(ownRegionId, ownRegionName)
+  }
+
+  return [...unique.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((left, right) => left.name.localeCompare(right.name, 'ru'))
+})
 
 const resetForm = () => {
   submitted.value = false
@@ -42,16 +68,16 @@ const resetForm = () => {
   email.value = ''
   specialty.value = ''
   workplace.value = ''
-  regionStoreId.value = ''
+  regionId.value = ''
   createdDoctorEmail.value = ''
   createdDoctorPassword.value = ''
   formError.value = ''
 }
 
-const handleSubmit = () => {
+const handleSubmit = async () => {
   formError.value = ''
 
-  if (!lastName.value.trim() || !firstName.value.trim() || !email.value.trim() || !specialty.value.trim() || !workplace.value.trim() || !regionStoreId.value) {
+  if (!lastName.value.trim() || !firstName.value.trim() || !email.value.trim() || !specialty.value.trim() || !workplace.value.trim() || !regionId.value) {
     formError.value = 'Заполните все поля формы'
     return
   }
@@ -63,35 +89,56 @@ const handleSubmit = () => {
     return
   }
 
+  const parsedRegionId = Number.parseInt(regionId.value, 10)
+  if (!Number.isFinite(parsedRegionId) || parsedRegionId <= 0) {
+    formError.value = 'Выберите корректный регион'
+    return
+  }
+
   try {
-    const created = mockPatientApi.createDoctor({
+    const created = await doctorStore.createDoctor({
       lastName: lastName.value,
       firstName: firstName.value,
       middleName: middleName.value,
       email: normalizedEmail,
       specialty: specialty.value,
       workplace: workplace.value,
-      regionId: resolveRegionIdByStoreId(regionStoreId.value),
+      regionId: parsedRegionId,
     })
 
-    createdDoctorEmail.value = created.email
+    createdDoctorEmail.value = created.doctor.email
     createdDoctorPassword.value = created.temporaryPassword
     submitted.value = true
+
+    await doctorStore.loadDoctors()
   } catch (error) {
-    const code = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
-    if (code === 'DOCTOR_EMAIL_EXISTS') {
+    const code = error instanceof Error ? error.message : ''
+
+    if (code === 'USERNAME_EXISTS') {
       formError.value = 'Врач с таким email уже существует'
-      return
-    }
-
-    if (code === 'FORBIDDEN') {
+    } else if (code === 'ACCESS_DENIED') {
       formError.value = 'Недостаточно прав для добавления врача'
-      return
+    } else if (code === 'REGION_NOT_FOUND') {
+      formError.value = 'Указанный регион не найден'
+    } else if (code === 'VALIDATION_FAILED') {
+      formError.value = 'Проверьте корректность заполнения полей'
+    } else {
+      formError.value = 'Не удалось добавить врача'
     }
-
-    formError.value = 'Не удалось добавить врача'
   }
 }
+
+onMounted(async () => {
+  await Promise.allSettled([
+    doctorStore.loadDoctors(),
+    patientStore.loadKnownRegionsFromDoctorPatients(),
+  ])
+
+  const ownRegionId = authStore.doctorRegionId.value
+  if (!regionId.value && typeof ownRegionId === 'number' && ownRegionId > 0) {
+    regionId.value = String(ownRegionId)
+  }
+})
 </script>
 
 <template>
@@ -180,12 +227,12 @@ const handleSubmit = () => {
 
           <Field>
             <FieldLabel>Регион *</FieldLabel>
-            <Select v-model="regionStoreId">
+            <Select v-model="regionId">
               <SelectTrigger>
                 <SelectValue placeholder="Выберите регион" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="item in RegionsStore" :key="item.id" :value="item.id">
+                <SelectItem v-for="item in availableRegions" :key="item.id" :value="String(item.id)">
                   {{ item.name }}
                 </SelectItem>
               </SelectContent>
@@ -200,5 +247,4 @@ const handleSubmit = () => {
     </div>
   </div>
 </template>
-
 

@@ -32,8 +32,8 @@ const navigation = [
 // methods
 const isActive = (href) => route.path === href || route.path.startsWith(`${href}/`)
 
-const handleLogout = () => {
-  authStore.logout()
+const handleLogout = async () => {
+  await authStore.logout()
 }
 </script>
 
@@ -135,7 +135,7 @@ const handleLogout = () => {
       </aside>
 
       <!-- Content -->
-      <main class="flex-1 min-h-screen lg:min-h-[calc(100vh)]">
+      <main class="flex-1 min-h-screen min-w-0 lg:min-h-[calc(100vh)]">
         <router-view/>
       </main>
     </div>

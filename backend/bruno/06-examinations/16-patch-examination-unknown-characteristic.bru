@@ -1,0 +1,32 @@
+meta {
+  name: 16 patch examination unknown characteristic
+  type: http
+  seq: 16
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations/{{createdExaminationId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "measurements": [
+      {
+        "characteristicCode": "metric_99",
+        "value": 1
+      }
+    ]
+  }
+}
+
+tests {
+  test("unknown characteristic returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

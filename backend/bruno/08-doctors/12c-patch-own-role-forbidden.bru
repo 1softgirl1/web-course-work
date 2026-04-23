@@ -1,0 +1,27 @@
+meta {
+  name: 12c patch own role forbidden
+  type: http
+  seq: 15
+}
+
+patch {
+  url: {{baseUrl}}/api/doctors/{{headDoctorId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "role": "DOCTOR"
+  }
+}
+
+tests {
+  test("extended doctor cannot change own role", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

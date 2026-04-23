@@ -1,11 +1,11 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import Card from '@/components/ui/card.vue'
 import Tabs from '@/components/ui/tabs.vue'
 
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
-import { Mail, Lock } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { Eye, EyeOff, Mail, Lock } from 'lucide-vue-next'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/authStore'
 import Field from "@/components/ui/field/field.vue";
@@ -16,8 +16,16 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const queryRole = computed(() => String(route.query.role ?? 'patient'))
+const queryRole = computed(() => String(route.query.role ?? authStore.selectedLoginRole.value))
 const activeTab = ref(queryRole.value === 'doctor' ? 'doctor' : 'patient')
+
+watch(
+  activeTab,
+  (nextRole) => {
+    authStore.setSelectedLoginRole(nextRole === 'doctor' ? 'doctor' : 'patient')
+  },
+  { immediate: true }
+)
 
 const tabItems = [
   { value: 'patient', label: 'Пациент' },
@@ -28,22 +36,36 @@ const patientLogin = ref('')
 const patientPassword = ref('')
 const doctorLogin = ref('')
 const doctorPassword = ref('')
+const isPatientPasswordVisible = ref(false)
+const isDoctorPasswordVisible = ref(false)
 const authError = ref('')
 
-function handleLogin() {
+async function handleLogin() {
   authError.value = ''
+  authStore.setSelectedLoginRole(activeTab.value === 'doctor' ? 'doctor' : 'patient')
 
   const payload = activeTab.value === 'patient'
-    ? { login: patientLogin.value.trim(), password: patientPassword.value }
-    : { login: doctorLogin.value.trim(), password: doctorPassword.value }
+    ? { username: patientLogin.value.trim(), password: patientPassword.value }
+    : { username: doctorLogin.value.trim(), password: doctorPassword.value }
 
-  if (!payload.login || !payload.password) {
+  if (!payload.username || !payload.password) {
     authError.value = 'Введите логин и пароль'
     return
   }
 
   try {
-    const response = authStore.login(payload)
+    const response = await authStore.login(payload)
+    const expectedRole = activeTab.value === 'patient' ? 'PATIENT' : 'DOCTOR'
+    const isDoctorRole = response.user.role === 'DOCTOR' || response.user.role === 'DOCTOR_EXTENDED'
+
+    if (
+      (expectedRole === 'PATIENT' && response.user.role !== 'PATIENT')
+      || (expectedRole === 'DOCTOR' && !isDoctorRole)
+    ) {
+      await authStore.logout()
+      authError.value = 'Выбранная роль не соответствует роли учетной записи. Перейдите на другую вкладку и повторите попытку.'
+      return
+    }
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('doctorFullName', response.user.displayName)
@@ -104,11 +126,19 @@ function handleLogin() {
               <Input
                 v-model="patientPassword"
                 id="patient-password"
-                type="password"
+                :type="isPatientPasswordVisible ? 'text' : 'password'"
                 placeholder="Введите пароль"
-                class="h-11 pl-10"
+                class="h-11 pl-10 pr-10"
                 required
               />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                @click="isPatientPasswordVisible = !isPatientPasswordVisible"
+              >
+                <EyeOff v-if="isPatientPasswordVisible" class="h-4 w-4" />
+                <Eye v-else class="h-4 w-4" />
+              </button>
             </div>
           </Field>
         </FieldGroup>
@@ -141,11 +171,19 @@ function handleLogin() {
               <Input
                 v-model="doctorPassword"
                 id="doctor-password"
-                type="password"
+                :type="isDoctorPasswordVisible ? 'text' : 'password'"
                 placeholder="Введите пароль"
-                class="h-11 pl-10"
+                class="h-11 pl-10 pr-10"
                 required
               />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                @click="isDoctorPasswordVisible = !isDoctorPasswordVisible"
+              >
+                <EyeOff v-if="isDoctorPasswordVisible" class="h-4 w-4" />
+                <Eye v-else class="h-4 w-4" />
+              </button>
             </div>
           </Field>
         </FieldGroup>

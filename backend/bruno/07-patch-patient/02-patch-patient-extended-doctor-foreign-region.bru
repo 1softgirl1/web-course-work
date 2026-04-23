@@ -1,0 +1,29 @@
+meta {
+  name: 02 patch patient extended doctor foreign region
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "medications": "Updated by extended doctor"
+  }
+}
+
+tests {
+  test("extended doctor can patch foreign region patient", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.medications).to.equal("Updated by extended doctor");
+  });
+}

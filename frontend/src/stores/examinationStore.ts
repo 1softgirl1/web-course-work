@@ -1,6 +1,21 @@
-﻿import { reactive } from 'vue'
-import type { CreateExaminationRequest } from '@/api/patientApi.contract'
-import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
+import { reactive } from 'vue'
+import type {
+  CreateExaminationRequest,
+  ExaminationResponse,
+  UpdateExaminationMeasurementRequest,
+  UpdateExaminationRequest,
+} from '@/api/patientApi.contract'
+import { patientsApi } from '@/api/patientsApi'
+import { usePatientStore } from '@/stores/patientStore'
+
+export interface ExaminationMetric {
+  characteristicId: number
+  characteristicCode: string
+  characteristicName: string
+  value: number
+  unit: string
+  comment: string | null
+}
 
 export interface Examination {
   id: number
@@ -8,8 +23,20 @@ export interface Examination {
   date: string
   doctor: string
   conclusion: string
-  indicators: number[]
+  metrics: ExaminationMetric[]
   status: string
+}
+
+export interface EditableMetricInput {
+  characteristicCode: string
+  value: number
+  comment: string | null
+}
+
+export interface MetricDescriptor {
+  characteristicCode: string
+  characteristicName: string
+  unit: string
 }
 
 export interface NewExamination {
@@ -17,7 +44,7 @@ export interface NewExamination {
   date: string
   doctor: string
   conclusion: string
-  indicators: number[]
+  metrics: EditableMetricInput[]
 }
 
 export interface UpdateExamination {
@@ -25,7 +52,7 @@ export interface UpdateExamination {
   date: string
   doctor: string
   conclusion: string
-  indicators: number[]
+  metrics: EditableMetricInput[]
 }
 
 const state = reactive({
@@ -54,106 +81,243 @@ export function toRuExamDate(value: string): string {
   return sourceDate.toLocaleDateString('ru-RU')
 }
 
-const getIndicatorsFromMeasurements = (examId: number): number[] => {
-  const all = mockPatientApi.listAllExaminationsRaw()
-  const exam = all.find(item => item.examId === examId)
-  if (!exam) return []
+const normalizeCode = (value: string): string => value.trim()
 
-  return exam.measurements.map(measurement => {
-    const numeric = Number(measurement.value)
-    return Number.isNaN(numeric) ? 0 : numeric
-  })
+const normalizeComment = (value: string | null | undefined): string | null => {
+  const trimmed = (value ?? '').trim()
+  return trimmed ? trimmed : null
 }
 
-const syncExaminationsFromMock = () => {
-  const patientsById = new Map(
-    mockPatientApi.listAllPatientsRaw().map(patient => [patient.id, patient.patientCode])
-  )
+const sanitizeMetricInputs = (metrics: EditableMetricInput[]): EditableMetricInput[] => {
+  const sanitized: EditableMetricInput[] = []
+  const seen = new Set<string>()
 
-  const allRaw = mockPatientApi.listAllExaminationsRaw().map(exam => ({
-    id: exam.examId,
-    patientCode: patientsById.get(exam.patientId) ?? '',
-    date: mockPatientApi.toRuDateFromIso(exam.examDate),
-    doctor: exam.doctorName,
-    conclusion: exam.comment ?? '',
-    indicators: exam.measurements.map(item => Number(item.value) || 0),
-  }))
+  metrics.forEach(metric => {
+    const characteristicCode = normalizeCode(metric.characteristicCode)
+    if (!characteristicCode) return
+    if (!Number.isFinite(metric.value)) return
 
-  const latestByPatient = new Map<string, number>()
-  const sortedByDate = [...allRaw].sort((left, right) => {
-    const leftTime = parseExamDate(left.date)?.getTime() ?? 0
-    const rightTime = parseExamDate(right.date)?.getTime() ?? 0
-    return rightTime - leftTime
-  })
-
-  for (const exam of sortedByDate) {
-    if (!latestByPatient.has(exam.patientCode)) {
-      latestByPatient.set(exam.patientCode, exam.id)
+    if (seen.has(characteristicCode)) {
+      throw new Error(`METRIC_DUPLICATE:${characteristicCode}`)
     }
-  }
+    seen.add(characteristicCode)
 
-  const mapped: Examination[] = allRaw.map(exam => ({
-    ...exam,
-    status: latestByPatient.get(exam.patientCode) === exam.id ? 'Новое' : 'Просмотрено',
-  }))
+    sanitized.push({
+      characteristicCode,
+      value: metric.value,
+      comment: normalizeComment(metric.comment),
+    })
+  })
 
-  state.examinations.splice(0, state.examinations.length, ...mapped)
+  return sanitized
 }
 
-syncExaminationsFromMock()
+const toStoreMetric = (measurement: ExaminationResponse['measurements'][number]): ExaminationMetric => {
+  const numeric = Number(measurement.value)
 
-const toApiPayload = (exam: {
+  return {
+    characteristicId: measurement.characteristicId,
+    characteristicCode: measurement.characteristicCode,
+    characteristicName: measurement.characteristicName,
+    value: Number.isFinite(numeric) ? numeric : 0,
+    unit: measurement.unit,
+    comment: measurement.comment,
+  }
+}
+
+const toStoreExam = (exam: ExaminationResponse, patientCode: string): Examination => {
+  return {
+    id: exam.examId,
+    patientCode,
+    date: toRuExamDate(exam.examDate),
+    doctor: 'Не указано',
+    conclusion: exam.comment ?? '',
+    metrics: exam.measurements.map(toStoreMetric),
+    status: 'Просмотрено',
+  }
+}
+
+const applyPatientExaminations = (patientCode: string, responseItems: ExaminationResponse[]) => {
+  const mapped = responseItems.map((exam) => toStoreExam(exam, patientCode))
+
+  const latestExamId = mapped.length > 0
+    ? [...mapped]
+      .sort((left, right) => {
+        const leftTime = parseExamDate(left.date)?.getTime() ?? 0
+        const rightTime = parseExamDate(right.date)?.getTime() ?? 0
+        if (rightTime !== leftTime) return rightTime - leftTime
+        return right.id - left.id
+      })[0]?.id
+    : null
+
+  const withStatus = mapped.map((exam) => ({
+    ...exam,
+    status: latestExamId === exam.id ? 'Новое' : 'Просмотрено',
+  }))
+
+  const filtered = state.examinations.filter((exam) => exam.patientCode !== patientCode)
+  state.examinations.splice(0, state.examinations.length, ...filtered, ...withStatus)
+}
+
+const buildCreatePayload = (exam: {
   date: string
   conclusion: string
-  indicators: number[]
+  metrics: EditableMetricInput[]
 }): CreateExaminationRequest => {
+  const metrics = sanitizeMetricInputs(exam.metrics)
+  if (metrics.length === 0) {
+    throw new Error('METRICS_REQUIRED')
+  }
+
   return {
     title: 'Обследование',
     examDate: toIsoDate(exam.date),
-    comment: exam.conclusion.trim() || null,
-    measurements: exam.indicators.map((value, index) => ({
-      characteristicCode: `CHAR_${String(index + 1).padStart(2, '0')}`,
-      value,
-      comment: null,
+    comment: normalizeComment(exam.conclusion),
+    measurements: metrics.map(metric => ({
+      characteristicCode: metric.characteristicCode,
+      value: metric.value,
+      comment: metric.comment,
     })),
   }
 }
 
-export const useExaminationStore = () => {
-  const addExamination = (exam: NewExamination) => {
-    const patient = mockPatientApi.findPatientByCode(exam.patientCode)
-    if (!patient) return false
+const buildUpdatePayload = (current: Examination, next: {
+  date: string
+  conclusion: string
+  metrics: EditableMetricInput[]
+}): UpdateExaminationRequest => {
+  const payload: UpdateExaminationRequest = {}
+  const nextExamDate = toIsoDate(next.date)
+  const currentExamDate = toIsoDate(current.date)
+  if (nextExamDate !== currentExamDate) {
+    payload.examDate = nextExamDate
+  }
 
-    mockPatientApi.addPatientExamination(patient.id, toApiPayload(exam), exam.doctor)
-    syncExaminationsFromMock()
+  const nextComment = normalizeComment(next.conclusion)
+  const currentComment = normalizeComment(current.conclusion)
+  if (nextComment !== currentComment) {
+    payload.comment = nextComment
+  }
+
+  const nextMetrics = sanitizeMetricInputs(next.metrics)
+  const currentByCode = new Map<string, ExaminationMetric>(
+    current.metrics.map(metric => [metric.characteristicCode, metric]),
+  )
+  const measurementChanges: UpdateExaminationMeasurementRequest[] = []
+
+  nextMetrics.forEach(metric => {
+    const existing = currentByCode.get(metric.characteristicCode)
+    if (!existing) {
+      measurementChanges.push({
+        characteristicCode: metric.characteristicCode,
+        value: metric.value,
+        comment: metric.comment,
+      })
+      return
+    }
+
+    const valueChanged = metric.value !== existing.value
+    const commentChanged = normalizeComment(metric.comment) !== normalizeComment(existing.comment)
+    if (!valueChanged && !commentChanged) return
+
+    measurementChanges.push({
+      characteristicCode: metric.characteristicCode,
+      value: valueChanged ? metric.value : undefined,
+      comment: commentChanged ? normalizeComment(metric.comment) : undefined,
+    })
+  })
+
+  if (measurementChanges.length > 0) {
+    payload.measurements = measurementChanges
+  }
+
+  return payload
+}
+
+const hasPatchChanges = (payload: UpdateExaminationRequest): boolean => {
+  return Boolean(
+    payload.title !== undefined ||
+      payload.examDate !== undefined ||
+      payload.comment !== undefined ||
+      (payload.measurements && payload.measurements.length > 0),
+  )
+}
+
+export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescriptor[] => {
+  const byCode = new Map<string, MetricDescriptor>()
+
+  exams.forEach(exam => {
+    exam.metrics.forEach(metric => {
+      if (byCode.has(metric.characteristicCode)) return
+      byCode.set(metric.characteristicCode, {
+        characteristicCode: metric.characteristicCode,
+        characteristicName: metric.characteristicName || metric.characteristicCode,
+        unit: metric.unit,
+      })
+    })
+  })
+
+  return [...byCode.values()].sort((left, right) =>
+    left.characteristicCode.localeCompare(right.characteristicCode),
+  )
+}
+
+export const useExaminationStore = () => {
+  const patientStore = usePatientStore()
+
+  const loadByPatientCode = async (patientCode: string) => {
+    const patientId = await patientStore.ensurePatientIdByCode(patientCode)
+    if (!patientId) return false
+
+    const response = await patientsApi.listPatientExaminations(patientId)
+    applyPatientExaminations(patientCode, response.items)
     return true
   }
 
-  const updateExamination = (payload: UpdateExamination) => {
+  const loadCurrentPatientExaminations = async () => {
+    const { useAuthStore } = await import('@/stores/authStore')
+    const authStore = useAuthStore()
+    const patientCode = authStore.user.value?.patientCode
+    if (authStore.user.value?.role !== 'PATIENT') return false
+    if (!patientCode) {
+      throw new Error('Не удалось определить код пациента в сессии.')
+    }
+    const patientId = await patientStore.resolveCurrentPatientId()
+    if (!patientId) {
+      throw new Error('Не удалось определить идентификатор карточки пациента.')
+    }
+
+    const response = await patientsApi.listPatientExaminations(patientId)
+    applyPatientExaminations(patientCode, response.items)
+    return true
+  }
+
+  const addExamination = async (exam: NewExamination) => {
+    const patientId = await patientStore.ensurePatientIdByCode(exam.patientCode)
+    if (!patientId) return false
+
+    await patientsApi.addPatientExamination(patientId, buildCreatePayload(exam))
+    await loadByPatientCode(exam.patientCode)
+    return true
+  }
+
+  const updateExamination = async (payload: UpdateExamination) => {
     const targetExam = state.examinations.find(exam => exam.id === payload.id)
     if (!targetExam) return false
 
-    const patient = mockPatientApi.findPatientByCode(targetExam.patientCode)
-    if (!patient) return false
+    const patientId = await patientStore.ensurePatientIdByCode(targetExam.patientCode)
+    if (!patientId) return false
 
-    const nextIndicators = payload.indicators.length > 0
-      ? payload.indicators
-      : getIndicatorsFromMeasurements(payload.id)
+    const patchPayload = buildUpdatePayload(targetExam, payload)
+    if (!hasPatchChanges(patchPayload)) return true
 
-    const updated = mockPatientApi.updatePatientExamination(
-      patient.id,
+    await patientsApi.updatePatientExamination(
+      patientId,
       payload.id,
-      toApiPayload({
-        date: payload.date,
-        conclusion: payload.conclusion,
-        indicators: nextIndicators,
-      }),
-      payload.doctor
+      patchPayload,
     )
 
-    if (!updated) return false
-
-    syncExaminationsFromMock()
+    await loadByPatientCode(targetExam.patientCode)
     return true
   }
 
@@ -161,5 +325,7 @@ export const useExaminationStore = () => {
     examinations: state.examinations,
     addExamination,
     updateExamination,
+    loadByPatientCode,
+    loadCurrentPatientExaminations,
   }
 }

@@ -1,0 +1,39 @@
+meta {
+  name: 02 login extended doctor
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{extendedDoctorEmail}}",
+    "password": "{{extendedDoctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("extendedDoctorToken", body.accessToken);
+  bru.setVar("extendedDoctorRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("extended doctor login returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("extended doctor token is returned", function () {
+    const body = res.getBody();
+    expect(body.user.role).to.equal("DOCTOR_EXTENDED");
+    expect(body.user.email).to.equal(bru.getEnvVar("extendedDoctorEmail"));
+  });
+}

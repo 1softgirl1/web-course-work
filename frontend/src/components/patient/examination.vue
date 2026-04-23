@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { computed, ref } from 'vue'
+﻿<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
 import Dialog from '@/components/ui/dialog.vue'
@@ -9,13 +9,17 @@ import { useAuthStore } from '@/stores/authStore'
 import { FileText, Calendar, Eye } from 'lucide-vue-next'
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
 import Badge from '@/components/ui/badge.vue'
+import { toHumanErrorMessage } from '@/api/httpClient'
 
-const { examinations } = useExaminationStore()
+const examinationStore = useExaminationStore()
+const { examinations } = examinationStore
 const authStore = useAuthStore()
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
-const selectedIndicatorIndex = ref<number | null>(null)
+const selectedIndicatorCode = ref<string | null>(null)
+const selectedIndicatorLabel = ref<string | null>(null)
 const isIndicatorTrendOpen = ref(false)
+const loadError = ref('')
 
 const parseExamDate = (value: string): Date | null => {
   const [day, month, year] = value.split('.').map(Number)
@@ -48,10 +52,19 @@ const openDetails = (exam: Examination) => {
   isDetailsOpen.value = true
 }
 
-const openIndicatorTrend = (index: number) => {
-  selectedIndicatorIndex.value = index
+const openIndicatorTrend = (payload: { code: string; label: string }) => {
+  selectedIndicatorCode.value = payload.code
+  selectedIndicatorLabel.value = payload.label
   isIndicatorTrendOpen.value = true
 }
+
+onMounted(async () => {
+  try {
+    await examinationStore.loadCurrentPatientExaminations()
+  } catch (error) {
+    loadError.value = toHumanErrorMessage(error)
+  }
+})
 </script>
 
 <template>
@@ -62,6 +75,8 @@ const openIndicatorTrend = (index: number) => {
         <p class="text-muted-foreground">История всех пройденных обследований</p>
       </div>
     </div>
+
+    <p v-if="loadError" class="mb-4 text-sm text-destructive">{{ loadError }}</p>
 
     <div class="space-y-4">
       <Card
@@ -119,12 +134,12 @@ const openIndicatorTrend = (index: number) => {
           <div class="details-scroll max-h-[65vh] overflow-y-auto pr-2">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <div
-                v-for="(value, index) in selectedExam.indicators"
-                :key="`modal-${selectedExam.id}-indicator-${index}`"
+                v-for="metric in selectedExam.metrics"
+                :key="`modal-${selectedExam.id}-${metric.characteristicCode}`"
                 class="rounded-md bg-secondary/40 px-3 py-2 text-left text-sm"
               >
-                <span class="text-muted-foreground">Показатель {{ index + 1 }}:</span>
-                <span class="ml-1 font-medium text-foreground">{{ value }}</span>
+                <span class="text-muted-foreground">{{ metric.characteristicName || metric.characteristicCode }}:</span>
+                <span class="ml-1 font-medium text-foreground">{{ metric.value }}{{ metric.unit ? ` ${metric.unit}` : '' }}</span>
               </div>
             </div>
           </div>
@@ -134,7 +149,8 @@ const openIndicatorTrend = (index: number) => {
 
     <IndicatorTrendDialog
       v-model="isIndicatorTrendOpen"
-      :indicator-index="selectedIndicatorIndex"
+      :indicator-code="selectedIndicatorCode"
+      :indicator-label="selectedIndicatorLabel"
       :exams="sortedExaminations"
     />
   </div>

@@ -1,0 +1,26 @@
+meta {
+  name: 12 refresh logged out token rejected
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{logoutRefreshToken}}"
+  }
+}
+
+tests {
+  test("logged out refresh token returns 401", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

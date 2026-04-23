@@ -1,13 +1,19 @@
 ﻿export type UserRole = 'PATIENT' | 'DOCTOR' | 'DOCTOR_EXTENDED'
+export type UserStatus = 'ACTIVE' | 'INACTIVE'
 
 export interface LoginRequest {
-  login: string
+  username: string
   password: string
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string
 }
 
 export interface ChangePasswordRequest {
   currentPassword: string
   newPassword: string
+  refreshToken: string
 }
 
 export interface AuthUserResponse {
@@ -16,14 +22,14 @@ export interface AuthUserResponse {
   displayName: string
   email: string | null
   patientCode: string | null
-  doctorRegionId?: number | null
-  doctorRegionName?: string | null
 }
 
 export interface AuthResponse {
   accessToken: string
-  tokenType: 'Bearer'
-  expiresAt: string
+  tokenType: string
+  accessTokenExpiresAt: string
+  refreshToken: string
+  refreshTokenExpiresAt: string
   user: AuthUserResponse
 }
 
@@ -56,27 +62,58 @@ export interface CreatePatientRequest {
 }
 
 export interface CreateDoctorRequest {
+  username: string
+  role: UserRole
   lastName: string
   firstName: string
   middleName: string | null
-  email: string
-  specialty: string
+  specialization: string
   workplace: string
   regionId: number
 }
 
-export interface CreatedDoctorResponse {
+export interface DoctorResponse {
   id: number
-  fullName: string
+  userId: number
+  username: string
+  role: UserRole
+  status: UserStatus
   lastName: string
   firstName: string
   middleName: string | null
-  email: string
-  specialty: string
+  specialization: string
   workplace: string
-  role: UserRole
   regionId: number
   regionName: string
+}
+
+export interface CreatedDoctorResponse {
+  doctor: DoctorResponse
+  temporaryPassword: string
+}
+
+export interface DoctorListResponse {
+  items: DoctorResponse[]
+  page: number
+  limit: number
+  total: number
+}
+
+export interface UpdateDoctorRequest {
+  username?: string | null
+  role?: UserRole | null
+  status?: UserStatus | null
+  lastName?: string | null
+  firstName?: string | null
+  middleName?: string | null
+  specialization?: string | null
+  workplace?: string | null
+  regionId?: number | null
+}
+
+export interface DoctorPasswordResetResponse {
+  id: number
+  username: string
   temporaryPassword: string
 }
 
@@ -188,6 +225,19 @@ export interface CreateExaminationRequest {
   measurements: CreateExaminationMeasurementRequest[]
 }
 
+export interface UpdateExaminationMeasurementRequest {
+  characteristicCode: string
+  value?: number | null
+  comment?: string | null
+}
+
+export interface UpdateExaminationRequest {
+  title?: string | null
+  examDate?: string | null
+  comment?: string | null
+  measurements?: UpdateExaminationMeasurementRequest[] | null
+}
+
 export interface ListDoctorPatientsParams {
   scope?: 'own' | 'all'
   page?: number
@@ -196,4 +246,19 @@ export interface ListDoctorPatientsParams {
   diagnosis?: string
 }
 
+export interface ListDoctorsParams {
+  page?: number
+  limit?: number
+  regionId?: number
+  role?: UserRole
+  status?: UserStatus
+  search?: string
+}
 
+export interface ApiErrorResponse {
+  status: number
+  error: string
+  message: string
+  details: string[]
+  timestamp: string
+}

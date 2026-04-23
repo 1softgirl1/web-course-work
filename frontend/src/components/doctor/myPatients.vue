@@ -1,5 +1,5 @@
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+﻿<script setup lang="ts">
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
@@ -17,15 +17,15 @@ import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
-import { useAuthStore } from '@/stores/authStore'
 import { Search, Download, Calendar, MapPin, Plus, Funnel } from 'lucide-vue-next'
+import { toHumanErrorMessage } from '@/api/httpClient'
 
 type ExamStatus = 'green' | 'yellow' | 'red'
 
 const patientStore = usePatientStore()
-const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
+const loadError = ref('')
 
 const getQueryString = (key: string, fallback: string): string => {
   const value = route.query[key]
@@ -44,14 +44,10 @@ const diagnosisQuery = ref<string>(getQueryString('diagnosis', 'all'))
 const currentPage = ref<number>(getQueryPage())
 const itemsPerPage = 300
 
-const doctorRegionName = computed<string>(() => authStore.doctorRegionName.value)
-
-const regionPatients = computed<Patient[]>(() => {
-  return patientStore.patients.filter(patient => patient.region === doctorRegionName.value)
-})
+const ownPatients = computed<Patient[]>(() => patientStore.patients)
 
 const diagnosisOptions = computed<string[]>(() => {
-  return [...new Set(regionPatients.value.map(patient => patient.diagnosis))]
+  return [...new Set(ownPatients.value.map(patient => patient.diagnosis))]
 })
 
 function parseExamDate(value: string): Date | null {
@@ -64,7 +60,7 @@ function parseExamDate(value: string): Date | null {
 const filteredData = computed<Patient[]>(() => {
   const q = searchQuery.value.toLowerCase().trim()
 
-  const filteredPatients = regionPatients.value.filter(patient => {
+  const filteredPatients = ownPatients.value.filter(patient => {
     const matchesSearch =
       patient.code.toLowerCase().includes(q) ||
       patient.fullName.toLowerCase().includes(q) ||
@@ -111,16 +107,9 @@ const goToPage = (page: number) => {
   currentPage.value = page
 }
 
-const getExamStatus = (lastExam: string): ExamStatus => {
-  const examDate = parseExamDate(lastExam)
-  if (!examDate) return 'red'
-
-  const now = new Date()
-  const diffMs = now.getTime() - examDate.getTime()
-  const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.44)
-
-  if (diffMonths < 3) return 'green'
-  if (diffMonths <= 6) return 'yellow'
+const getExamStatus = (status: Patient['status']): ExamStatus => {
+  if (status === 'GREEN') return 'green'
+  if (status === 'YELLOW') return 'yellow'
   return 'red'
 }
 
@@ -141,6 +130,14 @@ const openPatientCard = (code: string) => {
     },
   })
 }
+
+onMounted(async () => {
+  try {
+    await patientStore.loadPatients('own')
+  } catch (error) {
+    loadError.value = toHumanErrorMessage(error)
+  }
+})
 </script>
 
 <template>
@@ -148,7 +145,7 @@ const openPatientCard = (code: string) => {
     <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold text-foreground">Мои пациенты</h1>
-        <p class="text-muted-foreground">{{ doctorRegionName }} — {{ filteredData.length }} пациентов</p>
+        <p class="text-muted-foreground">Пациентов: {{ filteredData.length }}</p>
       </div>
 
       <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
@@ -209,6 +206,7 @@ const openPatientCard = (code: string) => {
     </div>
 
     <Card>
+      <p v-if="loadError" class="px-4 py-3 text-sm text-destructive">{{ loadError }}</p>
       <div>
         <div class="space-y-3 sm:hidden">
           <div
@@ -222,7 +220,7 @@ const openPatientCard = (code: string) => {
               <span class="flex items-center gap-1 text-xs text-muted-foreground">
                 <span
                   class="inline-block h-2.5 w-2.5 rounded-full"
-                  :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                  :class="getExamStatusDotClass(getExamStatus(patient.status))"
                 />
                 {{ patient.lastExam }}
               </span>
@@ -261,9 +259,7 @@ const openPatientCard = (code: string) => {
                 @click="openPatientCard(patient.code)"
               >
                 <TableCell>
-                  <Badge variant="outline">
-                    {{ patient.code }}
-                  </Badge>
+                  <Badge variant="outline">{{ patient.code }}</Badge>
                 </TableCell>
 
                 <TableCell>{{ patient.fullName }}</TableCell>
@@ -275,7 +271,7 @@ const openPatientCard = (code: string) => {
                   <span class="flex items-center gap-2 text-sm">
                     <span
                       class="inline-block h-2.5 w-2.5 rounded-full"
-                      :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                      :class="getExamStatusDotClass(getExamStatus(patient.status))"
                     />
                     <Calendar class="h-3 w-3" />
                     {{ patient.lastExam }}
@@ -332,3 +328,4 @@ const openPatientCard = (code: string) => {
     </Card>
   </div>
 </template>
+

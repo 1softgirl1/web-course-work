@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useSlots } from 'vue'
 import Card from '@/components/ui/card.vue'
 import Badge from '@/components/ui/badge.vue'
 import Dialog from '@/components/ui/dialog.vue'
@@ -46,12 +46,17 @@ const valveMaterial = computed(() => props.patient.valve.material || 'Не ук�
 
 const isRegionChangeOpen = ref(false)
 const isPasswordModalOpen = ref(false)
+const slots = useSlots()
+
+const canShowPasswordBlock = computed(() => {
+  return props.canChangeOwnPassword || Boolean(slots['password-action'])
+})
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="min-w-0 space-y-6">
     <Card
-      class="w-full max-w-none"
+      class="w-full max-w-none min-w-0 overflow-hidden"
       title="Персональные данные"
       description="Основная информация о пациенте"
     >
@@ -63,7 +68,7 @@ const isPasswordModalOpen = ref(false)
             </div>
             <div>
               <p class="text-sm text-muted-foreground">ФИО</p>
-              <p class="font-medium text-foreground">
+              <p class="font-medium text-foreground break-words">
                 {{ canShowPatientFullName ? fullName : 'Скрыто для другого региона' }}
               </p>
             </div>
@@ -89,7 +94,7 @@ const isPasswordModalOpen = ref(false)
             <div class="min-w-0 flex-1">
               <p class="text-sm text-muted-foreground">Регион</p>
               <div class="flex flex-wrap items-center gap-2">
-                <p class="font-medium text-foreground">{{ patient.region }}</p>
+                <p class="font-medium text-foreground break-words">{{ patient.region }}</p>
                 <slot name="region-action" />
                 <Badge
                   v-if="showRegionHelpBadge"
@@ -129,16 +134,18 @@ const isPasswordModalOpen = ref(false)
             </div>
           </div>
 
-          <div v-if="canChangeOwnPassword" class="flex items-start gap-3">
+          <div v-if="canShowPasswordBlock" class="flex items-start gap-3">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
               <KeyRound class="h-5 w-5 text-primary" />
             </div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-end gap-2">
               <div>
                 <p class="text-sm text-muted-foreground">Пароль</p>
                 <p class="font-medium text-foreground">********</p>
               </div>
-              <Badge variant="outline" class="cursor-pointer" @click="isPasswordModalOpen = true">Изменить</Badge>
+              <slot name="password-action">
+                <Badge v-if="canChangeOwnPassword" variant="outline" class="cursor-pointer" @click="isPasswordModalOpen = true">Изменить</Badge>
+              </slot>
             </div>
           </div>
         </div>
@@ -146,7 +153,7 @@ const isPasswordModalOpen = ref(false)
     </Card>
 
     <Card
-      class="w-full max-w-none"
+      class="w-full max-w-none min-w-0 overflow-hidden"
       title="Медицинская информация"
       description="Диагноз, операции и медикаменты"
     >
@@ -157,7 +164,7 @@ const isPasswordModalOpen = ref(false)
           </div>
           <div>
             <p class="text-sm text-muted-foreground">Диагноз</p>
-            <p class="font-medium text-foreground">{{ patient.diagnosis || 'Нет данных' }}</p>
+            <p class="font-medium text-foreground break-words">{{ patient.diagnosis || 'Нет данных' }}</p>
           </div>
         </div>
 
@@ -181,7 +188,7 @@ const isPasswordModalOpen = ref(false)
 
               <div class="mb-3 flex items-center  gap-3">
                 <Badge variant="outline" class="text-xs">Операция {{ index + 1 }}</Badge>
-                <p class="font-semibold text-foreground">{{ operation.name }}</p>
+                <p class="font-semibold text-foreground break-words">{{ operation.name }}</p>
               </div>
 
               <div class="grid gap-2 sm:grid-cols-3">
@@ -197,7 +204,7 @@ const isPasswordModalOpen = ref(false)
 
                 <div class="rounded-lg bg-background px-3 py-2">
                   <p class="text-xs text-muted-foreground">Система доставки</p>
-                  <p class="text-sm font-medium text-foreground">{{ operation.deliverySystem || 'Не указано' }}</p>
+                  <p class="text-sm font-medium text-foreground break-words">{{ operation.deliverySystem || 'Не указано' }}</p>
                 </div>
               </div>
             </div>
@@ -236,7 +243,7 @@ const isPasswordModalOpen = ref(false)
           </div>
           <div class="mb-5">
             <p class="text-sm text-muted-foreground">Медикаменты</p>
-            <p class="font-medium text-foreground">{{ patient.medications || 'Нет данных' }}</p>
+            <p class="font-medium text-foreground break-words">{{ patient.medications || 'Нет данных' }}</p>
           </div>
         </div>
       </div>
@@ -245,7 +252,7 @@ const isPasswordModalOpen = ref(false)
     <Dialog v-if="canChangeOwnPassword" v-model="isPasswordModalOpen" content-class="sm:max-w-md">
       <div class="space-y-4">
         <h3 class="text-lg font-semibold text-foreground">Изменение пароля</h3>
-        <ChangePasswordCard @success="isPasswordModalOpen = false" />
+        <ChangePasswordCard />
       </div>
     </Dialog>
 

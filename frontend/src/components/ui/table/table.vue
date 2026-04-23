@@ -18,7 +18,7 @@ const attrs = useAttrs()
 <template>
   <div
     data-slot="table-container"
-    class="relative w-full overflow-x-auto"
+    class="relative w-full min-w-0 overflow-x-auto"
   >
     <table
       data-slot="table"

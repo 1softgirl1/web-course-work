@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
@@ -10,32 +10,52 @@ import TableCell from '@/components/ui/table/tableCell.vue'
 import TableHead from '@/components/ui/table/tableHead.vue'
 import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
-import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
+import { useDoctorStore } from '@/stores/doctorStore'
 import { MapPin, Plus, Search } from 'lucide-vue-next'
 
 const router = useRouter()
-const doctors = computed(() => mockPatientApi.listDoctors())
+const doctorStore = useDoctorStore()
+const doctors = computed(() => doctorStore.doctors.value)
 const searchQuery = ref('')
+const loadError = ref('')
+let searchDebounceId: ReturnType<typeof setTimeout> | null = null
 
-const filteredDoctors = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  if (!query) return doctors.value
-
-  return doctors.value.filter((doctor) => {
-    const searchFields = [
-      doctor.fullName,
-      doctor.email,
-      doctor.specialty,
-      doctor.workplace,
-      doctor.regionName,
-    ]
-    return searchFields.some(field => field.toLowerCase().includes(query))
-  })
-})
+const filteredDoctors = computed(() => doctors.value)
 
 const openDoctorCard = (doctorId: number) => {
   router.push(`/doctor/allDoctors/${doctorId}`)
 }
+
+const loadDoctors = async (search?: string) => {
+  loadError.value = ''
+  try {
+    await doctorStore.loadDoctors({ search })
+  } catch {
+    loadError.value = 'Не удалось загрузить список врачей.'
+  }
+}
+
+onMounted(async () => {
+  await loadDoctors()
+})
+
+watch(searchQuery, (nextQuery) => {
+  if (searchDebounceId) {
+    clearTimeout(searchDebounceId)
+    searchDebounceId = null
+  }
+
+  searchDebounceId = setTimeout(async () => {
+    await loadDoctors(nextQuery)
+    searchDebounceId = null
+  }, 350)
+})
+
+onBeforeUnmount(() => {
+  if (!searchDebounceId) return
+  clearTimeout(searchDebounceId)
+  searchDebounceId = null
+})
 </script>
 
 <template>
@@ -66,6 +86,7 @@ const openDoctorCard = (doctorId: number) => {
     </div>
 
     <Card>
+      <p v-if="loadError" class="p-4 text-sm text-destructive">{{ loadError }}</p>
       <div v-if="doctors.length > 0 && filteredDoctors.length > 0">
         <div class="space-y-3 p-3 md:hidden">
           <button
@@ -123,7 +144,7 @@ const openDoctorCard = (doctorId: number) => {
         </div>
       </div>
 
-      <div v-else-if="doctors.length > 0" class="p-4 text-sm text-muted-foreground">
+      <div v-else-if="searchQuery.trim()" class="p-4 text-sm text-muted-foreground">
         По вашему запросу врачи не найдены.
       </div>
 
@@ -133,5 +154,3 @@ const openDoctorCard = (doctorId: number) => {
     </Card>
   </div>
 </template>
-
-

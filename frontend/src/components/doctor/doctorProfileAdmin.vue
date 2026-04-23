@@ -11,29 +11,35 @@ import SelectValue from '@/components/ui/select/selectValue.vue'
 import SelectContent from '@/components/ui/select/selectContent.vue'
 import SelectItem from '@/components/ui/select/selectItem.vue'
 import { MapPin, Undo2, Mail, Stethoscope, Hospital, User } from 'lucide-vue-next'
-import { mockPatientApi, type MockDoctorRecord } from '@/mocks/openapi/mockPatientApi'
+import { useDoctorStore, type UiDoctor } from '@/stores/doctorStore'
 import { RegionsStore } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const doctorStore = useDoctorStore()
 
 interface SelectableRegion {
   regionId: number
   name: string
 }
 
-const doctorData = ref<MockDoctorRecord | null>(null)
+const doctorData = ref<UiDoctor | null>(null)
 const isRegionPickerOpen = ref(false)
 const isRegionSelectOpen = ref(false)
 const isTransferConfirmOpen = ref(false)
 const isTransferCountdownOpen = ref(false)
+const isResetPasswordOpen = ref(false)
 const targetRegionId = ref('')
 const countdownSeconds = ref(10)
+const temporaryPassword = ref('')
+const passwordResetError = ref('')
+const isResettingPassword = ref(false)
 
 let countdownIntervalId: ReturnType<typeof setInterval> | null = null
 let countdownTimeoutId: ReturnType<typeof setTimeout> | null = null
+const loadError = ref('')
 
 const doctorId = computed(() => {
   const rawId = route.params.id
@@ -60,7 +66,7 @@ const loadDoctor = () => {
     doctorData.value = null
     return
   }
-  doctorData.value = mockPatientApi.getDoctorById(doctorId.value)
+  doctorData.value = doctorStore.getDoctorById(doctorId.value)
 }
 
 const clearTransferTimers = () => {
@@ -85,6 +91,33 @@ const resetTransferFlow = () => {
   targetRegionId.value = ''
 }
 
+const openResetPasswordDialog = () => {
+  temporaryPassword.value = ''
+  passwordResetError.value = ''
+  isResetPasswordOpen.value = true
+}
+
+const submitDoctorPasswordReset = async () => {
+  if (!doctorId.value) return
+  isResettingPassword.value = true
+  passwordResetError.value = ''
+  try {
+    const result = await doctorStore.resetDoctorPassword(doctorId.value)
+    temporaryPassword.value = result.temporaryPassword
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    if (code === 'ACCESS_DENIED') {
+      passwordResetError.value = 'Недостаточно прав для сброса пароля.'
+    } else if (code === 'DOCTOR_NOT_FOUND') {
+      passwordResetError.value = 'Врач не найден.'
+    } else {
+      passwordResetError.value = 'Не удалось сбросить пароль врача.'
+    }
+  } finally {
+    isResettingPassword.value = false
+  }
+}
+
 const openRegionPicker = () => {
   if (!doctorData.value) return
   targetRegionId.value = ''
@@ -98,7 +131,7 @@ const proceedToRegionConfirmation = () => {
   isTransferConfirmOpen.value = true
 }
 
-const finalizeRegionTransfer = () => {
+const finalizeRegionTransfer = async () => {
   if (!doctorData.value || !targetRegionId.value || !doctorId.value) {
     resetTransferFlow()
     return
@@ -110,15 +143,18 @@ const finalizeRegionTransfer = () => {
     return
   }
 
-  const updated = mockPatientApi.updateDoctorRegion(doctorId.value, nextRegionId)
-  if (updated) {
+  try {
+    const updated = await doctorStore.updateDoctor(doctorId.value, { regionId: nextRegionId })
     doctorData.value = updated
-    if (authStore.user.value?.id === updated.id) {
+    if (authStore.user.value?.email?.toLowerCase() === updated.email.toLowerCase()) {
       authStore.updateDoctorRegion(updated.regionId, updated.regionName)
     }
+    loadError.value = ''
+  } catch {
+    loadError.value = 'Не удалось обновить регион врача.'
+  } finally {
+    resetTransferFlow()
   }
-
-  resetTransferFlow()
 }
 
 const confirmRegionTransfer = () => {
@@ -154,7 +190,17 @@ watch(
   () => doctorId.value,
   () => {
     resetTransferFlow()
-    loadDoctor()
+    void (async () => {
+      try {
+        if (doctorStore.doctors.value.length === 0) {
+          await doctorStore.loadDoctors()
+        }
+        loadDoctor()
+        loadError.value = ''
+      } catch {
+        loadError.value = 'Не удалось загрузить данные врача.'
+      }
+    })()
   },
   { immediate: true }
 )
@@ -174,6 +220,7 @@ onBeforeUnmount(() => {
           <p class="text-muted-foreground">Персональные данные врача</p>
         </div>
       </div>
+      <p v-if="loadError" class="text-sm text-destructive">{{ loadError }}</p>
     </div>
 
     <Card v-if="doctorData" class="w-full max-w-none" title="Персональные данные" description="Основная информация о враче">
@@ -237,6 +284,18 @@ onBeforeUnmount(() => {
               <div>
                 <p class="text-sm text-muted-foreground">Email</p>
                 <p class="font-medium text-foreground break-all">{{ doctorData.email }}</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <User class="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p class="text-sm text-muted-foreground">Пароль</p>
+                <Badge variant="outline" class="cursor-pointer text-xs" role="button" tabindex="0" @click="openResetPasswordDialog">
+                  Сбросить
+                </Badge>
               </div>
             </div>
 
@@ -305,6 +364,28 @@ onBeforeUnmount(() => {
 
         <div class="flex justify-end">
           <Button type="button" variant="outline" @click="cancelRegionTransfer">Отменить</Button>
+        </div>
+      </div>
+    </Dialog>
+
+    <Dialog v-model="isResetPasswordOpen" content-class="sm:max-w-md">
+      <div class="space-y-4">
+        <div>
+          <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Сброс пароля врача</h3>
+          <p class="text-sm text-muted-foreground">Будет сгенерирован временный пароль через API.</p>
+        </div>
+
+        <p v-if="passwordResetError" class="text-sm text-destructive">{{ passwordResetError }}</p>
+        <div v-if="temporaryPassword" class="rounded-md border border-border bg-secondary/40 p-3">
+          <p class="text-xs text-muted-foreground">Временный пароль</p>
+          <p class="mt-1 font-medium text-foreground break-all">{{ temporaryPassword }}</p>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <Button type="button" variant="outline" @click="isResetPasswordOpen = false">Закрыть</Button>
+          <Button type="button" :disabled="isResettingPassword" @click="submitDoctorPasswordReset">
+            {{ isResettingPassword ? 'Сброс...' : 'Сбросить пароль' }}
+          </Button>
         </div>
       </div>
     </Dialog>

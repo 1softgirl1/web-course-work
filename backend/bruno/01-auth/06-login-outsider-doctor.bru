@@ -1,0 +1,39 @@
+meta {
+  name: 06 login outsider doctor
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{outsiderDoctorEmail}}",
+    "password": "{{outsiderDoctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("outsiderDoctorToken", body.accessToken);
+  bru.setVar("outsiderDoctorRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("outsider doctor login returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("outsider doctor token is returned", function () {
+    const body = res.getBody();
+    expect(body.user.role).to.equal("DOCTOR");
+    expect(body.user.email).to.equal(bru.getEnvVar("outsiderDoctorEmail"));
+  });
+}

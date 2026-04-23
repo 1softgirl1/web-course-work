@@ -1,6 +1,15 @@
 ﻿import { reactive } from 'vue'
-import type { CreatePatientRequest, OperationParametersResponse } from '@/api/patientApi.contract'
-import { mockPatientApi } from '@/mocks/openapi/mockPatientApi'
+import type {
+  CreatePatientRequest,
+  CreatedPatientResponse,
+  OperationParametersResponse,
+  PatientCardResponse,
+  PatientStatus,
+  PatientSummaryResponse,
+  UpdatePatientRequest,
+} from '@/api/patientApi.contract'
+import { patientsApi } from '@/api/patientsApi'
+import { ApiClientError } from '@/api/httpClient'
 import { RegionsStore } from '@/stores/regionsStore'
 
 export interface PatientOperation {
@@ -29,6 +38,7 @@ export interface Patient {
   operationDetails: PatientOperation[]
   medications: string
   valve: ValveDetails
+  status: PatientStatus
   lastExam: string
   region: string
 }
@@ -38,7 +48,8 @@ export interface NewPatientInput {
   firstName: string
   middleName?: string
   birthDate: string
-  region: string
+  region?: string
+  regionId?: number
   diagnosis: string
   operations?: PatientOperation[]
   valve?: ValveDetails
@@ -54,10 +65,35 @@ export interface RegionChangeLogEntry {
   toRegion: string
 }
 
-const state = reactive({
-  patients: [] as Patient[],
-  regionChangeLogs: [] as RegionChangeLogEntry[],
+export interface KnownRegion {
+  id: number
+  name: string
+}
+
+interface PatientState {
+  patients: Patient[]
+  regionChangeLogs: RegionChangeLogEntry[]
+  patientIdsByCode: Record<string, number>
+  regionNamesById: Record<number, string>
+  cardsByCode: Record<string, PatientCardResponse>
+  lastLoadedScope: 'own' | 'all' | null
+  loading: boolean
+}
+
+const state = reactive<PatientState>({
+  patients: [],
+  regionChangeLogs: [],
+  patientIdsByCode: {},
+  regionNamesById: {},
+  cardsByCode: {},
+  lastLoadedScope: null,
+  loading: false,
 })
+
+const PATIENT_ID_CACHE_KEY = 'patientIdByCode'
+const PATIENT_ID_PROBE_WINDOW = 20
+const PATIENT_ID_PROBE_MAX = 2000
+const DOCTOR_PATIENTS_PAGE_LIMIT = 100
 
 const parseIsoDate = (value: string): Date | null => {
   const parsed = new Date(value)
@@ -111,44 +147,88 @@ const resolveRegionIdByName = (regionName: string): number => {
   return index >= 0 ? index + 1 : 1
 }
 
-const buildPatientFromRaw = (patientId: number): Patient | null => {
-  const raw = mockPatientApi.findPatientById(patientId)
-  if (!raw) return null
+const resolveRegionNameById = (regionId: number): string => {
+  return state.regionNamesById[regionId] ?? `Регион #${regionId}`
+}
 
-  const exams = mockPatientApi.listPatientExaminations(raw.id).items
-  const lastExamIso = exams[0]?.examDate ?? null
+const rememberRegionName = (regionId: number, regionName: string | null | undefined) => {
+  const normalized = (regionName ?? '').trim()
+  if (!Number.isFinite(regionId) || regionId <= 0 || !normalized) return
+  state.regionNamesById[regionId] = normalized
+}
 
-  const middleName = raw.middleName ?? ''
-  const fullName = [raw.lastName, raw.firstName, middleName].filter(Boolean).join(' ')
+const createDefaultOperation = (params: OperationParametersResponse): PatientOperation => ({
+  name: 'Операция',
+  anesthesia: params.anesthesia,
+  duration: toDurationFromMinutes(params.durationMinutes),
+  deliverySystem: params.deliverySystem,
+})
+
+const toPatientFromSummary = (summary: PatientSummaryResponse): Patient => {
+  const safeLastName = summary.lastName ?? ''
+  const safeFirstName = summary.firstName ?? ''
+  const safeMiddleName = summary.middleName ?? ''
+  const fullName = [safeLastName, safeFirstName, safeMiddleName].filter(Boolean).join(' ')
 
   return {
-    code: raw.patientCode,
+    code: summary.patientCode,
     fullName,
-    lastName: raw.lastName,
-    firstName: raw.firstName,
-    middleName,
-    birthDate: raw.birthDate,
-    age: calculateAge(raw.birthDate),
-    diagnosis: raw.diagnosis,
-    operations: raw.operationHistory.length,
-    operationDetails: raw.operationHistory.map(item => ({ ...item })),
-    medications: raw.medications,
-    valve: { ...raw.valve },
-    lastExam: lastExamIso ? formatRuDate(lastExamIso) : 'Нет данных',
-    region: raw.regionName,
+    lastName: safeLastName,
+    firstName: safeFirstName,
+    middleName: safeMiddleName,
+    birthDate: summary.birthDate,
+    age: calculateAge(summary.birthDate),
+    diagnosis: summary.diagnosis,
+    operations: 1,
+    operationDetails: [createDefaultOperation(summary.operationParameters)],
+    medications: summary.medications,
+    valve: {
+      ...summary.valve,
+    },
+    status: summary.status,
+    lastExam: summary.lastExaminationAt ? formatRuDate(summary.lastExaminationAt) : 'Нет данных',
+    region: resolveRegionNameById(summary.regionId),
   }
 }
 
-const syncPatientsFromMock = () => {
-  const mapped = mockPatientApi
-    .listAllPatientsRaw()
-    .map(patient => buildPatientFromRaw(patient.id))
-    .filter((patient): patient is Patient => Boolean(patient))
+const toPatientFromCard = (card: PatientCardResponse, status: PatientStatus = 'RED'): Patient => {
+  const safeLastName = card.lastName ?? ''
+  const safeFirstName = card.firstName ?? ''
+  const safeMiddleName = card.middleName ?? ''
+  const fullName = [safeLastName, safeFirstName, safeMiddleName].filter(Boolean).join(' ')
 
-  state.patients.splice(0, state.patients.length, ...mapped)
+  const lastExamIso = card.vitalsHistory.length > 0 ? card.vitalsHistory[card.vitalsHistory.length - 1].examDate : null
+  rememberRegionName(card.regionId, card.regionName)
+
+  return {
+    code: card.patientCode,
+    fullName,
+    lastName: safeLastName,
+    firstName: safeFirstName,
+    middleName: safeMiddleName,
+    birthDate: card.birthDate,
+    age: calculateAge(card.birthDate),
+    diagnosis: card.diagnosis,
+    operations: 1,
+    operationDetails: [createDefaultOperation(card.operationParameters)],
+    medications: card.medications,
+    valve: {
+      ...card.valve,
+    },
+    status,
+    lastExam: lastExamIso ? formatRuDate(lastExamIso) : 'Нет данных',
+    region: card.regionName,
+  }
 }
 
-syncPatientsFromMock()
+const setPatientInList = (patient: Patient) => {
+  const index = state.patients.findIndex(item => item.code === patient.code)
+  if (index >= 0) {
+    state.patients.splice(index, 1, patient)
+  } else {
+    state.patients.push(patient)
+  }
+}
 
 const toOperationParameters = (operations: PatientOperation[] | undefined): OperationParametersResponse => {
   const first = operations?.[0]
@@ -167,8 +247,359 @@ const toOperationParameters = (operations: PatientOperation[] | undefined): Oper
   }
 }
 
+const toFallbackPatientFromCreated = (created: CreatedPatientResponse): Patient => {
+  const fullName = [created.lastName, created.firstName, created.middleName ?? ''].filter(Boolean).join(' ')
+
+  return {
+    code: created.patientCode,
+    fullName,
+    lastName: created.lastName,
+    firstName: created.firstName,
+    middleName: created.middleName ?? '',
+    birthDate: created.birthDate,
+    age: calculateAge(created.birthDate),
+    diagnosis: created.diagnosis,
+    operations: 1,
+    operationDetails: [createDefaultOperation(created.operationParameters)],
+    medications: created.medications,
+    valve: { ...created.valve },
+    status: 'RED',
+    lastExam: 'Нет данных',
+    region: resolveRegionNameById(created.regionId),
+  }
+}
+
+const resolvePatientIdByCode = (patientCode: string): number | null => {
+  return state.patientIdsByCode[patientCode] ?? null
+}
+
+const readPatientIdsCache = (): Record<string, number> => {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(PATIENT_ID_CACHE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const normalized: Record<string, number> = {}
+    Object.entries(parsed).forEach(([key, value]) => {
+      if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        normalized[key] = value
+      }
+    })
+    return normalized
+  } catch {
+    return {}
+  }
+}
+
+const persistPatientIdsCache = () => {
+  if (typeof window === 'undefined') return
+  const payload: Record<string, number> = {}
+  Object.entries(state.patientIdsByCode).forEach(([code, id]) => {
+    if (typeof id === 'number' && id > 0) payload[code] = id
+  })
+  localStorage.setItem(PATIENT_ID_CACHE_KEY, JSON.stringify(payload))
+}
+
+const rememberPatientId = (patientCode: string, patientId: number) => {
+  if (!patientCode || !Number.isFinite(patientId) || patientId <= 0) return
+  state.patientIdsByCode[patientCode] = patientId
+  persistPatientIdsCache()
+}
+
+const hydratePatientIdsCache = () => {
+  const cached = readPatientIdsCache()
+  Object.entries(cached).forEach(([code, id]) => {
+    state.patientIdsByCode[code] = id
+  })
+}
+
+hydratePatientIdsCache()
+
+const getCachedPatientIdByCode = (patientCode: string): number | null => {
+  const card = state.cardsByCode[patientCode]
+  return card?.id ?? null
+}
+
+const tryGetOwnCardById = async (
+  candidateId: number,
+  expectedPatientCode: string,
+): Promise<PatientCardResponse | null> => {
+  if (!Number.isFinite(candidateId) || candidateId <= 0) return null
+
+  try {
+    const card = await patientsApi.getPatientCard(candidateId)
+    if (!card.patientCode || card.patientCode !== expectedPatientCode) {
+      return null
+    }
+    return card
+  } catch (error) {
+    if (error instanceof ApiClientError && (error.status === 403 || error.status === 404)) {
+      return null
+    }
+    throw error
+  }
+}
+
+const discoverPatientCardByProbing = async (
+  userId: number,
+  expectedPatientCode: string,
+): Promise<PatientCardResponse | null> => {
+  const checked = new Set<number>()
+
+  const probeCandidate = async (candidateId: number): Promise<PatientCardResponse | null> => {
+    if (!Number.isFinite(candidateId) || candidateId <= 0 || checked.has(candidateId)) {
+      return null
+    }
+    checked.add(candidateId)
+    return tryGetOwnCardById(candidateId, expectedPatientCode)
+  }
+
+  const direct = await probeCandidate(userId)
+  if (direct) return direct
+
+  for (let delta = 1; delta <= PATIENT_ID_PROBE_WINDOW; delta += 1) {
+    const backward = await probeCandidate(userId - delta)
+    if (backward) return backward
+
+    const forward = await probeCandidate(userId + delta)
+    if (forward) return forward
+  }
+
+  const upperBound = Math.min(
+    Math.max(userId + PATIENT_ID_PROBE_WINDOW, 400),
+    PATIENT_ID_PROBE_MAX,
+  )
+  for (let candidateId = 1; candidateId <= upperBound; candidateId += 1) {
+    const card = await probeCandidate(candidateId)
+    if (card) return card
+  }
+
+  return null
+}
+
+const getCurrentPatientContext = async () => {
+  const { useAuthStore } = await import('@/stores/authStore')
+  const authStore = useAuthStore()
+  const user = authStore.user.value
+
+  return {
+    role: user?.role ?? null,
+    userId: user?.id ?? null,
+    patientCode: user?.patientCode ?? null,
+  }
+}
+
+const ensurePatientIdByCode = async (patientCode: string): Promise<number | null> => {
+  const known = resolvePatientIdByCode(patientCode)
+  if (known) return known
+
+  const cached = getCachedPatientIdByCode(patientCode)
+  if (cached) {
+    rememberPatientId(patientCode, cached)
+    return cached
+  }
+
+  const context = await getCurrentPatientContext()
+  if (context.role === 'PATIENT') {
+    if (context.patientCode !== patientCode) return null
+
+    return resolveCurrentPatientId()
+  }
+
+  await loadPatients('all')
+  return resolvePatientIdByCode(patientCode)
+}
+
+const loadPatients = async (scope: 'own' | 'all' = 'own') => {
+  state.loading = true
+  try {
+    const summaries: PatientSummaryResponse[] = []
+    let page = 0
+    let total = Number.POSITIVE_INFINITY
+
+    while (summaries.length < total) {
+      const response = await patientsApi.listDoctorPatients({
+        scope,
+        page,
+        limit: DOCTOR_PATIENTS_PAGE_LIMIT,
+      })
+
+      total = response.total
+      if (response.items.length === 0) break
+
+      summaries.push(...response.items)
+      if (summaries.length >= total) break
+      if (response.items.length < DOCTOR_PATIENTS_PAGE_LIMIT) break
+
+      page += 1
+    }
+
+    const missingRegionSamples = new Map<number, PatientSummaryResponse>()
+    summaries.forEach(summary => {
+      if (!state.regionNamesById[summary.regionId] && !missingRegionSamples.has(summary.regionId)) {
+        missingRegionSamples.set(summary.regionId, summary)
+      }
+    })
+
+    for (const sample of missingRegionSamples.values()) {
+      try {
+        const card = await patientsApi.getPatientCard(sample.id)
+        state.cardsByCode[card.patientCode] = card
+        state.patientIdsByCode[card.patientCode] = card.id
+        rememberRegionName(card.regionId, card.regionName)
+      } catch (error) {
+        if (!(error instanceof ApiClientError && (error.status === 403 || error.status === 404))) {
+          throw error
+        }
+      }
+    }
+
+    const mapped = summaries.map(toPatientFromSummary)
+    const nextPatientIdsByCode: Record<string, number> = { ...state.patientIdsByCode }
+    summaries.forEach(summary => {
+      nextPatientIdsByCode[summary.patientCode] = summary.id
+    })
+
+    state.patientIdsByCode = nextPatientIdsByCode
+    state.patients.splice(0, state.patients.length, ...mapped)
+
+    if (scope === 'own' && summaries.length > 0) {
+      const first = summaries[0]
+      const { useAuthStore } = await import('@/stores/authStore')
+      const authStore = useAuthStore()
+      authStore.updateDoctorRegion(first.regionId, resolveRegionNameById(first.regionId))
+    }
+
+    state.lastLoadedScope = scope
+  } finally {
+    state.loading = false
+  }
+}
+
+const loadKnownRegionsFromDoctorPatients = async () => {
+  const summaries: PatientSummaryResponse[] = []
+  let page = 0
+  let total = Number.POSITIVE_INFINITY
+
+  while (summaries.length < total) {
+    const response = await patientsApi.listDoctorPatients({
+      scope: 'all',
+      page,
+      limit: DOCTOR_PATIENTS_PAGE_LIMIT,
+    })
+
+    total = response.total
+    if (response.items.length === 0) break
+
+    summaries.push(...response.items)
+    if (summaries.length >= total) break
+    if (response.items.length < DOCTOR_PATIENTS_PAGE_LIMIT) break
+
+    page += 1
+  }
+
+  const missingRegionSamples = new Map<number, PatientSummaryResponse>()
+  summaries.forEach(summary => {
+    if (!state.regionNamesById[summary.regionId] && !missingRegionSamples.has(summary.regionId)) {
+      missingRegionSamples.set(summary.regionId, summary)
+    }
+  })
+
+  for (const sample of missingRegionSamples.values()) {
+    try {
+      const card = await patientsApi.getPatientCard(sample.id)
+      state.cardsByCode[card.patientCode] = card
+      state.patientIdsByCode[card.patientCode] = card.id
+      rememberRegionName(card.regionId, card.regionName)
+    } catch (error) {
+      if (!(error instanceof ApiClientError && (error.status === 403 || error.status === 404))) {
+        throw error
+      }
+    }
+  }
+
+  persistPatientIdsCache()
+}
+
+const loadPatientCardByCode = async (patientCode: string): Promise<Patient | null> => {
+  const patientId = await ensurePatientIdByCode(patientCode)
+  if (!patientId) return null
+
+  const card = await patientsApi.getPatientCard(patientId)
+  state.cardsByCode[patientCode] = card
+  state.patientIdsByCode[patientCode] = card.id
+  rememberRegionName(card.regionId, card.regionName)
+
+  const knownStatus = state.patients.find(item => item.code === patientCode)?.status ?? 'RED'
+  const patient = toPatientFromCard(card, knownStatus)
+  setPatientInList(patient)
+  return patient
+}
+
+const resolveCurrentPatientId = async (): Promise<number | null> => {
+  const context = await getCurrentPatientContext()
+  if (context.role !== 'PATIENT') return null
+
+  const patientId = context.userId
+  const patientCode = context.patientCode
+  if (!patientCode) return null
+  if (typeof patientId !== 'number' || patientId <= 0) {
+    return null
+  }
+
+  const known = resolvePatientIdByCode(patientCode)
+  if (known) {
+    return known
+  }
+
+  const cardByDirectId = await tryGetOwnCardById(patientId, patientCode)
+  if (cardByDirectId) {
+    const knownStatus = state.patients.find(item => item.code === cardByDirectId.patientCode)?.status ?? 'RED'
+    state.cardsByCode[cardByDirectId.patientCode] = cardByDirectId
+    rememberPatientId(cardByDirectId.patientCode, cardByDirectId.id)
+    setPatientInList(toPatientFromCard(cardByDirectId, knownStatus))
+    return cardByDirectId.id
+  }
+
+  const discovered = await discoverPatientCardByProbing(patientId, patientCode)
+  if (!discovered) return null
+
+  const knownStatus = state.patients.find(item => item.code === discovered.patientCode)?.status ?? 'RED'
+  state.cardsByCode[discovered.patientCode] = discovered
+  rememberPatientId(discovered.patientCode, discovered.id)
+  setPatientInList(toPatientFromCard(discovered, knownStatus))
+  return discovered.id
+}
+
+const loadCurrentPatientCard = async (): Promise<Patient | null> => {
+  const patientId = await resolveCurrentPatientId()
+  if (!patientId) {
+    throw new Error('Не удалось определить идентификатор карточки пациента.')
+  }
+
+  const card = await patientsApi.getPatientCard(patientId)
+  state.cardsByCode[card.patientCode] = card
+  rememberPatientId(card.patientCode, card.id)
+  rememberRegionName(card.regionId, card.regionName)
+
+  const knownStatus = state.patients.find(item => item.code === card.patientCode)?.status ?? 'RED'
+  const patient = toPatientFromCard(card, knownStatus)
+  setPatientInList(patient)
+  return patient
+}
+
 export const usePatientStore = () => {
-  const addPatient = (input: NewPatientInput) => {
+  const getKnownRegions = (): KnownRegion[] => {
+    return Object.entries(state.regionNamesById)
+      .map(([id, name]) => ({
+        id: Number.parseInt(id, 10),
+        name,
+      }))
+      .filter(region => Number.isFinite(region.id) && region.id > 0 && Boolean(region.name))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+  }
+
+  const addPatient = async (input: NewPatientInput, syncScope?: 'own' | 'all') => {
     const trimmedOperations = (input.operations ?? [])
       .map(item => ({
         name: item.name.trim(),
@@ -178,13 +609,24 @@ export const usePatientStore = () => {
       }))
       .filter(item => item.name || item.anesthesia || item.duration || item.deliverySystem)
 
+    const resolvedRegionId =
+      typeof input.regionId === 'number' && Number.isFinite(input.regionId) && input.regionId > 0
+        ? input.regionId
+        : input.region
+          ? resolveRegionIdByName(input.region)
+          : null
+
+    if (!resolvedRegionId) {
+      throw new Error('REGION_ID_REQUIRED')
+    }
+
     const payload: CreatePatientRequest = {
       lastName: input.lastName.trim(),
       firstName: input.firstName.trim(),
       middleName: input.middleName?.trim() || null,
       birthDate: input.birthDate,
       diagnosis: input.diagnosis.trim(),
-      regionId: resolveRegionIdByName(input.region),
+      regionId: resolvedRegionId,
       medications: input.medications?.trim() || '',
       valve: {
         name: input.valve?.name?.trim() || '',
@@ -194,67 +636,68 @@ export const usePatientStore = () => {
       operationParameters: toOperationParameters(trimmedOperations),
     }
 
-    const created = mockPatientApi.createPatientCard(payload)
+    const created = await patientsApi.createPatient(payload)
+    state.patientIdsByCode[created.patientCode] = created.id
 
-    if (trimmedOperations.length > 0) {
-      mockPatientApi.setPatientOperationHistory(
-        created.id,
-        trimmedOperations.map(operation => ({ ...operation }))
-      )
-    } else {
-      mockPatientApi.setPatientOperationHistory(created.id, [
-        {
-          name: 'Операция не указана',
-          anesthesia: payload.operationParameters.anesthesia,
-          duration: toDurationFromMinutes(payload.operationParameters.durationMinutes),
-          deliverySystem: payload.operationParameters.deliverySystem,
-        },
-      ])
+    let patient = toFallbackPatientFromCreated(created)
+    try {
+      const loaded = await loadPatientCardByCode(created.patientCode)
+      if (loaded) {
+        patient = loaded
+      }
+    } catch {
+      setPatientInList(patient)
     }
 
-    syncPatientsFromMock()
-
-    const createdPatient = state.patients.find(patient => patient.code === created.patientCode)
+    const scopeToSync = syncScope ?? state.lastLoadedScope
+    if (scopeToSync) {
+      await loadPatients(scopeToSync)
+      const refreshed = state.patients.find(item => item.code === created.patientCode)
+      if (refreshed) {
+        patient = refreshed
+      }
+    }
 
     return {
-      patient: createdPatient ?? {
-        code: created.patientCode,
-        fullName: [created.lastName, created.firstName, created.middleName ?? ''].filter(Boolean).join(' '),
-        lastName: created.lastName,
-        firstName: created.firstName,
-        middleName: created.middleName ?? '',
-        birthDate: created.birthDate,
-        age: calculateAge(created.birthDate),
-        diagnosis: created.diagnosis,
-        operations: trimmedOperations.length,
-        operationDetails: trimmedOperations,
-        medications: created.medications,
-        valve: { ...created.valve },
-        lastExam: 'Нет данных',
-        region: RegionsStore[created.regionId - 1]?.name ?? input.region,
-      },
+      patient,
       password: created.temporaryPassword,
     }
   }
 
-  const transferPatientRegion = (patientCode: string, nextRegion: string, changedBy: string) => {
-    const target = mockPatientApi.findPatientByCode(patientCode)
+  const transferPatientRegion = async (
+    patientCode: string,
+    nextRegionId: number,
+    changedBy: string,
+    nextRegionNameHint?: string,
+    syncScope?: 'own' | 'all',
+  ) => {
+    const patientId = await ensurePatientIdByCode(patientCode)
+    if (!patientId) return null
+
+    const target = state.patients.find(patient => patient.code === patientCode)
     if (!target) return null
 
-    const nextRegionName = nextRegion.trim()
-    if (!nextRegionName || nextRegionName === target.regionName) {
-      return state.patients.find(patient => patient.code === patientCode) ?? null
+    if (!Number.isFinite(nextRegionId) || nextRegionId <= 0) {
+      return target
     }
 
-    const previousRegion = target.regionName
+    const currentRegionId = state.cardsByCode[patientCode]?.regionId ?? null
+    if (currentRegionId === nextRegionId) return target
 
-    const updated = mockPatientApi.updatePatientCard(target.id, {
-      regionId: resolveRegionIdByName(nextRegionName),
-    })
+    const previousRegion = target.region
 
-    if (!updated) {
-      return state.patients.find(patient => patient.code === patientCode) ?? null
+    const payload: UpdatePatientRequest = {
+      regionId: nextRegionId,
     }
+    const updatedCard = await patientsApi.updatePatientCard(patientId, payload)
+
+    state.cardsByCode[patientCode] = updatedCard
+    state.patientIdsByCode[patientCode] = updatedCard.id
+    rememberRegionName(updatedCard.regionId, updatedCard.regionName)
+
+    const knownStatus = state.patients.find(item => item.code === patientCode)?.status ?? 'RED'
+    const updatedPatient = toPatientFromCard(updatedCard, knownStatus)
+    setPatientInList(updatedPatient)
 
     state.regionChangeLogs.unshift({
       id: Date.now() + Math.floor(Math.random() * 1000),
@@ -262,12 +705,57 @@ export const usePatientStore = () => {
       changedAt: new Date().toLocaleString('ru-RU'),
       changedBy: changedBy.trim() || 'Неизвестный врач',
       fromRegion: previousRegion,
-      toRegion: nextRegionName,
+      toRegion: updatedPatient.region || nextRegionNameHint || `Регион #${nextRegionId}`,
     })
 
-    syncPatientsFromMock()
+    const scopeToSync = syncScope ?? state.lastLoadedScope
+    if (scopeToSync) {
+      await loadPatients(scopeToSync)
+    }
 
-    return state.patients.find(patient => patient.code === patientCode) ?? null
+    return updatedPatient
+  }
+
+  const updatePatientPassword = async (
+    patientCode: string,
+    nextPassword: string,
+    syncScope?: 'own' | 'all',
+  ) => {
+    const patientId = await ensurePatientIdByCode(patientCode)
+    if (!patientId) {
+      throw new Error('PATIENT_NOT_FOUND')
+    }
+
+    const normalized = nextPassword.trim()
+    if (!normalized) {
+      throw new Error('VALIDATION_FAILED')
+    }
+    if (normalized.length < 6) {
+      throw new Error('WEAK_PASSWORD')
+    }
+
+    try {
+      const updatedCard = await patientsApi.updatePatientCard(patientId, { password: normalized })
+
+      state.cardsByCode[patientCode] = updatedCard
+      state.patientIdsByCode[patientCode] = updatedCard.id
+      rememberRegionName(updatedCard.regionId, updatedCard.regionName)
+
+      const knownStatus = state.patients.find(item => item.code === patientCode)?.status ?? 'RED'
+      setPatientInList(toPatientFromCard(updatedCard, knownStatus))
+
+      const scopeToSync = syncScope ?? state.lastLoadedScope
+      if (scopeToSync) {
+        await loadPatients(scopeToSync)
+      }
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        if (error.status === 400) throw new Error('VALIDATION_FAILED')
+        if (error.status === 401 || error.status === 403) throw new Error('ACCESS_DENIED')
+        if (error.status === 404) throw new Error('PATIENT_NOT_FOUND')
+      }
+      throw error
+    }
   }
 
   const getPatientRegionLogs = (patientCode: string) => {
@@ -277,8 +765,18 @@ export const usePatientStore = () => {
   return {
     patients: state.patients,
     regionChangeLogs: state.regionChangeLogs,
+    loading: state.loading,
     addPatient,
     transferPatientRegion,
+    updatePatientPassword,
     getPatientRegionLogs,
+    getKnownRegions,
+    loadKnownRegionsFromDoctorPatients,
+    loadPatients,
+    loadPatientCardByCode,
+    loadCurrentPatientCard,
+    resolvePatientIdByCode,
+    ensurePatientIdByCode,
+    resolveCurrentPatientId,
   }
 }

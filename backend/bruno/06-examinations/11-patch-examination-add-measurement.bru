@@ -1,0 +1,37 @@
+meta {
+  name: 11 patch examination add measurement
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations/{{createdExaminationId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "measurements": [
+      {
+        "characteristicCode": "metric_03",
+        "value": 42.5,
+        "comment": "Late lab result"
+      }
+    ]
+  }
+}
+
+tests {
+  test("doctor can add late measurement to existing examination", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.measurements.length).to.equal(3);
+    const metric03 = body.measurements.find(item => item.characteristicCode === "metric_03");
+    expect(metric03.value).to.equal("42.5");
+  });
+}

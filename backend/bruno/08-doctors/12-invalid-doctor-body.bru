@@ -1,0 +1,33 @@
+meta {
+  name: 12 invalid doctor body
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/doctors
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "not-a-doctor-login",
+    "role": "DOCTOR",
+    "lastName": "Invalid",
+    "firstName": "Doctor",
+    "specialization": "Cardiologist",
+    "workplace": "Invalid Center",
+    "regionId": 1
+  }
+}
+
+tests {
+  test("doctor username without at sign returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

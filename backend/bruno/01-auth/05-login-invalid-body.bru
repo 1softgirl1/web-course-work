@@ -1,0 +1,27 @@
+meta {
+  name: 05 login invalid body
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "",
+    "password": ""
+  }
+}
+
+tests {
+  test("invalid login body returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

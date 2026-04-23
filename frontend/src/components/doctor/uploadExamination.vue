@@ -1,33 +1,57 @@
-<script setup lang="ts" >
-import { computed, ref } from "vue"
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import Card from "@/components/ui/card.vue";
+import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
-import Field from "@/components/ui/field/field.vue";
-import FieldLabel from "@/components/ui/field/field-label.vue";
-import {CheckCircle, Heart, Undo2} from "lucide-vue-next"
-import { useExaminationStore, toRuExamDate } from '@/stores/examinationStore'
+import Field from '@/components/ui/field/field.vue'
+import FieldLabel from '@/components/ui/field/field-label.vue'
+import { CheckCircle, Heart, Plus, Trash2, Undo2 } from 'lucide-vue-next'
+import {
+  buildMetricCatalogFromExams,
+  useExaminationStore,
+  toRuExamDate,
+  type EditableMetricInput,
+} from '@/stores/examinationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePatientStore } from '@/stores/patientStore'
 
+interface FormMetricRow {
+  id: string
+  characteristicCode: string
+  value: string
+  comment: string
+}
 
 const submitted = ref(false)
 const route = useRoute()
 const authStore = useAuthStore()
 const patientStore = usePatientStore()
-const examDate = ref("")
-const conclusion = ref("")
-const indicatorValues = ref<string[]>(Array.from({ length: 50 }, () => ""))
-const { examinations, addExamination, updateExamination } = useExaminationStore()
-const indicatorLabels = Array.from({ length: 50 }, (_, index) => `Показатель ${index + 1}`)
+const examDate = ref('')
+const conclusion = ref('')
+const metricRows = ref<FormMetricRow[]>([])
+const examinationStore = useExaminationStore()
+const { examinations, addExamination, updateExamination } = examinationStore
+const loadError = ref('')
 
 const patientCode = computed(() => {
   return typeof route.params.code === 'string' ? route.params.code : ''
 })
 
 const resolvedDoctorFullName = computed(() => {
-  return authStore.user.value?.displayName || 'Борискова Д.В.'
+  return authStore.user.value?.displayName || 'Врач'
+})
+
+const knownMetricCatalog = computed(() => {
+  const patientExams = examinations.filter(exam => exam.patientCode === patientCode.value)
+  return buildMetricCatalogFromExams(patientExams)
+})
+
+const knownMetricNameByCode = computed(() => {
+  return knownMetricCatalog.value.reduce<Record<string, string>>((acc, metric) => {
+    acc[metric.characteristicCode] = metric.characteristicName
+    return acc
+  }, {})
 })
 
 const canEditPatientExaminations = computed(() => {
@@ -49,11 +73,27 @@ const editingExam = computed(() => {
   return examinations.find(exam => exam.id === editId.value && exam.patientCode === patientCode.value) ?? null
 })
 
-if (editingExam.value) {
+const createEmptyMetricRow = (): FormMetricRow => ({
+  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  characteristicCode: '',
+  value: '',
+  comment: '',
+})
+
+const hydrateFormFromEditing = () => {
+  if (!editingExam.value) return
   const [day, month, year] = editingExam.value.date.split('.')
   examDate.value = `${year}-${month}-${day}`
   conclusion.value = editingExam.value.conclusion
-  indicatorValues.value = indicatorLabels.map((_, index) => String(editingExam.value?.indicators[index] ?? ''))
+  metricRows.value = editingExam.value.metrics.map(metric => ({
+    id: `${metric.characteristicCode}-${Math.random().toString(16).slice(2)}`,
+    characteristicCode: metric.characteristicCode,
+    value: String(metric.value),
+    comment: metric.comment ?? '',
+  }))
+  if (metricRows.value.length === 0) {
+    metricRows.value = [createEmptyMetricRow()]
+  }
 }
 
 const backToPatientCardPath = computed(() => {
@@ -61,21 +101,94 @@ const backToPatientCardPath = computed(() => {
   return code ? `/doctor/patientCard/${code}` : '/doctor/myPatients'
 })
 
+const addMetricRow = () => {
+  metricRows.value.push(createEmptyMetricRow())
+}
+
+const removeMetricRow = (rowId: string) => {
+  metricRows.value = metricRows.value.filter(row => row.id !== rowId)
+  if (metricRows.value.length === 0) {
+    metricRows.value = [createEmptyMetricRow()]
+  }
+}
+
+const parseMetricRows = (): EditableMetricInput[] => {
+  const parsed: EditableMetricInput[] = []
+  const seenCodes = new Set<string>()
+
+  metricRows.value.forEach(row => {
+    const code = row.characteristicCode.trim()
+    const valueRaw = row.value.trim()
+    const comment = row.comment.trim()
+
+    const hasAnyInput = Boolean(code || valueRaw || comment)
+    if (!hasAnyInput) return
+
+    if (!code) {
+      throw new Error('METRIC_CODE_REQUIRED')
+    }
+
+    const numeric = Number(valueRaw)
+    if (!Number.isFinite(numeric)) {
+      throw new Error('METRIC_VALUE_INVALID')
+    }
+
+    if (seenCodes.has(code)) {
+      throw new Error('METRIC_CODE_DUPLICATE')
+    }
+    seenCodes.add(code)
+
+    parsed.push({
+      characteristicCode: code,
+      value: numeric,
+      comment: comment || null,
+    })
+  })
+
+  return parsed
+}
+
 const resetForm = () => {
   submitted.value = false
   if (editingExam.value) {
-    const [day, month, year] = editingExam.value.date.split('.')
-    examDate.value = `${year}-${month}-${day}`
-    conclusion.value = editingExam.value.conclusion
-    indicatorValues.value = indicatorLabels.map((_, index) => String(editingExam.value?.indicators[index] ?? ''))
+    hydrateFormFromEditing()
     return
   }
-  examDate.value = ""
-  conclusion.value = ""
-  indicatorValues.value = Array.from({ length: 50 }, () => "")
+  examDate.value = ''
+  conclusion.value = ''
+  metricRows.value = [createEmptyMetricRow()]
 }
 
-const handleSubmit = (e: Event) => {
+const showMetricValidationError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    alert('Не удалось сохранить обследование. Попробуйте снова.')
+    return
+  }
+
+  if (error.message === 'METRIC_CODE_REQUIRED') {
+    alert('У каждой заполненной строки должен быть код показателя.')
+    return
+  }
+
+  if (error.message === 'METRIC_VALUE_INVALID') {
+    alert('Значение показателя должно быть числом.')
+    return
+  }
+
+  if (error.message === 'METRIC_CODE_DUPLICATE' || error.message.startsWith('METRIC_DUPLICATE:')) {
+    alert('Коды показателей не должны повторяться.')
+    return
+  }
+
+  if (error.message === 'METRICS_REQUIRED') {
+    alert('Добавьте минимум один показатель.')
+    return
+  }
+
+  alert('Не удалось сохранить обследование. Попробуйте снова.')
+}
+
+const handleSubmit = async (e: Event) => {
   e.preventDefault()
 
   if (!examDate.value) {
@@ -93,139 +206,195 @@ const handleSubmit = (e: Event) => {
     return
   }
 
-  const indicators = indicatorValues.value.map(value => Number(value.trim()))
-  const hasInvalidIndicator = indicators.some(value => Number.isNaN(value))
-
-  if (hasInvalidIndicator) {
-    alert('Заполните все 50 показателей числовыми значениями')
-    return
-  }
-
   const doctorFullName = resolvedDoctorFullName.value
   if (!doctorFullName) {
     alert('Не удалось определить ФИО врача из личного кабинета')
     return
   }
 
-  if (editingExam.value) {
-    updateExamination({
-      id: editingExam.value.id,
-      date: toRuExamDate(examDate.value),
-      doctor: doctorFullName,
-      conclusion: conclusion.value.trim(),
-      indicators,
-    })
-  } else {
-    addExamination({
-      patientCode: patientCode.value,
-      date: toRuExamDate(examDate.value),
-      doctor: doctorFullName,
-      conclusion: conclusion.value.trim(),
-      indicators,
-    })
+  let metrics: EditableMetricInput[]
+  try {
+    metrics = parseMetricRows()
+  } catch (error) {
+    showMetricValidationError(error)
+    return
   }
 
-  submitted.value = true
+  if (!editingExam.value && metrics.length === 0) {
+    alert('Добавьте минимум один показатель.')
+    return
+  }
+
+  try {
+    if (editingExam.value) {
+      await updateExamination({
+        id: editingExam.value.id,
+        date: toRuExamDate(examDate.value),
+        doctor: doctorFullName,
+        conclusion: conclusion.value.trim(),
+        metrics,
+      })
+    } else {
+      await addExamination({
+        patientCode: patientCode.value,
+        date: toRuExamDate(examDate.value),
+        doctor: doctorFullName,
+        conclusion: conclusion.value.trim(),
+        metrics,
+      })
+    }
+
+    submitted.value = true
+  } catch (error) {
+    showMetricValidationError(error)
+  }
 }
+
+onMounted(async () => {
+  metricRows.value = [createEmptyMetricRow()]
+  if (!patientCode.value) return
+  try {
+    await patientStore.loadPatientCardByCode(patientCode.value)
+    await examinationStore.loadByPatientCode(patientCode.value)
+    if (editingExam.value) {
+      hydrateFormFromEditing()
+    }
+    loadError.value = ''
+  } catch {
+    loadError.value = 'Не удалось загрузить данные пациента.'
+  }
+})
 </script>
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <!-- Успешная отправка -->
-    <Card v-if="submitted" class="max-w-xl flex items-center">
-      <div class="p-8 text-center ">
-        <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-          <CheckCircle class="w-8 h-8 text-green-600" />
+    <Card v-if="submitted" class="flex w-full max-w-xl items-center">
+      <div class="p-8 text-center">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
+          <CheckCircle class="h-8 w-8 text-green-600" />
         </div>
-        <h2 class="text-xl font-semibold text-foreground mb-2">Обследование успешно загружено</h2>
+        <h2 class="mb-2 text-xl font-semibold text-foreground">Обследование успешно загружено</h2>
         <Button @click="resetForm">
-          Добавить еще
+          {{ editingExam ? 'Вернуться к редактированию' : 'Добавить еще' }}
         </Button>
       </div>
     </Card>
 
-    <!-- Форма загрузки -->
     <div v-else>
-
       <div class="mb-6">
-        <div class="flex items-s gap-4 mb-2">
+        <div class="mb-2 flex items-start gap-4">
           <router-link :to="backToPatientCardPath">
-            <Undo2 class="mt-1"></Undo2>
+            <Undo2 class="mt-1" />
           </router-link>
           <div>
-            <h1 class="text-2xl font-bold text-foreground">Загрузить обследование</h1>
+            <h1 class="text-2xl font-bold text-foreground">
+              {{ editingExam ? 'Редактировать обследование' : 'Загрузить обследование' }}
+            </h1>
             <p class="text-muted-foreground">Внесите данные о результатах обследования</p>
           </div>
         </div>
       </div>
 
+      <p v-if="loadError" class="mb-4 text-sm text-destructive">{{ loadError }}</p>
 
-
-
-      <Card class="max-w-3xl" >
-
+      <Card class="w-full max-w-4xl">
         <template #header>
           <div class="flex items-start gap-3">
-            <!-- Иконка -->
-            <div class="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
-              <Heart class="w-5 h-5 text-red-500" />
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <Heart class="h-5 w-5 text-red-500" />
             </div>
-
-            <!-- Текст -->
-            <div class="flex-col ">
-              <div class="font-semibold leading-none ">
+            <div>
+              <div class="font-semibold leading-none">
                 {{ editingExam ? 'Редактирование обследования' : 'Новое обследование' }}
               </div>
               <div class="text-sm text-muted-foreground">
-                Укажите параметры и загрузите файлы обследования
+                Укажите дату, комментарий и нужные показатели
               </div>
             </div>
           </div>
         </template>
 
+        <form v-if="canEditPatientExaminations" class="space-y-6" @submit.prevent="handleSubmit">
+          <Field>
+            <FieldLabel>Дата обследования *</FieldLabel>
+            <Input v-model="examDate" type="date" required />
+          </Field>
 
+          <Field>
+            <FieldLabel>Заключение врача</FieldLabel>
+            <Input v-model="conclusion" placeholder="Текст заключения" />
+          </Field>
 
-          <form v-if="canEditPatientExaminations" @submit.prevent="handleSubmit" class="space-y-6">
-            <div class="grid sm:grid-cols-1 gap-4">
-              <Field>
-                <FieldLabel>Дата обследования *</FieldLabel>
-                <Input v-model="examDate" type="date" required />
-              </Field>
+          <div class="space-y-3 rounded-xl bg-secondary/30 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <h3 class="flex items-center gap-2 font-medium text-foreground">
+                <Heart class="h-4 w-4 text-red-500" />
+                Показатели обследования
+              </h3>
+              <Button type="button" variant="outline" size="sm" @click="addMetricRow">
+                <Plus class="mr-2 h-4 w-4" />
+                Добавить показатель
+              </Button>
             </div>
 
-            <Field>
-              <FieldLabel>Заключение врача</FieldLabel>
-              <Input v-model="conclusion" placeholder="Текст заключения" />
-            </Field>
+            <p class="text-xs text-muted-foreground">
+              Для нового обследования заполните минимум один показатель.
+            </p>
 
-            <div class="p-4 bg-secondary/30 rounded-xl space-y-4">
-              <h3 class="font-medium text-foreground flex items-center gap-2">
-                <Heart class="w-4 h-4 text-red-500" />
-                Численные показатели обследования
-              </h3>
-
-              <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Field v-for="(label, index) in indicatorLabels" :key="label">
-                  <FieldLabel>{{ label }} *</FieldLabel>
+            <div class="space-y-3">
+              <div
+                v-for="(row, index) in metricRows"
+                :key="row.id"
+                class="grid grid-cols-1 gap-2 rounded-lg border border-border bg-background p-3 md:grid-cols-12"
+              >
+                <div class="md:col-span-4">
+                  <FieldLabel>Код показателя *</FieldLabel>
                   <Input
-                    v-model="indicatorValues[index]"
-                    type="number"
-                    placeholder="Введите число"
-                    required
+                    v-model="row.characteristicCode"
+                    :list="`metric-codes-${index}`"
+                    placeholder="metric_01"
                   />
-                </Field>
+                  <datalist :id="`metric-codes-${index}`">
+                    <option
+                      v-for="metric in knownMetricCatalog"
+                      :key="metric.characteristicCode"
+                      :value="metric.characteristicCode"
+                    >
+                      {{ metric.characteristicName }}
+                    </option>
+                  </datalist>
+                  <p class="mt-1 text-xs text-muted-foreground">
+                    {{ knownMetricNameByCode[row.characteristicCode.trim()] || 'Введите код из API-каталога' }}
+                  </p>
+                </div>
+
+                <div class="md:col-span-3">
+                  <FieldLabel>Значение *</FieldLabel>
+                  <Input v-model="row.value" type="number" placeholder="72" />
+                </div>
+
+                <div class="md:col-span-4">
+                  <FieldLabel>Комментарий</FieldLabel>
+                  <Input v-model="row.comment" placeholder="Опционально" />
+                </div>
+
+                <div class="md:col-span-1 md:self-end">
+                  <Button type="button" variant="ghost" size="icon" @click="removeMetricRow(row.id)">
+                    <Trash2 class="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
-
-            <Button type="submit" class="w-full" size="lg">
-              {{ editingExam ? 'Сохранить изменения' : 'Загрузить обследование' }}
-            </Button>
-          </form>
-
-          <div v-else class="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-foreground">
-            Редактирование обследований пациента из другого региона для обычного врача недоступно.
           </div>
 
+          <Button type="submit" class="w-full" size="lg">
+            {{ editingExam ? 'Сохранить изменения' : 'Загрузить обследование' }}
+          </Button>
+        </form>
+
+        <div v-else class="rounded-lg border border-destructive/20 bg-destructive/5 p-4 text-sm text-foreground">
+          Редактирование обследований пациента из другого региона для обычного врача недоступно.
+        </div>
       </Card>
     </div>
   </div>

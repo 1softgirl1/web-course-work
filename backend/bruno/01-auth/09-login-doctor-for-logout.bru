@@ -1,0 +1,37 @@
+meta {
+  name: 09 login doctor for logout
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{doctorEmail}}",
+    "password": "{{doctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("logoutRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("logout-only login returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("logout-only refresh token is returned", function () {
+    const body = res.getBody();
+    expect(body.refreshToken).to.be.a("string");
+  });
+}

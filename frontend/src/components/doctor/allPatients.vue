@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { ref, computed, watch} from 'vue'
+import { ref, computed, onMounted, watch} from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import Card from '@/components/ui/card.vue'
@@ -21,6 +21,7 @@ import TableHeader from '@/components/ui/table/tableHeader.vue'
 import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
+import { toHumanErrorMessage } from '@/api/httpClient'
 
 import { Search, Download, Calendar, MapPin, Funnel, Plus } from 'lucide-vue-next'
 
@@ -32,6 +33,7 @@ const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const isDoctorExtended = computed(() => authStore.isDoctorExtended.value)
+const loadError = ref('')
 
 /* ---------------- STATE ---------------- */
 
@@ -93,16 +95,9 @@ const filteredData = computed<Patient[]>(() => {
   })
 })
 
-const getExamStatus = (lastExam: string): ExamStatus => {
-  const examDate = parseExamDate(lastExam)
-  if (!examDate) return 'red'
-
-  const now = new Date()
-  const diffMs = now.getTime() - examDate.getTime()
-  const diffMonths = diffMs / (1000 * 60 * 60 * 24 * 30.44)
-
-  if (diffMonths < 3) return 'green'
-  if (diffMonths <= 6) return 'yellow'
+const getExamStatus = (status: Patient['status']): ExamStatus => {
+  if (status === 'GREEN') return 'green'
+  if (status === 'YELLOW') return 'yellow'
   return 'red'
 }
 
@@ -163,6 +158,14 @@ const openPatientCard = (code: string) => {
     },
   })
 }
+
+onMounted(async () => {
+  try {
+    await patientStore.loadPatients('all')
+  } catch (error) {
+    loadError.value = toHumanErrorMessage(error)
+  }
+})
 
 </script>
 
@@ -267,6 +270,7 @@ const openPatientCard = (code: string) => {
 
     <!-- TABLE -->
     <Card>
+      <p v-if="loadError" class="px-4 py-3 text-sm text-destructive">{{ loadError }}</p>
       <div>
         <div class="space-y-3 sm:hidden">
           <div
@@ -276,12 +280,11 @@ const openPatientCard = (code: string) => {
             @click="openPatientCard(patient.code)"
           >
             <div class="mb-2 flex items-start justify-between gap-2">
-              <Badge v-if="!isDoctorExtended" variant="outline">{{ patient.code }}</Badge>
-              <p v-else class="text-sm font-medium text-foreground">{{ patient.fullName }}</p>
+              <Badge variant="outline">{{ patient.code }}</Badge>
               <span class="flex items-center gap-1 text-xs text-muted-foreground">
                 <span
                   class="inline-block h-2.5 w-2.5 rounded-full"
-                  :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                  :class="getExamStatusDotClass(getExamStatus(patient.status))"
                 />
                 {{ patient.lastExam }}
               </span>
@@ -301,7 +304,7 @@ const openPatientCard = (code: string) => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{{ isDoctorExtended ? 'ФИО' : 'Код пациента' }}</TableHead>
+                <TableHead>Код пациента</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
 
@@ -319,8 +322,7 @@ const openPatientCard = (code: string) => {
                   @click="openPatientCard(patient.code)"
               >
                 <TableCell>
-                  <Badge v-if="!isDoctorExtended" variant="outline">{{ patient.code }}</Badge>
-                  <span v-else>{{ patient.fullName }}</span>
+                  <Badge variant="outline">{{ patient.code }}</Badge>
                 </TableCell>
 
 
@@ -341,7 +343,7 @@ const openPatientCard = (code: string) => {
                   <span class="flex items-center gap-2 text-sm">
                     <span
                       class="inline-block w-2.5 h-2.5 rounded-full"
-                      :class="getExamStatusDotClass(getExamStatus(patient.lastExam))"
+                      :class="getExamStatusDotClass(getExamStatus(patient.status))"
                     />
                     <Calendar class="w-3 h-3" />
                     {{ patient.lastExam }}

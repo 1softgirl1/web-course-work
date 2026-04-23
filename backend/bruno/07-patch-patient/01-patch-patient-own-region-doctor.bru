@@ -1,0 +1,43 @@
+meta {
+  name: 01 patch patient own region doctor
+  type: http
+  seq: 2
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "diagnosis": "Bruno patched diagnosis",
+    "medications": "Bruno medications",
+    "password": "bruno-new-password",
+    "valve": {
+      "name": "Bruno Valve",
+      "size": "28 mm",
+      "material": "Bioprosthetic"
+    },
+    "operationParameters": {
+      "anesthesia": "General anesthesia",
+      "durationMinutes": 135,
+      "deliverySystem": "Transfemoral"
+    }
+  }
+}
+
+tests {
+  test("own region doctor can patch patient", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.diagnosis).to.equal("Bruno patched diagnosis");
+    expect(body.medications).to.equal("Bruno medications");
+    expect(body.valve.name).to.equal("Bruno Valve");
+  });
+}

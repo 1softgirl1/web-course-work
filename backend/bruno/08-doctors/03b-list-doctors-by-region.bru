@@ -1,0 +1,22 @@
+meta {
+  name: 03b list doctors by region
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/doctors?regionId=1&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("region filter returns only requested region", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+    body.items.forEach(item => expect(item.regionId).to.equal(1));
+  });
+}

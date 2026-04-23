@@ -1,5 +1,5 @@
 <script setup lang="ts" >
-import { computed, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import { useRoute } from 'vue-router'
 import Card from "@/components/ui/card.vue";
 import Input from '@/components/ui/input.vue'
@@ -14,9 +14,9 @@ import SelectTrigger from "@/components/ui/select/selectTrigger.vue";
 import SelectValue from "@/components/ui/select/selectValue.vue";
 import SelectContent from "@/components/ui/select/selectContent.vue";
 import SelectItem from "@/components/ui/select/selectItem.vue";
-import { RegionsStore } from '@/stores/regionsStore.ts'
 import Badge from "@/components/ui/badge.vue";
 import { usePatientStore } from '@/stores/patientStore'
+import { useAuthStore } from '@/stores/authStore'
 
 const submitted = ref(false)
 const route = useRoute()
@@ -24,7 +24,7 @@ const lastName = ref("")
 const firstName = ref("")
 const middleName = ref("")
 const birthDate = ref("")
-const region = ref("")
+const regionId = ref("")
 const diagnosis = ref("")
 const valveName = ref("")
 const valveSize = ref("")
@@ -33,6 +33,9 @@ const createdPatientCode = ref("")
 const createdPatientPassword = ref("")
 const backPath = computed(() => {
   return route.query.from === 'allPatients' ? '/doctor/allPatients' : '/doctor/myPatients'
+})
+const currentListScope = computed<'own' | 'all'>(() => {
+  return route.query.from === 'allPatients' ? 'all' : 'own'
 })
 
 interface OperationItem {
@@ -53,6 +56,24 @@ const operations = ref<OperationItem[]>([createEmptyOperation()])
 const medications = ref("")
 
 const patientStore = usePatientStore()
+const authStore = useAuthStore()
+
+const availableRegions = computed(() => {
+  const unique = new Map<number, string>()
+  patientStore.getKnownRegions().forEach(region => {
+    unique.set(region.id, region.name)
+  })
+
+  const doctorRegionId = authStore.doctorRegionId.value
+  const doctorRegionName = authStore.doctorRegionName.value
+  if (typeof doctorRegionId === 'number' && doctorRegionId > 0 && doctorRegionName && !unique.has(doctorRegionId)) {
+    unique.set(doctorRegionId, doctorRegionName)
+  }
+
+  return [...unique.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+})
 
 const addOperation = () => {
   operations.value.push(createEmptyOperation())
@@ -91,7 +112,7 @@ const resetForm = () => {
   firstName.value = ""
   middleName.value = ""
   birthDate.value = ""
-  region.value = ""
+  regionId.value = ""
   diagnosis.value = ""
   valveName.value = ""
   valveSize.value = ""
@@ -102,11 +123,17 @@ const resetForm = () => {
   createdPatientPassword.value = ""
 }
 
-const handleSubmit = (e: Event) => {
+const handleSubmit = async (e: Event) => {
   e.preventDefault()
 
-  if (!lastName.value.trim() || !firstName.value.trim() || !birthDate.value || !region.value || !diagnosis.value) {
+  if (!lastName.value.trim() || !firstName.value.trim() || !birthDate.value || !regionId.value || !diagnosis.value) {
     alert('Заполните обязательные поля: фамилию, имя, дату рождения, регион и диагноз')
+    return
+  }
+
+  const parsedRegionId = Number.parseInt(regionId.value, 10)
+  if (!Number.isFinite(parsedRegionId) || parsedRegionId <= 0) {
+    alert('Некорректный регион')
     return
   }
 
@@ -134,26 +161,46 @@ const handleSubmit = (e: Event) => {
 
   const filledMedications = medications.value.trim()
 
-  const { patient, password } = patientStore.addPatient({
-    lastName: lastName.value,
-    firstName: firstName.value,
-    middleName: middleName.value,
-    birthDate: birthDate.value,
-    region: region.value,
-    diagnosis: diagnosis.value,
-    operations: filledOperations,
-    medications: filledMedications,
-    valve: {
-      name: valveName.value.trim(),
-      size: valveSize.value.trim(),
-      material: valveMaterial.value.trim(),
-    },
-  })
+  try {
+    const { patient, password } = await patientStore.addPatient(
+      {
+        lastName: lastName.value,
+        firstName: firstName.value,
+        middleName: middleName.value,
+        birthDate: birthDate.value,
+        regionId: parsedRegionId,
+        diagnosis: diagnosis.value,
+        operations: filledOperations,
+        medications: filledMedications,
+        valve: {
+          name: valveName.value.trim(),
+          size: valveSize.value.trim(),
+          material: valveMaterial.value.trim(),
+        },
+      },
+      currentListScope.value,
+    )
 
-  createdPatientCode.value = patient.code
-  createdPatientPassword.value = password
-  submitted.value = true
+    createdPatientCode.value = patient.code
+    createdPatientPassword.value = password
+    submitted.value = true
+  } catch {
+    alert('Не удалось создать пациента. Проверьте заполнение формы и попробуйте снова.')
+  }
 }
+
+onMounted(async () => {
+  try {
+    await patientStore.loadKnownRegionsFromDoctorPatients()
+  } catch {
+    // keep currently available region options
+  }
+
+  const doctorRegionId = authStore.doctorRegionId.value
+  if (!regionId.value && typeof doctorRegionId === 'number' && doctorRegionId > 0) {
+    regionId.value = String(doctorRegionId)
+  }
+})
 
 
 </script>
@@ -245,12 +292,12 @@ const handleSubmit = (e: Event) => {
             </Field>
             <Field>
               <FieldLabel>Регион *</FieldLabel>
-              <Select v-model="region">
+              <Select v-model="regionId">
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите регион" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="item in RegionsStore" :key="item.id" :value="item.name">
+                  <SelectItem v-for="item in availableRegions" :key="item.id" :value="String(item.id)">
                     {{ item.name }}
                   </SelectItem>
                 </SelectContent>

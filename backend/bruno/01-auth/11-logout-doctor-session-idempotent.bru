@@ -1,0 +1,26 @@
+meta {
+  name: 11 logout doctor session idempotent
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/auth/logout
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{logoutRefreshToken}}"
+  }
+}
+
+tests {
+  test("second logout returns 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

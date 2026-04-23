@@ -1,0 +1,26 @@
+meta {
+  name: 03d resolve head doctor id
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/doctors?search=head.doctor@example.com&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  const headDoctor = (body.items || []).find(item => item.username === "head.doctor@example.com");
+  bru.setVar("headDoctorId", headDoctor && headDoctor.id);
+}
+
+tests {
+  test("head doctor id is resolved", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(bru.getVar("headDoctorId")).to.exist;
+  });
+}

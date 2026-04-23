@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
+import Input from '@/components/ui/input.vue'
 import Badge from '@/components/ui/badge.vue'
 import Dialog from '@/components/ui/dialog.vue'
 import Select from '@/components/ui/select/select.vue'
@@ -10,10 +11,9 @@ import SelectTrigger from '@/components/ui/select/selectTrigger.vue'
 import SelectValue from '@/components/ui/select/selectValue.vue'
 import SelectContent from '@/components/ui/select/selectContent.vue'
 import SelectItem from '@/components/ui/select/selectItem.vue'
-import { Undo2, Calendar, FileText, Eye, Plus, Pencil } from 'lucide-vue-next'
+import { Undo2, Calendar, FileText, Eye, EyeOff, Plus, Pencil } from 'lucide-vue-next'
 import { usePatientStore } from '@/stores/patientStore'
 import { useExaminationStore, type Examination, parseExamDate } from '@/stores/examinationStore'
-import { RegionsStore } from '@/stores/regionsStore'
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
@@ -23,18 +23,29 @@ const patientStore = usePatientStore()
 const authStore = useAuthStore()
 const route = useRoute()
 const router = useRouter()
-const { examinations } = useExaminationStore()
+const examinationStore = useExaminationStore()
+const { examinations } = examinationStore
 
 const selectedExam = ref<Examination | null>(null)
 const isDetailsOpen = ref(false)
-const selectedIndicatorIndex = ref<number | null>(null)
+const selectedIndicatorCode = ref<string | null>(null)
+const selectedIndicatorLabel = ref<string | null>(null)
 const isIndicatorTrendOpen = ref(false)
 const isRegionPickerOpen = ref(false)
 const isRegionSelectOpen = ref(false)
 const isTransferConfirmOpen = ref(false)
 const isTransferCountdownOpen = ref(false)
-const targetRegion = ref('')
+const isPasswordDialogOpen = ref(false)
+const passwordValue = ref('')
+const passwordConfirm = ref('')
+const passwordError = ref('')
+const passwordSuccess = ref('')
+const isPasswordSubmitting = ref(false)
+const isPatientNewPasswordVisible = ref(false)
+const isPatientConfirmPasswordVisible = ref(false)
+const targetRegionId = ref('')
 const countdownSeconds = ref(10)
+const loadError = ref('')
 
 let countdownIntervalId: ReturnType<typeof setInterval> | null = null
 let countdownTimeoutId: ReturnType<typeof setTimeout> | null = null
@@ -72,10 +83,19 @@ const canEditPatientExaminations = computed(() => {
   return patientData.value.region === doctorRegionName.value
 })
 
+const canChangePatientPassword = computed(() => canEditPatientExaminations.value)
+
 const availableRegions = computed(() => {
-  return RegionsStore.filter(region => region.name !== patientData.value?.region)
+  return patientStore
+    .getKnownRegions()
+    .filter(region => region.name !== patientData.value?.region)
 })
 
+const selectedTargetRegionName = computed(() => {
+  if (!targetRegionId.value) return ''
+  const selected = availableRegions.value.find(region => String(region.id) === targetRegionId.value)
+  return selected?.name ?? ''
+})
 
 const backNavigation = computed(() => {
   const from = route.query.from === 'allPatients' ? '/doctor/allPatients' : '/doctor/myPatients'
@@ -87,6 +107,10 @@ const backNavigation = computed(() => {
   if (typeof route.query.page === 'string' && route.query.page) query.page = route.query.page
 
   return { path: from, query }
+})
+
+const currentListScope = computed<'own' | 'all'>(() => {
+  return route.query.from === 'allPatients' ? 'all' : 'own'
 })
 
 const goBackToList = () => {
@@ -124,8 +148,9 @@ const openDetails = (exam: Examination) => {
   isDetailsOpen.value = true
 }
 
-const openIndicatorTrend = (index: number) => {
-  selectedIndicatorIndex.value = index
+const openIndicatorTrend = (payload: { code: string; label: string }) => {
+  selectedIndicatorCode.value = payload.code
+  selectedIndicatorLabel.value = payload.label
   isIndicatorTrendOpen.value = true
 }
 
@@ -148,39 +173,73 @@ const resetTransferFlow = () => {
   isRegionSelectOpen.value = false
   isTransferConfirmOpen.value = false
   isTransferCountdownOpen.value = false
-  targetRegion.value = ''
+  targetRegionId.value = ''
 }
 
-const openRegionPicker = () => {
+const resetPasswordFlow = () => {
+  isPasswordDialogOpen.value = false
+  passwordValue.value = ''
+  passwordConfirm.value = ''
+  passwordError.value = ''
+  passwordSuccess.value = ''
+  isPasswordSubmitting.value = false
+  isPatientNewPasswordVisible.value = false
+  isPatientConfirmPasswordVisible.value = false
+}
+
+const openRegionPicker = async () => {
   if (!patientData.value || !canChangeRegion.value) return
-  targetRegion.value = ''
+  try {
+    await patientStore.loadKnownRegionsFromDoctorPatients()
+  } catch {
+    // Use currently known region names if preload fails.
+  }
+  targetRegionId.value = ''
   isRegionSelectOpen.value = false
   isRegionPickerOpen.value = true
 }
 
 const proceedToRegionConfirmation = () => {
-  if (!targetRegion.value || !patientData.value) return
+  if (!targetRegionId.value || !patientData.value) return
   isRegionPickerOpen.value = false
   isTransferConfirmOpen.value = true
 }
 
 const finalizeRegionTransfer = () => {
-  if (!patientData.value || !targetRegion.value) {
+  if (!patientData.value || !targetRegionId.value) {
     resetTransferFlow()
     return
   }
 
-  patientStore.transferPatientRegion(patientData.value.code, targetRegion.value, currentDoctorFullName.value)
-  const shouldReturnToOwnList = route.query.from !== 'allPatients'
-  resetTransferFlow()
-
-  if (shouldReturnToOwnList) {
-    router.push(backNavigation.value)
+  const nextRegionId = Number.parseInt(targetRegionId.value, 10)
+  if (!Number.isFinite(nextRegionId) || nextRegionId <= 0) {
+    resetTransferFlow()
+    return
   }
+
+  patientStore
+    .transferPatientRegion(
+      patientData.value.code,
+      nextRegionId,
+      currentDoctorFullName.value,
+      selectedTargetRegionName.value,
+      currentListScope.value,
+    )
+    .then(() => {
+      const shouldReturnToOwnList = route.query.from !== 'allPatients'
+      resetTransferFlow()
+      if (shouldReturnToOwnList) {
+        router.push(backNavigation.value)
+      }
+    })
+    .catch(() => {
+      loadError.value = 'Не удалось изменить регион пациента.'
+      resetTransferFlow()
+    })
 }
 
 const confirmRegionTransfer = () => {
-  if (!targetRegion.value) return
+  if (!targetRegionId.value) return
 
   isTransferConfirmOpen.value = false
   isTransferCountdownOpen.value = true
@@ -201,12 +260,80 @@ const cancelRegionTransfer = () => {
   resetTransferFlow()
 }
 
+const submitPatientPasswordChange = async () => {
+  passwordError.value = ''
+  passwordSuccess.value = ''
+
+  const next = passwordValue.value.trim()
+  const confirm = passwordConfirm.value.trim()
+  if (!next || !confirm) {
+    passwordError.value = 'Заполните оба поля пароля.'
+    return
+  }
+  if (next !== confirm) {
+    passwordError.value = 'Пароли не совпадают.'
+    return
+  }
+  if (next.length < 6) {
+    passwordError.value = 'Пароль должен содержать минимум 6 символов.'
+    return
+  }
+  if (!patientCode.value) {
+    passwordError.value = 'Пациент не найден.'
+    return
+  }
+
+  isPasswordSubmitting.value = true
+  try {
+    await patientStore.updatePatientPassword(patientCode.value, next, currentListScope.value)
+    passwordSuccess.value = 'Пароль пациента успешно обновлен.'
+    passwordValue.value = ''
+    passwordConfirm.value = ''
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'UNKNOWN_ERROR'
+    if (code === 'WEAK_PASSWORD' || code === 'VALIDATION_FAILED') {
+      passwordError.value = 'Проверьте пароль. Минимум 6 символов.'
+    } else if (code === 'ACCESS_DENIED') {
+      passwordError.value = 'Недостаточно прав для изменения пароля.'
+    } else if (code === 'PATIENT_NOT_FOUND') {
+      passwordError.value = 'Пациент не найден.'
+    } else {
+      passwordError.value = 'Не удалось изменить пароль пациента.'
+    }
+  } finally {
+    isPasswordSubmitting.value = false
+  }
+}
+
 watch(
   () => patientData.value?.code,
   () => {
     resetTransferFlow()
+    resetPasswordFlow()
   }
 )
+
+const loadPatientContext = async () => {
+  if (!patientCode.value) return
+  try {
+    await patientStore.loadPatientCardByCode(patientCode.value)
+    await examinationStore.loadByPatientCode(patientCode.value)
+    loadError.value = ''
+  } catch {
+    loadError.value = 'Не удалось загрузить данные пациента.'
+  }
+}
+
+watch(
+  () => patientCode.value,
+  () => {
+    void loadPatientContext()
+  },
+)
+
+onMounted(() => {
+  void loadPatientContext()
+})
 
 onBeforeUnmount(() => {
   clearTransferTimers()
@@ -214,7 +341,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="p-4 sm:p-6 lg:p-8">
+  <div class="min-w-0 p-4 sm:p-6 lg:p-8">
     <div class="mb-6">
       <div class="mb-2 flex flex-wrap items-start gap-3 sm:gap-4">
         <Undo2 class="mt-1 cursor-pointer" @click="goBackToList" />
@@ -233,10 +360,11 @@ onBeforeUnmount(() => {
           </router-link>
         </div>
       </div>
+      <p v-if="loadError" class="mt-2 text-sm text-destructive">{{ loadError }}</p>
     </div>
 
 
-    <div v-if="patientData" class="space-y-6">
+    <div v-if="patientData" class="min-w-0 space-y-6">
       <PatientCardContent :patient="patientData" :can-show-patient-full-name="canShowPatientFullName">
 
         <template #region-action>
@@ -248,6 +376,12 @@ onBeforeUnmount(() => {
               tabindex="0"
               @click="openRegionPicker"
           >
+            Изменить
+          </Badge>
+        </template>
+
+        <template #password-action>
+          <Badge v-if="canChangePatientPassword" variant="outline" class="cursor-pointer" @click="isPasswordDialogOpen = true">
             Изменить
           </Badge>
         </template>
@@ -300,7 +434,7 @@ onBeforeUnmount(() => {
         <p v-else class="text-sm text-muted-foreground">Обследования не найдены</p>
       </Card>
 
-      <div class="mt-8 w-full">
+      <div class="mt-8 w-full min-w-0">
         <ExaminationTabe :examinations="patientExaminations" @select-indicator="openIndicatorTrend" />
       </div>
 
@@ -314,12 +448,12 @@ onBeforeUnmount(() => {
             <p class="text-sm text-muted-foreground">Выберите новый регион для пациента</p>
           </div>
 
-          <Select v-model="targetRegion" v-model:open="isRegionSelectOpen">
+          <Select v-model="targetRegionId" v-model:open="isRegionSelectOpen">
             <SelectTrigger>
               <SelectValue placeholder="Выберите регион" />
             </SelectTrigger>
             <SelectContent class="z-[4000]">
-              <SelectItem v-for="region in availableRegions" :key="region.id" :value="region.name">
+              <SelectItem v-for="region in availableRegions" :key="region.id" :value="String(region.id)">
                 {{ region.name }}
               </SelectItem>
             </SelectContent>
@@ -327,7 +461,7 @@ onBeforeUnmount(() => {
 
           <div class="flex justify-end gap-2">
             <Button type="button" variant="outline" @click="cancelRegionTransfer">Отмена</Button>
-            <Button type="button" :disabled="!targetRegion" @click="proceedToRegionConfirmation">Продолжить</Button>
+            <Button type="button" :disabled="!targetRegionId" @click="proceedToRegionConfirmation">Продолжить</Button>
           </div>
         </div>
       </Dialog>
@@ -337,7 +471,7 @@ onBeforeUnmount(() => {
           <div>
             <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Подтверждение перевода</h3>
             <p class="text-sm text-muted-foreground">
-              Вы уверены, что хотите перевести пациента в регион {{ targetRegion }}?
+              Вы уверены, что хотите перевести пациента в регион {{ selectedTargetRegionName }}?
             </p>
           </div>
 
@@ -353,7 +487,7 @@ onBeforeUnmount(() => {
           <div>
             <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Перевод будет выполнен через {{ countdownSeconds }} сек.</h3>
             <p class="text-sm text-muted-foreground">
-              До завершения отсчёта можно отменить перевод пациента в регион {{ targetRegion }}.
+              До завершения отсчёта можно отменить перевод пациента в регион {{ selectedTargetRegionName }}.
             </p>
           </div>
 
@@ -366,6 +500,67 @@ onBeforeUnmount(() => {
 
           <div class="flex justify-end">
             <Button type="button" variant="outline" @click="cancelRegionTransfer">Отменить</Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog v-model="isPasswordDialogOpen" content-class="sm:max-w-md">
+        <div class="space-y-4">
+          <div>
+            <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Изменение пароля пациента</h3>
+            <p class="text-sm text-muted-foreground">Новый пароль должен содержать минимум 6 символов.</p>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm text-muted-foreground" for="patient-password-next">Новый пароль</label>
+            <div class="relative">
+              <Input
+                id="patient-password-next"
+                v-model="passwordValue"
+                :type="isPatientNewPasswordVisible ? 'text' : 'password'"
+                autocomplete="new-password"
+                class="pr-10"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                @click="isPatientNewPasswordVisible = !isPatientNewPasswordVisible"
+              >
+                <EyeOff v-if="isPatientNewPasswordVisible" class="h-4 w-4" />
+                <Eye v-else class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-sm text-muted-foreground" for="patient-password-confirm">Подтверждение пароля</label>
+            <div class="relative">
+              <Input
+                id="patient-password-confirm"
+                v-model="passwordConfirm"
+                :type="isPatientConfirmPasswordVisible ? 'text' : 'password'"
+                autocomplete="new-password"
+                class="pr-10"
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                @click="isPatientConfirmPasswordVisible = !isPatientConfirmPasswordVisible"
+              >
+                <EyeOff v-if="isPatientConfirmPasswordVisible" class="h-4 w-4" />
+                <Eye v-else class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <p v-if="passwordError" class="text-sm text-destructive">{{ passwordError }}</p>
+          <p v-if="passwordSuccess" class="text-sm text-green-600">{{ passwordSuccess }}</p>
+
+          <div class="flex justify-end gap-2">
+            <Button type="button" variant="outline" @click="resetPasswordFlow">Закрыть</Button>
+            <Button type="button" :disabled="isPasswordSubmitting" @click="submitPatientPasswordChange">
+              {{ isPasswordSubmitting ? 'Сохранение...' : 'Сохранить' }}
+            </Button>
           </div>
         </div>
       </Dialog>
@@ -383,12 +578,12 @@ onBeforeUnmount(() => {
             <div class="details-scroll max-h-[65vh] overflow-y-auto pr-2">
               <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <div
-                  v-for="(value, index) in selectedExam.indicators"
-                  :key="`doctor-modal-${selectedExam.id}-indicator-${index}`"
+                  v-for="metric in selectedExam.metrics"
+                  :key="`doctor-modal-${selectedExam.id}-${metric.characteristicCode}`"
                   class="rounded-md bg-secondary/40 px-3 py-2 text-left text-sm"
                 >
-                  <span class="text-muted-foreground">Показатель {{ index + 1 }}:</span>
-                  <span class="ml-1 font-medium text-foreground">{{ value }}</span>
+                  <span class="text-muted-foreground">{{ metric.characteristicName || metric.characteristicCode }}:</span>
+                  <span class="ml-1 font-medium text-foreground">{{ metric.value }}{{ metric.unit ? ` ${metric.unit}` : '' }}</span>
                 </div>
               </div>
             </div>
@@ -398,7 +593,8 @@ onBeforeUnmount(() => {
 
       <IndicatorTrendDialog
         v-model="isIndicatorTrendOpen"
-        :indicator-index="selectedIndicatorIndex"
+        :indicator-code="selectedIndicatorCode"
+        :indicator-label="selectedIndicatorLabel"
         :exams="patientExaminations"
       />
     </div>
@@ -435,5 +631,3 @@ onBeforeUnmount(() => {
   background-clip: padding-box;
 }
 </style>
-
-

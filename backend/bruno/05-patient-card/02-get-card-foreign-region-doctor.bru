@@ -1,0 +1,23 @@
+meta {
+  name: 02 get card foreign region doctor
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("foreign region doctor gets anonymized card", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.viewMode).to.equal("ANONYMIZED");
+    expect(body.lastName).to.equal(null);
+    expect(body.firstName).to.equal(null);
+  });
+}

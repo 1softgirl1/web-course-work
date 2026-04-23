@@ -1,0 +1,27 @@
+meta {
+  name: 06 patch foreign region doctor forbidden
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{seedOwnPatientId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{outsiderDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "medications": "Should not be applied"
+  }
+}
+
+tests {
+  test("foreign region regular doctor cannot patch patient", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

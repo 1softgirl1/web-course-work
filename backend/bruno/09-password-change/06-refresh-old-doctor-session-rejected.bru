@@ -1,0 +1,26 @@
+meta {
+  name: 06 refresh old doctor session rejected
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{oldChangeDoctorRefreshToken}}"
+  }
+}
+
+tests {
+  test("old current refresh token is rejected after rotation", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

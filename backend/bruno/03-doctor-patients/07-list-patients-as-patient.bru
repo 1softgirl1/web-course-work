@@ -1,0 +1,19 @@
+meta {
+  name: 07 list patients as patient
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=own&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+tests {
+  test("patient cannot use doctor list", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

@@ -122,8 +122,8 @@ const setActivePage = (href) => {
 
 const isActive = (href) => activeHref.value === href
 
-const handleLogout = () => {
-  authStore.logout()
+const handleLogout = async () => {
+  await authStore.logout()
 }
 </script>
 
@@ -219,7 +219,7 @@ const handleLogout = () => {
         </div>
       </aside>
 
-      <main class="min-h-screen flex-1 lg:min-h-[calc(100vh)]">
+      <main class="min-h-screen min-w-0 flex-1 lg:min-h-[calc(100vh)]">
         <router-view />
       </main>
     </div>

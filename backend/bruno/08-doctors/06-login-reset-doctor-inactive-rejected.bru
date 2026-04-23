@@ -1,0 +1,27 @@
+meta {
+  name: 06 login reset doctor inactive rejected
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{updatedDoctorUsername}}",
+    "password": "{{resetDoctorPassword}}"
+  }
+}
+
+tests {
+  test("inactive reset doctor cannot login", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

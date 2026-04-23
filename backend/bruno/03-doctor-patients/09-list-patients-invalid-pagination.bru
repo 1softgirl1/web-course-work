@@ -1,0 +1,19 @@
+meta {
+  name: 09 list patients invalid pagination
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=own&page=-1&limit=0
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("invalid pagination returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}
