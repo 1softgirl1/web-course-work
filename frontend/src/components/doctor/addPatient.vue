@@ -229,9 +229,14 @@ onMounted(async () => {
             <p class="text-foreground font-medium">{{ createdPatientPassword }}</p>
           </div>
         </div>
-        <Button @click="resetForm">
-          Добавить еще
-        </Button>
+        <div class="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <router-link :to="backPath" class="w-full sm:w-auto">
+            <Button variant="outline" class="w-full sm:w-auto">Назад</Button>
+          </router-link>
+          <Button class="w-full sm:w-auto" @click="resetForm">
+            Добавить еще
+          </Button>
+        </div>
       </div>
     </Card>
 

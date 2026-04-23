@@ -138,8 +138,8 @@ const selectIndicator = (row: MetricRow) => {
                 class="w-full text-left transition-colors hover:text-primary"
                 @click="selectIndicator(metric)"
               >
+
                 {{ metric.characteristicName }}
-                <span class="ml-1 text-xs text-muted-foreground">({{ metric.characteristicCode }})</span>
               </button>
             </TableCell>
 

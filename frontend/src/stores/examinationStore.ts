@@ -39,6 +39,8 @@ export interface MetricDescriptor {
   unit: string
 }
 
+const FIXED_METRIC_COUNT = 50
+
 export interface NewExamination {
   patientCode: string
   date: string
@@ -243,16 +245,32 @@ const hasPatchChanges = (payload: UpdateExaminationRequest): boolean => {
   )
 }
 
+const buildFallbackMetricCatalog = (): MetricDescriptor[] => {
+  return Array.from({ length: FIXED_METRIC_COUNT }, (_, index) => {
+    const ordinal = String(index + 1).padStart(2, '0')
+    return {
+      characteristicCode: `metric_${ordinal}`,
+      characteristicName: `Metric ${ordinal}`,
+      unit: `unit_${ordinal}`,
+    }
+  })
+}
+
 export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescriptor[] => {
   const byCode = new Map<string, MetricDescriptor>()
 
+  buildFallbackMetricCatalog().forEach((metric) => {
+    byCode.set(metric.characteristicCode, metric)
+  })
+
   exams.forEach(exam => {
     exam.metrics.forEach(metric => {
-      if (byCode.has(metric.characteristicCode)) return
+      const existing = byCode.get(metric.characteristicCode)
+      if (!existing) return
       byCode.set(metric.characteristicCode, {
         characteristicCode: metric.characteristicCode,
-        characteristicName: metric.characteristicName || metric.characteristicCode,
-        unit: metric.unit,
+        characteristicName: metric.characteristicName || existing?.characteristicName || metric.characteristicCode,
+        unit: metric.unit || existing?.unit || '',
       })
     })
   })

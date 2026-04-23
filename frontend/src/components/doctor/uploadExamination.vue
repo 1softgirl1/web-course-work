@@ -4,20 +4,21 @@ import { useRoute } from 'vue-router'
 import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
+import Badge from '@/components/ui/badge.vue'
 import Field from '@/components/ui/field/field.vue'
 import FieldLabel from '@/components/ui/field/field-label.vue'
-import { CheckCircle, Heart, Plus, Trash2, Undo2 } from 'lucide-vue-next'
+import { CheckCircle, Heart, Undo2 } from 'lucide-vue-next'
 import {
   buildMetricCatalogFromExams,
   useExaminationStore,
   toRuExamDate,
   type EditableMetricInput,
+  type MetricDescriptor,
 } from '@/stores/examinationStore'
 import { useAuthStore } from '@/stores/authStore'
 import { usePatientStore } from '@/stores/patientStore'
 
 interface FormMetricRow {
-  id: string
   characteristicCode: string
   value: string
   comment: string
@@ -47,9 +48,9 @@ const knownMetricCatalog = computed(() => {
   return buildMetricCatalogFromExams(patientExams)
 })
 
-const knownMetricNameByCode = computed(() => {
-  return knownMetricCatalog.value.reduce<Record<string, string>>((acc, metric) => {
-    acc[metric.characteristicCode] = metric.characteristicName
+const knownMetricByCode = computed(() => {
+  return knownMetricCatalog.value.reduce<Record<string, MetricDescriptor>>((acc, metric) => {
+    acc[metric.characteristicCode] = metric
     return acc
   }, {})
 })
@@ -73,44 +74,37 @@ const editingExam = computed(() => {
   return examinations.find(exam => exam.id === editId.value && exam.patientCode === patientCode.value) ?? null
 })
 
-const createEmptyMetricRow = (): FormMetricRow => ({
-  id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  characteristicCode: '',
+const createRowByCode = (characteristicCode: string): FormMetricRow => ({
+  characteristicCode,
   value: '',
   comment: '',
 })
 
+const createFixedMetricRows = (): FormMetricRow[] => {
+  return knownMetricCatalog.value.map(metric => createRowByCode(metric.characteristicCode))
+}
+
 const hydrateFormFromEditing = () => {
+  metricRows.value = createFixedMetricRows()
+
   if (!editingExam.value) return
   const [day, month, year] = editingExam.value.date.split('.')
   examDate.value = `${year}-${month}-${day}`
   conclusion.value = editingExam.value.conclusion
-  metricRows.value = editingExam.value.metrics.map(metric => ({
-    id: `${metric.characteristicCode}-${Math.random().toString(16).slice(2)}`,
-    characteristicCode: metric.characteristicCode,
-    value: String(metric.value),
-    comment: metric.comment ?? '',
-  }))
-  if (metricRows.value.length === 0) {
-    metricRows.value = [createEmptyMetricRow()]
-  }
+
+  const rowByCode = new Map(metricRows.value.map(row => [row.characteristicCode, row]))
+  editingExam.value.metrics.forEach(metric => {
+    const row = rowByCode.get(metric.characteristicCode)
+    if (!row) return
+    row.value = String(metric.value)
+    row.comment = metric.comment ?? ''
+  })
 }
 
 const backToPatientCardPath = computed(() => {
   const code = typeof route.params.code === 'string' ? route.params.code : ''
   return code ? `/doctor/patientCard/${code}` : '/doctor/myPatients'
 })
-
-const addMetricRow = () => {
-  metricRows.value.push(createEmptyMetricRow())
-}
-
-const removeMetricRow = (rowId: string) => {
-  metricRows.value = metricRows.value.filter(row => row.id !== rowId)
-  if (metricRows.value.length === 0) {
-    metricRows.value = [createEmptyMetricRow()]
-  }
-}
 
 const parseMetricRows = (): EditableMetricInput[] => {
   const parsed: EditableMetricInput[] = []
@@ -121,12 +115,8 @@ const parseMetricRows = (): EditableMetricInput[] => {
     const valueRaw = row.value.trim()
     const comment = row.comment.trim()
 
-    const hasAnyInput = Boolean(code || valueRaw || comment)
+    const hasAnyInput = Boolean(valueRaw || comment)
     if (!hasAnyInput) return
-
-    if (!code) {
-      throw new Error('METRIC_CODE_REQUIRED')
-    }
 
     const numeric = Number(valueRaw)
     if (!Number.isFinite(numeric)) {
@@ -156,7 +146,7 @@ const resetForm = () => {
   }
   examDate.value = ''
   conclusion.value = ''
-  metricRows.value = [createEmptyMetricRow()]
+  metricRows.value = createFixedMetricRows()
 }
 
 const showMetricValidationError = (error: unknown) => {
@@ -165,13 +155,8 @@ const showMetricValidationError = (error: unknown) => {
     return
   }
 
-  if (error.message === 'METRIC_CODE_REQUIRED') {
-    alert('У каждой заполненной строки должен быть код показателя.')
-    return
-  }
-
   if (error.message === 'METRIC_VALUE_INVALID') {
-    alert('Значение показателя должно быть числом.')
+    alert('Если показатель заполнен, значение должно быть числом.')
     return
   }
 
@@ -251,14 +236,12 @@ const handleSubmit = async (e: Event) => {
 }
 
 onMounted(async () => {
-  metricRows.value = [createEmptyMetricRow()]
+  metricRows.value = createFixedMetricRows()
   if (!patientCode.value) return
   try {
     await patientStore.loadPatientCardByCode(patientCode.value)
     await examinationStore.loadByPatientCode(patientCode.value)
-    if (editingExam.value) {
-      hydrateFormFromEditing()
-    }
+    hydrateFormFromEditing()
     loadError.value = ''
   } catch {
     loadError.value = 'Не удалось загрузить данные пациента.'
@@ -274,9 +257,14 @@ onMounted(async () => {
           <CheckCircle class="h-8 w-8 text-green-600" />
         </div>
         <h2 class="mb-2 text-xl font-semibold text-foreground">Обследование успешно загружено</h2>
-        <Button @click="resetForm">
-          {{ editingExam ? 'Вернуться к редактированию' : 'Добавить еще' }}
-        </Button>
+        <div class="flex flex-col gap-2 sm:flex-row sm:justify-center">
+          <router-link :to="backToPatientCardPath" class="w-full sm:w-auto">
+            <Button variant="outline" class="w-full sm:w-auto">Назад</Button>
+          </router-link>
+          <Button class="w-full sm:w-auto" @click="resetForm">
+            {{ editingExam ? 'Вернуться к редактированию' : 'Добавить еще' }}
+          </Button>
+        </div>
       </div>
     </Card>
 
@@ -331,57 +319,38 @@ onMounted(async () => {
                 <Heart class="h-4 w-4 text-red-500" />
                 Показатели обследования
               </h3>
-              <Button type="button" variant="outline" size="sm" @click="addMetricRow">
-                <Plus class="mr-2 h-4 w-4" />
-                Добавить показатель
-              </Button>
             </div>
 
             <p class="text-xs text-muted-foreground">
-              Для нового обследования заполните минимум один показатель.
+              Для нового обследования заполните минимум один показатель. Пустые поля не отправляются.
             </p>
 
             <div class="space-y-3">
               <div
-                v-for="(row, index) in metricRows"
-                :key="row.id"
+                v-for="row in metricRows"
+                :key="row.characteristicCode"
                 class="grid grid-cols-1 gap-2 rounded-lg border border-border bg-background p-3 md:grid-cols-12"
               >
-                <div class="md:col-span-4">
-                  <FieldLabel>Код показателя *</FieldLabel>
-                  <Input
-                    v-model="row.characteristicCode"
-                    :list="`metric-codes-${index}`"
-                    placeholder="metric_01"
-                  />
-                  <datalist :id="`metric-codes-${index}`">
-                    <option
-                      v-for="metric in knownMetricCatalog"
-                      :key="metric.characteristicCode"
-                      :value="metric.characteristicCode"
-                    >
-                      {{ metric.characteristicName }}
-                    </option>
-                  </datalist>
-                  <p class="mt-1 text-xs text-muted-foreground">
-                    {{ knownMetricNameByCode[row.characteristicCode.trim()] || 'Введите код из API-каталога' }}
-                  </p>
+                <div class="md:col-span-5">
+                  <FieldLabel>Показатель</FieldLabel>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline">{{ row.characteristicCode }}</Badge>
+
+                    <span v-if="knownMetricByCode[row.characteristicCode]?.unit" class="text-xs text-muted-foreground">
+                      ({{ knownMetricByCode[row.characteristicCode]?.unit }})
+                    </span>
+                  </div>
+
                 </div>
 
                 <div class="md:col-span-3">
-                  <FieldLabel>Значение *</FieldLabel>
+                  <FieldLabel>Значение</FieldLabel>
                   <Input v-model="row.value" type="number" placeholder="72" />
                 </div>
 
                 <div class="md:col-span-4">
                   <FieldLabel>Комментарий</FieldLabel>
                   <Input v-model="row.comment" placeholder="Опционально" />
-                </div>
-
-                <div class="md:col-span-1 md:self-end">
-                  <Button type="button" variant="ghost" size="icon" @click="removeMetricRow(row.id)">
-                    <Trash2 class="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             </div>
