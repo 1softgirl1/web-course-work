@@ -1,0 +1,39 @@
+meta {
+  name: 03 login patient
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{patientCode}}",
+    "password": "{{patientPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("patientToken", body.accessToken);
+  bru.setVar("patientRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("patient login returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("patient token is returned", function () {
+    const body = res.getBody();
+    expect(body.user.role).to.equal("PATIENT");
+    expect(body.user.patientCode).to.equal(bru.getEnvVar("patientCode"));
+  });
+}

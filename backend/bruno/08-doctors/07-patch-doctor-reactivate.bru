@@ -1,0 +1,29 @@
+meta {
+  name: 07 patch doctor reactivate
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/api/doctors/{{createdDoctorId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "status": "ACTIVE"
+  }
+}
+
+tests {
+  test("extended doctor can reactivate doctor", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.status).to.equal("ACTIVE");
+  });
+}

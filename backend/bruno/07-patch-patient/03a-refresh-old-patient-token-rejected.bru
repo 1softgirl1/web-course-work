@@ -1,0 +1,26 @@
+meta {
+  name: 03a refresh old patient token rejected
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{oldCreatedPatientRefreshToken}}"
+  }
+}
+
+tests {
+  test("old patient refresh token is revoked after password change", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

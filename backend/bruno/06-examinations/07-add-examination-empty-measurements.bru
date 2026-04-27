@@ -1,0 +1,30 @@
+meta {
+  name: 07 add examination empty measurements
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Empty measurements",
+    "examDate": "2026-04-13",
+    "comment": "Should fail",
+    "measurements": []
+  }
+}
+
+tests {
+  test("empty measurements returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

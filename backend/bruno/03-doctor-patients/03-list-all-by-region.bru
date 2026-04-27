@@ -1,0 +1,25 @@
+meta {
+  name: 03 list all by region
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=all&page=0&limit=20&regionId=2
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("region filter returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("region filter keeps only requested region", function () {
+    const body = res.getBody();
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.items.every(item => item.regionId === 2)).to.equal(true);
+  });
+}

@@ -1,0 +1,33 @@
+meta {
+  name: 01 login doctor current session
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{passwordChangeDoctorUsername}}",
+    "password": "{{passwordChangeDoctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("changeDoctorToken", body.accessToken);
+  bru.setVar("changeDoctorRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("doctor login for password change returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

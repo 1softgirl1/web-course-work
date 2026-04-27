@@ -1,0 +1,22 @@
+meta {
+  name: 03 list doctors
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/doctors?page=0&limit=20&search=bruno.created
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("extended doctor can list doctors", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.items.some(item => item.username === bru.getVar("createdDoctorUsername"))).to.equal(true);
+  });
+}

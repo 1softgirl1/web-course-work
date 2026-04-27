@@ -1,0 +1,19 @@
+meta {
+  name: 05 get card not found
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/patients/999999
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("missing patient card returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: 03a list examinations foreign patient forbidden
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}/examinations
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+tests {
+  test("patient cannot list another patient's examinations", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

@@ -1,0 +1,42 @@
+meta {
+  name: 01 login doctor
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{doctorEmail}}",
+    "password": "{{doctorPassword}}"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("doctorToken", body.accessToken);
+  bru.setVar("doctorRefreshToken", body.refreshToken);
+}
+
+tests {
+  test("doctor login returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("doctor token is returned", function () {
+    const body = res.getBody();
+    expect(body.accessToken).to.be.a("string");
+    expect(body.refreshToken).to.be.a("string");
+    expect(body.tokenType).to.equal("Bearer");
+    expect(body.user.role).to.equal("DOCTOR");
+    expect(body.user.email).to.equal(bru.getEnvVar("doctorEmail"));
+  });
+}

@@ -1,0 +1,48 @@
+meta {
+  name: 04 patch doctor
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/doctors/{{createdDoctorId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{updatedDoctorUsername}}",
+    "role": "DOCTOR_EXTENDED",
+    "status": "INACTIVE",
+    "lastName": "Updated",
+    "firstName": "Bruno",
+    "specialization": "Cardiologist",
+    "workplace": "Updated Bruno Center",
+    "regionId": 2
+  }
+}
+
+script:pre-request {
+  bru.setVar("updatedDoctorUsername", `bruno.updated.${Date.now()}@example.com`);
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("updatedDoctorUsername", body.username);
+}
+
+tests {
+  test("extended doctor can patch another doctor", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.username).to.equal(bru.getVar("updatedDoctorUsername"));
+    expect(body.role).to.equal("DOCTOR_EXTENDED");
+    expect(body.status).to.equal("INACTIVE");
+    expect(body.workplace).to.equal("Updated Bruno Center");
+  });
+}

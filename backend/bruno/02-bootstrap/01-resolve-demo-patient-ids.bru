@@ -1,0 +1,40 @@
+meta {
+  name: 01 resolve demo patient ids
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=all&page=0&limit=100
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  const byCode = {};
+  (body.items || []).forEach(item => {
+    byCode[item.patientCode] = item.id;
+  });
+  bru.setVar("seedOwnPatientId", byCode[bru.getEnvVar("seedOwnPatientCode")]);
+  bru.setVar("seedSecondOwnPatientId", byCode[bru.getEnvVar("seedSecondOwnPatientCode")]);
+  bru.setVar("seedRedPatientId", byCode[bru.getEnvVar("seedRedPatientCode")]);
+  bru.setVar("seedForeignPatientId", byCode[bru.getEnvVar("seedForeignPatientCode")]);
+  bru.setVar("seedFarPatientId", byCode[bru.getEnvVar("seedFarPatientCode")]);
+}
+
+tests {
+  test("resolve demo ids returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("all required demo patient ids are resolved", function () {
+    expect(bru.getVar("seedOwnPatientId")).to.exist;
+    expect(bru.getVar("seedSecondOwnPatientId")).to.exist;
+    expect(bru.getVar("seedRedPatientId")).to.exist;
+    expect(bru.getVar("seedForeignPatientId")).to.exist;
+    expect(bru.getVar("seedFarPatientId")).to.exist;
+  });
+}

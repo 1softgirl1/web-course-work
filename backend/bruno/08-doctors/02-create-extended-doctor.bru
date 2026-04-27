@@ -1,0 +1,40 @@
+meta {
+  name: 02 create extended doctor
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/doctors
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{createdExtendedDoctorUsername}}",
+    "role": "DOCTOR_EXTENDED",
+    "lastName": "Bruno",
+    "firstName": "Extended",
+    "middleName": "Created",
+    "specialization": "Chief cardiac surgeon",
+    "workplace": "Bruno Federal Center",
+    "regionId": 2
+  }
+}
+
+script:pre-request {
+  bru.setVar("createdExtendedDoctorUsername", `bruno.created.extended.${Date.now()}@example.com`);
+}
+
+tests {
+  test("extended doctor can create another extended doctor", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(201);
+    expect(body.doctor.role).to.equal("DOCTOR_EXTENDED");
+  });
+}

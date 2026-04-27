@@ -1,0 +1,33 @@
+meta {
+  name: 11 duplicate username
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/doctors
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "doctor.demo@example.com",
+    "role": "DOCTOR",
+    "lastName": "Duplicate",
+    "firstName": "Doctor",
+    "specialization": "Cardiologist",
+    "workplace": "Duplicate Center",
+    "regionId": 1
+  }
+}
+
+tests {
+  test("duplicate username returns 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

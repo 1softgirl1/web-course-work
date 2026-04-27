@@ -1,0 +1,56 @@
+meta {
+  name: 00 create patient for patch flow
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{baseUrl}}/api/doctor/patients
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lastName": "BrunoPatch",
+    "firstName": "Patient",
+    "middleName": "Flow",
+    "birthDate": "1977-05-11",
+    "diagnosis": "Bruno patch flow diagnosis",
+    "regionId": 1,
+    "valve": {
+      "name": "Medtronic Evolut",
+      "size": "26 mm",
+      "material": "Bioprosthetic"
+    },
+    "operationParameters": {
+      "anesthesia": "General anesthesia",
+      "durationMinutes": 120,
+      "deliverySystem": "Transfemoral"
+    },
+    "medications": "Bisoprolol 5 mg daily"
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("createdPatientId", body.id);
+  bru.setVar("createdPatientCode", body.patientCode);
+  bru.setVar("createdPatientPassword", body.temporaryPassword);
+}
+
+tests {
+  test("patch flow patient is created", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(201);
+    expect(body.id).to.exist;
+    expect(body.patientCode).to.match(/^PT-/);
+    expect(body.temporaryPassword).to.be.a("string");
+    expect(body.regionId).to.equal(1);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: 05a refresh old doctor token rejected
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/auth/refresh
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "refreshToken": "{{oldCreatedDoctorRefreshToken}}"
+  }
+}
+
+tests {
+  test("old doctor refresh token is revoked after password reset", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

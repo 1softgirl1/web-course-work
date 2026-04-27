@@ -1,0 +1,27 @@
+meta {
+  name: 07 patch not found
+  type: http
+  seq: 9
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/999999
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "medications": "Not found"
+  }
+}
+
+tests {
+  test("missing patient returns 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

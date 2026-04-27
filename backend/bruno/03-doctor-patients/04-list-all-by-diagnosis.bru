@@ -1,0 +1,25 @@
+meta {
+  name: 04 list all by diagnosis
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/doctor/patients?scope=all&page=0&limit=20&diagnosis=stenosis
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+tests {
+  test("diagnosis filter returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("diagnosis filter matches case-insensitive substring", function () {
+    const body = res.getBody();
+    expect(body.items.length).to.be.greaterThan(0);
+    expect(body.items.every(item => item.diagnosis.toLowerCase().includes("stenosis"))).to.equal(true);
+  });
+}

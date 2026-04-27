@@ -1,0 +1,22 @@
+meta {
+  name: 14 current extended doctor profile
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/doctors/me
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("extended doctor can get own profile", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.role).to.equal("DOCTOR_EXTENDED");
+    expect(body.username).to.equal("head.doctor@example.com");
+  });
+}

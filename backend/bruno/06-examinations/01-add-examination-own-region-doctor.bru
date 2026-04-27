@@ -1,0 +1,49 @@
+meta {
+  name: 01 add examination own region doctor
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "Bruno own-region follow-up",
+    "examDate": "2026-04-13",
+    "comment": "Created from Bruno own-region scenario",
+    "measurements": [
+      {
+        "characteristicCode": "metric_01",
+        "value": 71,
+        "comment": "Measured at rest"
+      },
+      {
+        "characteristicCode": "metric_02",
+        "value": 118,
+        "comment": "Systolic pressure"
+      }
+    ]
+  }
+}
+
+script:post-response {
+  const body = res.getBody();
+  bru.setVar("createdExaminationId", body.examId);
+}
+
+tests {
+  test("own region doctor can add examination", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(201);
+    expect(body.title).to.equal("Bruno own-region follow-up");
+    expect(body.measurements.length).to.equal(2);
+  });
+}

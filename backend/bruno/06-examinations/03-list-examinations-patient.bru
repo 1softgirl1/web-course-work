@@ -1,0 +1,28 @@
+meta {
+  name: 03 list examinations patient
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/patients/{{seedOwnPatientId}}/examinations
+}
+
+headers {
+  Authorization: Bearer {{patientToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body.items && body.items.length > 0) {
+    bru.setVar("seedOwnExaminationId", body.items[0].examId);
+  }
+}
+
+tests {
+  test("patient can list own examinations", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+  });
+}

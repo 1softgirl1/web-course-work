@@ -1,0 +1,31 @@
+meta {
+  name: 15 patch examination invalid payload
+  type: http
+  seq: 15
+}
+
+patch {
+  url: {{baseUrl}}/api/patients/{{createdPatientId}}/examinations/{{createdExaminationId}}
+  body: json
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "measurements": [
+      {
+        "characteristicCode": "metric_04"
+      }
+    ]
+  }
+}
+
+tests {
+  test("new measurement without value returns 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

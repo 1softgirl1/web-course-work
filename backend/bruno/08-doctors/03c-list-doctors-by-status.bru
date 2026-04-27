@@ -1,0 +1,22 @@
+meta {
+  name: 03c list doctors by status
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/doctors?status=ACTIVE&page=0&limit=20
+}
+
+headers {
+  Authorization: Bearer {{extendedDoctorToken}}
+}
+
+tests {
+  test("status filter returns only active doctors", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+    body.items.forEach(item => expect(item.status).to.equal("ACTIVE"));
+  });
+}

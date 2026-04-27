@@ -1,0 +1,28 @@
+meta {
+  name: 04 list examinations doctor
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/patients/{{seedForeignPatientId}}/examinations
+}
+
+headers {
+  Authorization: Bearer {{doctorToken}}
+}
+
+script:post-response {
+  const body = res.getBody();
+  if (body.items && body.items.length > 0) {
+    bru.setVar("seedForeignExaminationId", body.items[0].examId);
+  }
+}
+
+tests {
+  test("doctor can list examinations from another region read-only", function () {
+    const body = res.getBody();
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items.length).to.be.greaterThan(0);
+  });
+}
