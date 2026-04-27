@@ -14,6 +14,17 @@ Get-Content .\backend\doc\demo-seed.sql | docker exec -i web-course-work-postgre
 3. Открой папку `backend/bruno` в Bruno.
 4. Выбери окружение `local`.
 
+## Запуск Из Терминала
+
+Если Bruno CLI не установлен глобально как `bru`, коллекцию можно запустить через `npx`:
+
+```powershell
+cd .\backend\bruno
+npx --yes @usebruno/cli run . -r --env local
+```
+
+Перед запуском CLI backend должен быть доступен на `http://localhost:8080`, а база должна быть заполнена `demo-seed.sql`.
+
 ## Что делает коллекция
 
 - проверяет вход врача, расширенного врача и пациента;
@@ -136,6 +147,8 @@ Get-Content .\backend\doc\demo-seed.sql | docker exec -i web-course-work-postgre
 
 - создание врача;
 - создание врача с расширенными правами;
+- получение профиля текущего врача обычным врачом;
+- получение профиля текущего врача врачом с расширенными правами;
 - список врачей;
 - фильтры по роли, региону и статусу;
 - редактирование врача;

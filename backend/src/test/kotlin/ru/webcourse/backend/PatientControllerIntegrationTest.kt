@@ -637,6 +637,81 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
+    fun doctorCanGetOwnProfile() {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+
+        mockMvc.get("/api/doctors/me") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.username") { value(DOCTOR_EMAIL) }
+            jsonPath("$.role") { value(UserRole.DOCTOR.name) }
+            jsonPath("$.status") { value(UserStatus.ACTIVE.name) }
+            jsonPath("$.lastName") { value("Ivanov") }
+            jsonPath("$.firstName") { value("Ivan") }
+            jsonPath("$.specialization") { value("Cardiac surgeon") }
+            jsonPath("$.workplace") { value("Regional Cardiology Center") }
+            jsonPath("$.regionId") { value(1) }
+            jsonPath("$.regionName") { isString() }
+        }
+
+        mockMvc.get("/api/doctors") {
+            with(doctorBearer(DOCTOR_EMAIL))
+        }.andExpect {
+            status { isForbidden() }
+        }
+    }
+
+    @Test
+    fun doctorExtendedCanGetOwnProfile() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, regionId = 2L, role = UserRole.DOCTOR_EXTENDED)
+
+        mockMvc.get("/api/doctors/me") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.username") { value(HEAD_DOCTOR_EMAIL) }
+            jsonPath("$.role") { value(UserRole.DOCTOR_EXTENDED.name) }
+            jsonPath("$.regionId") { value(2) }
+        }
+    }
+
+    @Test
+    fun patientAndUnauthenticatedUserCannotGetDoctorProfile() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val createdPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.get("/api/doctors/me") {
+            with(patientBearer(createdPatient.patientCode, createdPatient.temporaryPassword))
+        }.andExpect {
+            status { isForbidden() }
+        }
+
+        mockMvc.get("/api/doctors/me")
+            .andExpect {
+                status { isUnauthorized() }
+            }
+    }
+
+    @Test
+    fun doctorWithoutProfileGets404OnOwnProfile() {
+        userRepository.save(
+            UserEntity(
+                username = DOCTOR_WITHOUT_PROFILE_EMAIL,
+                passwordHash = passwordEncoder.encode(DOCTOR_PASSWORD)!!,
+                role = UserRole.DOCTOR,
+                status = UserStatus.ACTIVE,
+            )
+        )
+
+        mockMvc.get("/api/doctors/me") {
+            with(bearer(issueTestToken(DOCTOR_WITHOUT_PROFILE_EMAIL, DOCTOR_PASSWORD)))
+        }.andExpect {
+            status { isNotFound() }
+        }
+    }
+
+    @Test
     fun doctorExtendedCanCreateDoctorAndCreatedDoctorCanLogin() {
         createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
 

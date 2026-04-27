@@ -68,6 +68,16 @@ class DoctorService(
     }
 
     @Transactional(readOnly = true)
+    fun getCurrentDoctor(actor: ActorPrincipal?): DoctorResponse {
+        val doctorActor = actor?.takeIf { it.userRole().isDoctor() }
+            ?: throw AccessDeniedException("Only doctors can get doctor profile")
+        val doctor = doctorProfileRepository.findByUserId(doctorActor.id)
+            ?: throw NotFoundException("Doctor profile for user id=${doctorActor.id} was not found")
+
+        return doctor.toDoctorResponse()
+    }
+
+    @Transactional(readOnly = true)
     fun listDoctors(
         actor: ActorPrincipal?,
         page: Int,

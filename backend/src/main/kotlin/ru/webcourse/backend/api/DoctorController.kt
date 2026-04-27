@@ -84,6 +84,25 @@ class DoctorController(
         @Valid @RequestBody request: CreateDoctorRequest,
     ): CreatedDoctorResponse = doctorService.createDoctor(actor = actor, request = request)
 
+    @GetMapping("/me")
+    @Operation(
+        summary = "Получить профиль текущего врача",
+        description = "Возвращает профиль авторизованного врача. Доступно ролям DOCTOR и DOCTOR_EXTENDED.",
+        operationId = "getCurrentDoctor",
+        security = [SecurityRequirement(name = "bearerAuth")],
+    )
+    @ApiResponses(
+        value = [
+            ApiResponse(responseCode = "200", description = "Профиль текущего врача", content = [Content(schema = Schema(implementation = DoctorResponse::class))]),
+            ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Профиль доступен только врачу", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "404", description = "Профиль врача не найден", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+        ],
+    )
+    fun getCurrentDoctor(
+        @AuthenticationPrincipal actor: ActorPrincipal,
+    ): DoctorResponse = doctorService.getCurrentDoctor(actor = actor)
+
     @GetMapping
     @Operation(
         summary = "Получить список врачей",
