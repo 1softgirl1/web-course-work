@@ -65,16 +65,10 @@ const currentDoctorFullName = computed(() => {
   return authStore.user.value?.displayName || 'Неизвестный врач'
 })
 
-const canShowPatientFullName = computed(() => {
-  if (!patientData.value) return false
-  if (authStore.isDoctorExtended.value) return true
-  return patientData.value.region === doctorRegionName.value
-})
-
 const canChangeRegion = computed(() => {
   if (!patientData.value) return false
   if (authStore.isDoctorExtended.value) return true
-  return canShowPatientFullName.value
+  return patientData.value.region === doctorRegionName.value
 })
 
 const canEditPatientExaminations = computed(() => {
@@ -365,7 +359,7 @@ onBeforeUnmount(() => {
 
 
     <div v-if="patientData" class="min-w-0 space-y-6">
-      <PatientCardContent :patient="patientData" :can-show-patient-full-name="canShowPatientFullName">
+      <PatientCardContent :patient="patientData">
 
         <template #region-action>
           <Badge

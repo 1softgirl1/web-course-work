@@ -38,7 +38,6 @@ onMounted(async () => {
     <PatientCardContent
       v-if="patientData"
       :patient="patientData"
-      :can-show-patient-full-name="true"
       :show-region-help-badge="true"
       :can-change-own-password="true"
     />

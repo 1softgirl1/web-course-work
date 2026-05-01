@@ -78,7 +78,6 @@ const filteredData = computed<Patient[]>(() => {
   const filteredPatients = patientStore.patients.filter(patient => {
       const matchesSearch =
           patient.code.toLowerCase().includes(q) ||
-          patient.fullName.toLowerCase().includes(q) ||
           patient.diagnosis.toLowerCase().includes(q) ||
           patient.region.toLowerCase().includes(q)
 

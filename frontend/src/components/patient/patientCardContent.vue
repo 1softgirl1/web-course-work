@@ -12,7 +12,6 @@ import {
   KeyRound,
   MapPin,
   Pill,
-  ScanHeartIcon,
   Stethoscope,
   User,
 } from 'lucide-vue-next'
@@ -21,22 +20,14 @@ import type { Patient } from '@/stores/patientStore'
 const props = withDefaults(
   defineProps<{
     patient: Patient
-    canShowPatientFullName?: boolean
     showRegionHelpBadge?: boolean
     canChangeOwnPassword?: boolean
   }>(),
   {
-    canShowPatientFullName: true,
     showRegionHelpBadge: false,
     canChangeOwnPassword: false,
   }
 )
-
-const fullName = computed(() => {
-  const parts = [props.patient.lastName, props.patient.firstName, props.patient.middleName].filter(Boolean)
-  if (parts.length > 0) return parts.join(' ')
-  return props.patient.fullName || 'Нет данных'
-})
 
 const birthDateLabel = computed(() => props.patient.birthDate || 'Нет данных')
 
@@ -67,10 +58,8 @@ const canShowPasswordBlock = computed(() => {
               <User class="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p class="text-sm text-muted-foreground">ФИО</p>
-              <p class="font-medium text-foreground break-words">
-                {{ canShowPatientFullName ? fullName : 'Скрыто для другого региона' }}
-              </p>
+              <p class="text-sm text-muted-foreground">Код пациента</p>
+              <Badge variant="outline" class="text-xs">{{ patient.code }}</Badge>
             </div>
           </div>
 
@@ -124,16 +113,6 @@ const canShowPasswordBlock = computed(() => {
         </div>
 
         <div class="space-y-4">
-          <div class="flex items-start gap-3">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <ScanHeartIcon class="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p class="text-sm text-muted-foreground">Код пациента</p>
-              <Badge variant="outline" class="text-xs">{{ patient.code }}</Badge>
-            </div>
-          </div>
-
           <div v-if="canShowPasswordBlock" class="flex items-start gap-3">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
               <KeyRound class="h-5 w-5 text-primary" />
@@ -278,7 +257,6 @@ const canShowPasswordBlock = computed(() => {
           <div class="bg-primary/10 my-4 rounded-xl p-4 text-sm text-muted-foreground">
             <p><span class="text-black">Тема: Запрос на смену региона</span></p>
             <p>Здравствуйте! Прошу изменить мой регион обслуживания на: [укажите нужный регион].</p>
-            <p>ФИО: [ваше ФИО]</p>
             <p>Код пациента: [ваш код пациента]</p>
             <p>Дата рождения: [дд.мм.гггг]</p>
             <p>Контактный телефон: [номер телефона]</p>

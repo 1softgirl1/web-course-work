@@ -63,7 +63,6 @@ const filteredData = computed<Patient[]>(() => {
   const filteredPatients = ownPatients.value.filter(patient => {
     const matchesSearch =
       patient.code.toLowerCase().includes(q) ||
-      patient.fullName.toLowerCase().includes(q) ||
       patient.diagnosis.toLowerCase().includes(q) ||
       patient.region.toLowerCase().includes(q)
 
@@ -170,7 +169,7 @@ onMounted(async () => {
           <Input
             v-model="searchQuery"
             type="text"
-            placeholder="Поиск по коду, ФИО, диагнозу или региону..."
+            placeholder="Поиск по коду, диагнозу или региону..."
             class="pl-10"
           />
         </div>
@@ -226,7 +225,6 @@ onMounted(async () => {
               </span>
             </div>
 
-            <p class="text-sm font-medium text-foreground">{{ patient.fullName }}</p>
             <p class="mt-1 text-xs text-muted-foreground">{{ patient.age }} лет</p>
             <p class="mt-1 text-sm text-muted-foreground wrap-break-word">Диагноз: {{ patient.diagnosis }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Операции: {{ patient.operations }}</p>
@@ -242,7 +240,6 @@ onMounted(async () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Код пациента</TableHead>
-                <TableHead>ФИО</TableHead>
                 <TableHead>Возраст</TableHead>
                 <TableHead>Диагноз</TableHead>
                 <TableHead>Операции</TableHead>
@@ -262,7 +259,6 @@ onMounted(async () => {
                   <Badge variant="outline">{{ patient.code }}</Badge>
                 </TableCell>
 
-                <TableCell>{{ patient.fullName }}</TableCell>
                 <TableCell>{{ patient.age }} лет</TableCell>
                 <TableCell class="max-w-50 truncate">{{ patient.diagnosis }}</TableCell>
                 <TableCell>{{ patient.operations }}</TableCell>
