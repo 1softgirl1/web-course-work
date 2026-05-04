@@ -17,7 +17,9 @@ tests {
     const body = res.getBody();
     expect(res.getStatus()).to.equal(200);
     expect(body.viewMode).to.equal("FULL");
-    expect(body.lastName).to.not.equal(null);
+    expect(body).to.not.have.property("lastName");
+    expect(body).to.not.have.property("firstName");
+    expect(body).to.not.have.property("middleName");
     expect(body.patientCode).to.equal(bru.getEnvVar("seedOwnPatientCode"));
   });
 }

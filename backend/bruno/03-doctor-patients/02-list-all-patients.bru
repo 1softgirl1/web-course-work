@@ -17,11 +17,11 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("all scope anonymizes names and includes multiple regions", function () {
+  test("all scope returns patients from multiple regions without patient names", function () {
     const body = res.getBody();
     const regions = [...new Set(body.items.map(item => item.regionId))];
     expect(body.items.length).to.be.greaterThan(0);
-    expect(body.items.every(item => item.lastName === null && item.firstName === null && item.middleName === null)).to.equal(true);
+    expect(body.items.every(item => !("lastName" in item) && !("firstName" in item) && !("middleName" in item))).to.equal(true);
     expect(regions.length).to.be.greaterThan(1);
   });
 }

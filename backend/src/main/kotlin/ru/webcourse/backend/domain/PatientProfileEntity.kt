@@ -25,12 +25,6 @@ class PatientProfileEntity(
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "region_id", nullable = false)
     val region: RegionEntity,
-    @Column(name = "last_name", nullable = false)
-    val lastName: String,
-    @Column(name = "first_name", nullable = false)
-    val firstName: String,
-    @Column(name = "middle_name")
-    val middleName: String? = null,
     @Column(name = "birth_date", nullable = false)
     val birthDate: LocalDate,
     @Column(name = "diagnosis", nullable = false)

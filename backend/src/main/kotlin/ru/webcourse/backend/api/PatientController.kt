@@ -39,7 +39,7 @@ class PatientController(
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
         summary = "Создать карточку пациента",
-        description = "Создает карточку пациента от имени врача. Регион пациента берется из request body, а не из региона врача.",
+        description = "Создает карточку пациента от имени врача. Регион пациента берется из request body, а пациент идентифицируется только сгенерированным кодом.",
         operationId = "createPatientCard",
         security = [SecurityRequirement(name = "bearerAuth")],
     )
@@ -54,7 +54,7 @@ class PatientController(
     )
     @io.swagger.v3.oas.annotations.parameters.RequestBody(
         required = true,
-        description = "Данные карточки пациента.",
+        description = "Медицинские и региональные данные карточки пациента.",
         content = [Content(
             schema = Schema(implementation = CreatePatientRequest::class),
             examples = [ExampleObject(
@@ -62,9 +62,6 @@ class PatientController(
                 summary = "Создание пациента",
                 value = """
                 {
-                  "lastName": "Петров",
-                  "firstName": "Петр",
-                  "middleName": "Петрович",
                   "birthDate": "1971-01-15",
                   "diagnosis": "Aortic valve stenosis",
                   "regionId": 1,
@@ -92,7 +89,7 @@ class PatientController(
     @GetMapping
     @Operation(
         summary = "Получить список пациентов",
-        description = "Возвращает постраничный список пациентов для врача. `scope=own` показывает пациентов региона врача с ФИО. `scope=all` показывает пациентов всех регионов без ФИО и поддерживает фильтры `regionId` и `diagnosis`.",
+        description = "Возвращает постраничный список пациентов для врача. `scope=own` показывает пациентов региона врача, `scope=all` показывает пациентов всех регионов и поддерживает фильтры `regionId` и `diagnosis`. ФИО пациента в backend не хранится и не возвращается.",
         operationId = "listDoctorPatients",
         security = [SecurityRequirement(name = "bearerAuth")],
     )
@@ -113,9 +110,6 @@ class PatientController(
                                 {
                                   "id": 1,
                                   "patientCode": "PT-DEMO-001",
-                                  "lastName": "Петров",
-                                  "firstName": "Петр",
-                                  "middleName": "Петрович",
                                   "birthDate": "1971-01-15",
                                   "diagnosis": "Aortic valve stenosis",
                                   "regionId": 1,
@@ -142,17 +136,14 @@ class PatientController(
                             """,
                         ),
                         ExampleObject(
-                            name = "allPatientsAnonymized",
-                            summary = "Все пациенты без ФИО",
+                            name = "allPatients",
+                            summary = "Пациенты всех регионов",
                             value = """
                             {
                               "items": [
                                 {
                                   "id": 5,
                                   "patientCode": "PT-DEMO-005",
-                                  "lastName": null,
-                                  "firstName": null,
-                                  "middleName": null,
                                   "birthDate": "1976-12-04",
                                   "diagnosis": "Valve replacement follow-up",
                                   "regionId": 3,
@@ -188,7 +179,7 @@ class PatientController(
     )
     fun listPatients(
         @AuthenticationPrincipal actor: ActorPrincipal,
-        @Parameter(description = "Режим списка: `own` - пациенты региона врача, `all` - все регионы без ФИО.", example = "own")
+        @Parameter(description = "Режим списка: `own` - пациенты региона врача, `all` - все регионы.", example = "own")
         @RequestParam(defaultValue = "own") scope: String,
         @Parameter(description = "Номер страницы, начиная с нуля.", example = "0")
         @RequestParam(defaultValue = "0") @Min(0) page: Int,

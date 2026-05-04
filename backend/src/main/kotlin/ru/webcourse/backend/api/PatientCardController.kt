@@ -34,7 +34,7 @@ class PatientCardController(
     @GetMapping("/{id}")
     @Operation(
         summary = "Получить карточку пациента",
-        description = "Возвращает карточку пациента в режиме FULL или ANONYMIZED в зависимости от роли и доступа по региону. Пациент может открыть только свою карточку.",
+        description = "Возвращает карточку пациента в режиме FULL или ANONYMIZED в зависимости от роли и доступа по региону. ФИО пациента в backend не хранится. Пациент может открыть только свою карточку.",
         operationId = "getPatientCard",
         security = [SecurityRequirement(name = "bearerAuth")],
     )
@@ -47,15 +47,12 @@ class PatientCardController(
                     schema = Schema(implementation = PatientCardResponse::class),
                     examples = [ExampleObject(
                         name = "patientCardFull",
-                        summary = "Полная карточка пациента",
+                        summary = "Карточка пациента",
                         value = """
                         {
                           "id": 1,
                           "viewMode": "FULL",
                           "patientCode": "PT-DEMO-001",
-                          "lastName": "Петров",
-                          "firstName": "Петр",
-                          "middleName": "Петрович",
                           "regionId": 1,
                           "regionName": "Регион 1",
                           "birthDate": "1971-01-15",
@@ -79,7 +76,7 @@ class PatientCardController(
                 )],
             ),
             ApiResponse(responseCode = "401", description = "Требуется аутентификация", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
-            ApiResponse(responseCode = "403", description = "Пациент пытается открыть чужую карточку", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
+            ApiResponse(responseCode = "403", description = "Доступ к карточке пациента запрещен", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
             ApiResponse(responseCode = "404", description = "Карточка пациента не найдена", content = [Content(schema = Schema(implementation = ApiErrorResponse::class))]),
         ],
     )
@@ -92,7 +89,7 @@ class PatientCardController(
     @PatchMapping("/{id}")
     @Operation(
         summary = "Редактировать карточку пациента",
-        description = "Частично обновляет карточку пациента. Обычный врач редактирует только пациентов своего региона, DOCTOR_EXTENDED - любого пациента. Логин пациента через этот endpoint не меняется.",
+        description = "Частично обновляет карточку пациента. Обычный врач редактирует только пациентов своего региона, DOCTOR_EXTENDED - любого пациента. Код пациента через этот endpoint не меняется.",
         operationId = "updatePatientCard",
         security = [SecurityRequirement(name = "bearerAuth")],
     )

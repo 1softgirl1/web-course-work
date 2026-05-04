@@ -1,85 +1,92 @@
-# Демонстрационные данные для Swagger
+# Демонстрационные Данные Для Swagger
 
-Используй этот файл вместе с [demo-seed.sql](demo-seed.sql).
+Демо-данные применяются через Flyway только в Spring-профиле `local`.
 
-## Как заполнить базу
+## Как Заполнить Базу
 
-Если база пустая или ее уже очистили, выполни команду из корня проекта:
+Из папки `backend`:
 
 ```powershell
-Get-Content .\backend\doc\demo-seed.sql | docker exec -i web-course-work-postgres psql -U postgres -d web_course_work
+.\gradlew.bat bootRun --args='--spring.profiles.active=local'
 ```
 
-## Демо-логины
+Профиль `local` подключает дополнительные миграции из `classpath:db/local-migration`. В default/prod профиле эти демо-данные не применяются.
+
+## Демо-Логины
 
 - `doctor.demo@example.com` / `doctor-password`
 - `head.doctor@example.com` / `extended-password`
 - `outsider.doctor@example.com` / `doctor-password`
+- `kemerovo.doctor@example.com` / `doctor-password`
+- `novosibirsk.doctor@example.com` / `doctor-password`
+- `tomsk.doctor@example.com` / `doctor-password`
+- `perm.doctor@example.com` / `doctor-password`
+- `moscow.doctor@example.com` / `doctor-password`
 - `PT-DEMO-001` / `patient-password`
 - `PT-DEMO-002` / `patient-password`
 - `PT-DEMO-003` / `patient-password`
 - `PT-DEMO-004` / `patient-password`
 - `PT-DEMO-005` / `patient-password`
+- `PT-DEMO-006` / `patient-password`
+- `PT-DEMO-007` / `patient-password`
+- `PT-DEMO-008` / `patient-password`
+- `PT-DEMO-009` / `patient-password`
+- `PT-DEMO-010` / `patient-password`
+- `PT-DEMO-011` / `patient-password`
+- `PT-DEMO-012` / `patient-password`
 
-## Что лежит в базе
+## Что Лежит В Базе
 
-- 3 врача:
-  - `doctor.demo@example.com` — роль `DOCTOR`, регион `1`
-  - `head.doctor@example.com` — роль `DOCTOR_EXTENDED`, регион `1`
-  - `outsider.doctor@example.com` — роль `DOCTOR`, регион `2`
-- 5 пациентов:
-  - `PT-DEMO-001`, `PT-DEMO-002`, `PT-DEMO-003` — регион `1`
-  - `PT-DEMO-004` — регион `2`
-  - `PT-DEMO-005` — регион `3`
-- у каждого пациента уже есть по 2 обследования
-- демо-данные рассчитаны на показ:
-  - списка пациентов своего региона;
-  - режима `scope=all` с обезличиванием ФИО;
-  - просмотра карточки пациента;
-  - истории обследований;
-  - редактирования карточки и обследований;
-  - сценариев для врача с расширенными правами
+- 8 врачей:
+- `doctor.demo@example.com` — обычный врач, регион `1`.
+- `head.doctor@example.com` — врач с расширенными правами, регион `1`.
+- `outsider.doctor@example.com` — обычный врач, регион `2`.
+- `kemerovo.doctor@example.com` — обычный врач, регион `22`.
+- `novosibirsk.doctor@example.com` — обычный врач, регион `39`.
+- `tomsk.doctor@example.com` — обычный врач, регион `76`.
+- `perm.doctor@example.com` — обычный врач, регион `44`.
+- `moscow.doctor@example.com` — обычный врач, регион `33`.
+- 12 пациентов без ФИО:
+- `PT-DEMO-001`, `PT-DEMO-002`, `PT-DEMO-003` — регион `1`.
+- `PT-DEMO-004` — регион `2`.
+- `PT-DEMO-005` — регион `3`.
+- `PT-DEMO-006` — регион `22`, Кемеровская область.
+- `PT-DEMO-007` — регион `39`, Новосибирская область.
+- `PT-DEMO-008` — регион `76`, Томская область.
+- `PT-DEMO-009` — регион `44`, Пермский край.
+- `PT-DEMO-010` — регион `33`, Москва.
+- `PT-DEMO-011` — регион `67`, Санкт-Петербург.
+- `PT-DEMO-012` — регион `26`, Красноярский край.
+- У каждого пациента уже есть по 2 обследования.
+- У обследований есть значения для демо-характеристик `metric_01` и `metric_02`.
 
-## Лучший порядок показа
+## Лучший Порядок Показа
 
-1. `POST /auth/login`
-   - войти как `doctor.demo@example.com`
-2. `GET /api/doctor/patients`
-   - показать режим `scope=own`
-   - врач видит только свой регион и полные ФИО
-   - показать сортировку `RED -> YELLOW -> GREEN`
-3. `GET /api/doctor/patients?scope=all`
-   - показать режим `scope=all`
-   - пациенты видны со всех регионов
-   - ФИО скрыты, остальные поля остаются
-4. `GET /api/doctor/patients?scope=all&regionId=2`
-   - показать фильтр по региону
-5. `GET /api/doctor/patients?scope=all&diagnosis=stenosis`
-   - показать фильтр по диагнозу
-6. `GET /api/patients/{id}`
-   - открыть карточку пациента своего региона
-   - в path нужен числовой `id`, а не `patientCode`
-   - числовой `id` удобно взять из ответа `GET /api/doctor/patients`
-7. `GET /api/patients/{id}/examinations`
-   - показать отдельный журнал обследований
-8. `POST /api/patients/{id}/examinations`
-   - добавить новое обследование пациенту своего региона
-9. `PATCH /api/patients/{id}`
-   - показать редактирование карточки пациента
-10. `POST /api/doctor/patients`
-   - создать нового пациента прямо на встрече
-11. `POST /auth/login`
-   - войти как `PT-DEMO-001`
-12. `GET /api/patients/{id}`
-   - показать self-access пациента
+1. `POST /auth/login` — войти как `doctor.demo@example.com`.
+2. `GET /api/doctor/patients?scope=own` — показать пациентов региона врача.
+3. `GET /api/doctor/patients?scope=all` — показать пациентов всех регионов.
+4. `GET /api/doctor/patients?scope=all&regionId=2` — показать фильтр по региону.
+5. `GET /api/doctor/patients?scope=all&regionId=39` — показать фильтр по Новосибирской области.
+6. `GET /api/doctor/patients?scope=all&regionId=33` — показать фильтр по Москве.
+7. `GET /api/doctor/patients?scope=all&diagnosis=stenosis` — показать фильтр по диагнозу.
+8. `GET /api/patients/{id}` — открыть карточку пациента по числовому `id` из списка.
+9. `GET /api/patients/{id}/examinations` — показать журнал обследований.
+10. `POST /api/patients/{id}/examinations` — добавить новое обследование.
+11. `PATCH /api/patients/{id}/examinations/{examId}` — исправить или дозаполнить показатели обследования.
+12. `PATCH /api/patients/{id}` — изменить медицинские данные карточки пациента.
+13. `POST /api/doctor/patients` — создать нового пациента прямо на встрече.
+14. `POST /auth/login` — войти как `PT-DEMO-001`.
+15. `GET /api/patients/{id}` — показать self-access пациента.
 
-## Что важно помнить
+## Важно
 
 - `scope=own` доступен любому врачу и показывает только пациентов региона врача.
-- `scope=all` тоже доступен любому врачу и показывает пациентов всех регионов без ФИО.
-- `DOCTOR_EXTENDED` не получает отдельной привилегии именно для списка пациентов, потому что это не требуется текущим `F-06`.
-- Для демонстрации прав доступа удобнее всего использовать:
-  - `doctor.demo@example.com` для обычного врача;
-  - `head.doctor@example.com` для расширенных прав;
-  - `PT-DEMO-001` для пациента;
-- Если ты меняешь пароли через Bruno, после этого лучше заново применить seed или перелогиниться с новыми данными.
+- `scope=all` доступен любому врачу и показывает пациентов всех регионов.
+- В обоих режимах пациент отображается только по `patientCode`; ФИО пациента не хранится в БД и не возвращается API.
+- `DOCTOR_EXTENDED` не получает отдельной привилегии именно для списка пациентов, потому что `scope=all` доступен всем врачам.
+- Для демонстрации прав доступа удобно использовать:
+- `doctor.demo@example.com` для обычного врача;
+- `head.doctor@example.com` для расширенных прав;
+- `outsider.doctor@example.com` для врача другого региона;
+- `PT-DEMO-001` для пациента.
+- Если меняешь пароли через Bruno, после этого лучше заново применить seed или перелогиниться с новыми данными.

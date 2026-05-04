@@ -77,9 +77,6 @@ class PatientService(
         val patient = PatientProfileEntity(
             user = patientUser,
             region = region,
-            lastName = request.lastName.trim(),
-            firstName = request.firstName.trim(),
-            middleName = request.middleName?.trim()?.takeIf { it.isNotBlank() },
             birthDate = request.birthDate,
             diagnosis = request.diagnosis.trim(),
             valveName = request.valve.name.trim(),
@@ -106,7 +103,6 @@ class PatientService(
     ): PatientListResponse {
         val doctor = requireAuthenticatedDoctor(actor)
         val normalizedScope = normalizeListScope(scope)
-        val includeNames = normalizedScope == LIST_SCOPE_OWN
         val effectiveRegionId = when (normalizedScope) {
             LIST_SCOPE_OWN -> doctor.region.id
             LIST_SCOPE_ALL -> regionId
@@ -130,7 +126,6 @@ class PatientService(
                 val lastExaminationAt = latestExamDatesByPatientId[patient.id]
                 PatientListItem(
                     summary = patient.toSummaryResponse(
-                        includeNames = includeNames,
                         status = lastExaminationAt.toMonitoringStatus(),
                         lastExaminationAt = lastExaminationAt,
                     ),
@@ -328,12 +323,6 @@ class PatientService(
                 id = patient.id,
                 user = updatedUser,
                 region = updatedRegion,
-                lastName = request.lastName?.trimNonBlank("lastName") ?: patient.lastName,
-                firstName = request.firstName?.trimNonBlank("firstName") ?: patient.firstName,
-                middleName = when (request.middleName) {
-                    null -> patient.middleName
-                    else -> request.middleName.trim().takeIf { it.isNotBlank() }
-                },
                 birthDate = request.birthDate ?: patient.birthDate,
                 diagnosis = request.diagnosis?.trimNonBlank("diagnosis") ?: patient.diagnosis,
                 valveName = request.valve?.name?.trimNonBlank("valve.name") ?: patient.valveName,
@@ -353,7 +342,6 @@ class PatientService(
         val examinations = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
         return updatedPatient.toCardResponse(
             viewMode = PatientCardViewMode.FULL,
-            includeNames = true,
             examinations = examinations,
         )
     }
@@ -429,7 +417,6 @@ class PatientService(
 
         return patient.toCardResponse(
             viewMode = PatientCardViewMode.FULL,
-            includeNames = true,
             examinations = examinations,
         )
     }
@@ -440,21 +427,20 @@ class PatientService(
         actor: ActorPrincipal?,
     ): PatientCardResponse {
         val doctor = requireAuthenticatedDoctor(actor)
-        val includeNames = doctor.region.id == patient.region.id
-        val viewMode = if (includeNames) PatientCardViewMode.FULL else PatientCardViewMode.ANONYMIZED
+        val viewMode = if (doctor.region.id == patient.region.id) {
+            PatientCardViewMode.FULL
+        } else {
+            PatientCardViewMode.ANONYMIZED
+        }
 
         return patient.toCardResponse(
             viewMode = viewMode,
-            includeNames = includeNames,
             examinations = examinations,
         )
     }
 
     private fun validatePatchRequest(request: UpdatePatientRequest) {
         if (
-            request.lastName == null &&
-            request.firstName == null &&
-            request.middleName == null &&
             request.birthDate == null &&
             request.diagnosis == null &&
             request.regionId == null &&
@@ -466,8 +452,6 @@ class PatientService(
             throw IllegalArgumentException("At least one editable field must be provided")
         }
 
-        request.lastName?.trimNonBlank("lastName")
-        request.firstName?.trimNonBlank("firstName")
         request.diagnosis?.trimNonBlank("diagnosis")
         request.medications?.trimNonBlank("medications")
         request.valve?.apply {
@@ -540,9 +524,6 @@ class PatientService(
         id = id,
         patientCode = user.username,
         temporaryPassword = generatedPassword,
-        lastName = lastName,
-        firstName = firstName,
-        middleName = middleName,
         birthDate = birthDate,
         diagnosis = diagnosis,
         regionId = region.id,
@@ -553,15 +534,11 @@ class PatientService(
     )
 
     private fun PatientProfileEntity.toSummaryResponse(
-        includeNames: Boolean,
         status: PatientMonitoringStatus,
         lastExaminationAt: LocalDate?,
     ) = PatientSummaryResponse(
         id = id,
         patientCode = user.username,
-        lastName = lastName.takeIf { includeNames },
-        firstName = firstName.takeIf { includeNames },
-        middleName = middleName.takeIf { includeNames },
         birthDate = birthDate,
         diagnosis = diagnosis,
         regionId = region.id,
@@ -575,15 +552,11 @@ class PatientService(
 
     private fun PatientProfileEntity.toCardResponse(
         viewMode: PatientCardViewMode,
-        includeNames: Boolean,
         examinations: List<ExaminationEntity>,
     ) = PatientCardResponse(
         id = id,
         viewMode = viewMode,
         patientCode = user.username,
-        lastName = lastName.takeIf { includeNames },
-        firstName = firstName.takeIf { includeNames },
-        middleName = middleName.takeIf { includeNames },
         regionId = region.id,
         regionName = region.name,
         birthDate = birthDate,

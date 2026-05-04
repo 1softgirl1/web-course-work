@@ -101,9 +101,9 @@ class BackendApplicationTests {
             String::class.java
         ).toSet()
 
-        assertTrue("last_name" in patientProfileColumns)
-        assertTrue("first_name" in patientProfileColumns)
-        assertTrue("middle_name" in patientProfileColumns)
+        assertTrue("last_name" !in patientProfileColumns)
+        assertTrue("first_name" !in patientProfileColumns)
+        assertTrue("middle_name" !in patientProfileColumns)
         assertTrue("birth_date" in patientProfileColumns)
         assertTrue("patient_code" !in patientProfileColumns)
         assertTrue("operation_delivery_system" in patientProfileColumns)

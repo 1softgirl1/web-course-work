@@ -1,6 +1,5 @@
 package ru.webcourse.backend
 
-import org.hamcrest.Matchers.nullValue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -995,9 +994,9 @@ class PatientControllerIntegrationTest {
             status { isCreated() }
             jsonPath("$.patientCode") { isString() }
             jsonPath("$.temporaryPassword") { isString() }
-            jsonPath("$.lastName") { value("Petrov") }
-            jsonPath("$.firstName") { value("Petr") }
-            jsonPath("$.middleName") { value("Petrovich") }
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
             jsonPath("$.diagnosis") { value("Aortic valve stenosis") }
             jsonPath("$.birthDate") { value("1971-01-15") }
             jsonPath("$.regionId") { value(1) }
@@ -1017,9 +1016,6 @@ class PatientControllerIntegrationTest {
         val patients = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L)
         assertEquals(1, patients.size)
         assertEquals(patientCode, patients.single().user.username)
-        assertEquals("Petrov", patients.single().lastName)
-        assertEquals("Petr", patients.single().firstName)
-        assertEquals("Petrovich", patients.single().middleName)
         assertEquals("Transfemoral", patients.single().operationDeliverySystem)
 
         mockMvc.get("/api/doctor/patients") {
@@ -1031,9 +1027,9 @@ class PatientControllerIntegrationTest {
             jsonPath("$.page") { value(0) }
             jsonPath("$.limit") { value(20) }
             jsonPath("$.items[0].patientCode") { value(patientCode) }
-            jsonPath("$.items[0].lastName") { value("Petrov") }
-            jsonPath("$.items[0].firstName") { value("Petr") }
-            jsonPath("$.items[0].middleName") { value("Petrovich") }
+            jsonPath("$.items[0].lastName") { doesNotExist() }
+            jsonPath("$.items[0].firstName") { doesNotExist() }
+            jsonPath("$.items[0].middleName") { doesNotExist() }
             jsonPath("$.items[0].temporaryPassword") { doesNotExist() }
             jsonPath("$.items[0].operationParameters.deliverySystem") { value("Transfemoral") }
             jsonPath("$.items[0].status") { value("RED") }
@@ -1101,25 +1097,6 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
-    fun createPatientAllowsMissingMiddleName() {
-        createDoctor(login = DOCTOR_EMAIL)
-
-        val createResponse = mockMvc.post("/api/doctor/patients") {
-            with(doctorBearer(DOCTOR_EMAIL))
-            contentType = MediaType.APPLICATION_JSON
-            content = validCreateRequest(middleName = null)
-        }.andExpect {
-            status { isCreated() }
-        }.andReturn()
-
-        val patientCode = extractJsonString(createResponse.response.contentAsString, "patientCode")
-        val profile = patientProfileRepository.findAllByRegionIdOrderByCreatedAtDesc(1L).single()
-
-        assertEquals(patientCode, profile.user.username)
-        assertEquals(null, profile.middleName)
-    }
-
-    @Test
     fun createPatientReturns400ForInvalidPayload() {
         createDoctor(login = DOCTOR_EMAIL)
 
@@ -1150,15 +1127,7 @@ class PatientControllerIntegrationTest {
         mockMvc.post("/api/doctor/patients") {
             with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
-            content = validCreateRequest(lastName = "   ")
-        }.andExpect {
-            status { isBadRequest() }
-        }
-
-        mockMvc.post("/api/doctor/patients") {
-            with(doctorBearer(DOCTOR_EMAIL))
-            contentType = MediaType.APPLICATION_JSON
-            content = validCreateRequest(firstName = "   ")
+            content = validCreateRequest(medications = "   ")
         }.andExpect {
             status { isBadRequest() }
         }
@@ -1282,17 +1251,17 @@ class PatientControllerIntegrationTest {
     }
 
     @Test
-    fun doctorCanListAllPatientsAcrossRegionsWithAnonymizedNames() {
+    fun doctorCanListAllPatientsAcrossRegionsWithoutPatientNames() {
         createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
         createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
 
         val ownPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Own", firstName = "Patient", regionId = 1L)
+            body = validCreateRequest(regionId = 1L)
         )
         val foreignPatient = createPatientThroughApi(
             login = SECOND_DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Foreign", firstName = "Patient", regionId = 2L)
+            body = validCreateRequest(regionId = 2L)
         )
 
         seedExaminationWithDate(ownPatient.id, LocalDate.now().minusMonths(1))
@@ -1304,17 +1273,17 @@ class PatientControllerIntegrationTest {
             status { isOk() }
             jsonPath("$.total") { value(2) }
             jsonPath("$.items.length()") { value(2) }
-            jsonPath("$.items[0].lastName") { value(nullValue()) }
-            jsonPath("$.items[0].firstName") { value(nullValue()) }
-            jsonPath("$.items[0].middleName") { value(nullValue()) }
+            jsonPath("$.items[0].lastName") { doesNotExist() }
+            jsonPath("$.items[0].firstName") { doesNotExist() }
+            jsonPath("$.items[0].middleName") { doesNotExist() }
             jsonPath("$.items[0].patientCode") { isString() }
             jsonPath("$.items[0].diagnosis") { isString() }
             jsonPath("$.items[0].regionId") { isNumber() }
             jsonPath("$.items[0].status") { isString() }
             jsonPath("$.items[0].lastExaminationAt") { isString() }
-            jsonPath("$.items[1].lastName") { value(nullValue()) }
-            jsonPath("$.items[1].firstName") { value(nullValue()) }
-            jsonPath("$.items[1].middleName") { value(nullValue()) }
+            jsonPath("$.items[1].lastName") { doesNotExist() }
+            jsonPath("$.items[1].firstName") { doesNotExist() }
+            jsonPath("$.items[1].middleName") { doesNotExist() }
         }
     }
 
@@ -1326,8 +1295,6 @@ class PatientControllerIntegrationTest {
         createPatientThroughApi(
             login = DOCTOR_EMAIL,
             body = validCreateRequest(
-                lastName = "Alpha",
-                firstName = "One",
                 diagnosis = "Aortic valve stenosis",
                 regionId = 1L
             )
@@ -1335,8 +1302,6 @@ class PatientControllerIntegrationTest {
         createPatientThroughApi(
             login = SECOND_DOCTOR_EMAIL,
             body = validCreateRequest(
-                lastName = "Beta",
-                firstName = "Two",
                 diagnosis = "Mitral regurgitation",
                 regionId = 2L
             )
@@ -1344,8 +1309,6 @@ class PatientControllerIntegrationTest {
         createPatientThroughApi(
             login = SECOND_DOCTOR_EMAIL,
             body = validCreateRequest(
-                lastName = "Gamma",
-                firstName = "Three",
                 diagnosis = "Aortic valve stenosis",
                 regionId = 2L
             )
@@ -1359,24 +1322,24 @@ class PatientControllerIntegrationTest {
             jsonPath("$.items.length()") { value(1) }
             jsonPath("$.items[0].regionId") { value(2) }
             jsonPath("$.items[0].diagnosis") { value("Aortic valve stenosis") }
-            jsonPath("$.items[0].lastName") { value(nullValue()) }
-            jsonPath("$.items[0].firstName") { value(nullValue()) }
-            jsonPath("$.items[0].middleName") { value(nullValue()) }
+            jsonPath("$.items[0].lastName") { doesNotExist() }
+            jsonPath("$.items[0].firstName") { doesNotExist() }
+            jsonPath("$.items[0].middleName") { doesNotExist() }
         }
     }
 
     @Test
-    fun ownScopeStillShowsOnlyOwnRegionWithNames() {
+    fun ownScopeStillShowsOnlyOwnRegion() {
         createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
         createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
 
         createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Own", firstName = "Patient", regionId = 1L)
+            body = validCreateRequest(regionId = 1L)
         )
         createPatientThroughApi(
             login = SECOND_DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Foreign", firstName = "Patient", regionId = 2L)
+            body = validCreateRequest(regionId = 2L)
         )
 
         mockMvc.get("/api/doctor/patients?scope=own") {
@@ -1385,8 +1348,9 @@ class PatientControllerIntegrationTest {
             status { isOk() }
             jsonPath("$.total") { value(1) }
             jsonPath("$.items.length()") { value(1) }
-            jsonPath("$.items[0].lastName") { value("Own") }
-            jsonPath("$.items[0].firstName") { value("Patient") }
+            jsonPath("$.items[0].lastName") { doesNotExist() }
+            jsonPath("$.items[0].firstName") { doesNotExist() }
+            jsonPath("$.items[0].middleName") { doesNotExist() }
             jsonPath("$.items[0].regionId") { value(1) }
         }
     }
@@ -1397,15 +1361,15 @@ class PatientControllerIntegrationTest {
 
         val redPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Red", firstName = "Patient")
+            body = validCreateRequest(diagnosis = "Red status patient")
         )
         val yellowPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Yellow", firstName = "Patient")
+            body = validCreateRequest(diagnosis = "Yellow status patient")
         )
         val greenPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Green", firstName = "Patient")
+            body = validCreateRequest(diagnosis = "Green status patient")
         )
 
         seedExaminationWithDate(redPatient.id, LocalDate.now().minusMonths(7))
@@ -1479,9 +1443,9 @@ class PatientControllerIntegrationTest {
             status { isOk() }
             jsonPath("$.viewMode") { value("FULL") }
             jsonPath("$.patientCode") { value(created.patientCode) }
-            jsonPath("$.lastName") { value("Petrov") }
-            jsonPath("$.firstName") { value("Petr") }
-            jsonPath("$.middleName") { value("Petrovich") }
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
             jsonPath("$.regionId") { value(1) }
             jsonPath("$.regionName") { value("Алтайский край") }
             jsonPath("$.vitalsHistory.length()") { value(1) }
@@ -1498,7 +1462,7 @@ class PatientControllerIntegrationTest {
         val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val secondPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr")
+            body = validCreateRequest(diagnosis = "Second patient diagnosis")
         )
 
         mockMvc.get("/api/patients/${secondPatient.id}") {
@@ -1520,9 +1484,9 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.viewMode") { value("FULL") }
-            jsonPath("$.lastName") { value("Petrov") }
-            jsonPath("$.firstName") { value("Petr") }
-            jsonPath("$.middleName") { value("Petrovich") }
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
             jsonPath("$.vitalsHistory[0].measurements[1].characteristicCode") { value("metric_02") }
             jsonPath("$.vitalsHistory[0].measurements[1].unit") { value("unit_02") }
         }
@@ -1535,7 +1499,7 @@ class PatientControllerIntegrationTest {
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         seedExaminationWithMeasurements(created.id)
 
-        val response = mockMvc.get("/api/patients/${created.id}") {
+        mockMvc.get("/api/patients/${created.id}") {
             with(doctorBearer(SECOND_DOCTOR_EMAIL))
         }.andExpect {
             status { isOk() }
@@ -1543,12 +1507,10 @@ class PatientControllerIntegrationTest {
             jsonPath("$.patientCode") { value(created.patientCode) }
             jsonPath("$.diagnosis") { value("Aortic valve stenosis") }
             jsonPath("$.vitalsHistory.length()") { value(1) }
-        }.andReturn()
-
-        val body = response.response.contentAsString
-        assertTrue(body.contains("\"lastName\":null"))
-        assertTrue(body.contains("\"firstName\":null"))
-        assertTrue(body.contains("\"middleName\":null"))
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
+        }
     }
 
     @Test
@@ -1720,7 +1682,7 @@ class PatientControllerIntegrationTest {
         val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
         val secondPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr")
+            body = validCreateRequest(diagnosis = "Second patient diagnosis")
         )
 
         mockMvc.get("/api/patients/${secondPatient.id}/examinations") {
@@ -1892,7 +1854,7 @@ class PatientControllerIntegrationTest {
         val firstPatient = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
         val secondPatient = createPatientThroughApi(
             login = DOCTOR_EMAIL,
-            body = validCreateRequest(lastName = "Sidorov", firstName = "Sidr", regionId = 1L)
+            body = validCreateRequest(diagnosis = "Second patient diagnosis", regionId = 1L)
         )
         val examinationId = seedExaminationWithMeasurements(firstPatient.id)
 
@@ -2026,8 +1988,6 @@ class PatientControllerIntegrationTest {
             with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
             content = validPatchRequest(
-                lastName = "Updated",
-                firstName = "Patient",
                 birthDate = "1965-05-20",
                 diagnosis = "Updated diagnosis",
                 regionId = 2L,
@@ -2043,8 +2003,9 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.viewMode") { value("FULL") }
-            jsonPath("$.lastName") { value("Updated") }
-            jsonPath("$.firstName") { value("Patient") }
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
             jsonPath("$.birthDate") { value("1965-05-20") }
             jsonPath("$.regionId") { value(2) }
             jsonPath("$.medications") { value("Clopidogrel") }
@@ -2121,7 +2082,7 @@ class PatientControllerIntegrationTest {
         mockMvc.patch("/api/patients/${created.id}") {
             with(doctorBearer(DOCTOR_EMAIL))
             contentType = MediaType.APPLICATION_JSON
-            content = validPatchRequest(lastName = "   ")
+            content = validPatchRequest(diagnosis = "   ")
         }.andExpect {
             status { isBadRequest() }
         }
@@ -2418,18 +2379,13 @@ class PatientControllerIntegrationTest {
     }
 
     private fun validCreateRequest(
-        lastName: String = "Petrov",
-        firstName: String = "Petr",
-        middleName: String? = "Petrovich",
         birthDate: String = "1971-01-15",
         diagnosis: String = "Aortic valve stenosis",
         regionId: Long = 1L,
         durationMinutes: Int = 185,
+        medications: String = "Warfarin, aspirin",
     ): String = """
         {
-          "lastName": ${jsonString(lastName)},
-          "firstName": ${jsonString(firstName)},
-          "middleName": ${jsonNullableString(middleName)},
           "birthDate": ${jsonString(birthDate)},
           "diagnosis": ${jsonString(diagnosis)},
           "regionId": $regionId,
@@ -2443,7 +2399,7 @@ class PatientControllerIntegrationTest {
             "durationMinutes": $durationMinutes,
             "deliverySystem": "Transfemoral"
           },
-          "medications": "Warfarin, aspirin"
+          "medications": ${jsonString(medications)}
         }
     """.trimIndent()
 
@@ -2472,10 +2428,6 @@ class PatientControllerIntegrationTest {
     """.trimIndent()
 
     private fun validPatchRequest(
-        lastName: String? = null,
-        firstName: String? = null,
-        middleName: String? = null,
-        includeMiddleName: Boolean = false,
         birthDate: String? = null,
         diagnosis: String? = null,
         regionId: Long? = null,
@@ -2489,11 +2441,6 @@ class PatientControllerIntegrationTest {
         password: String? = null,
     ): String {
         val fields = mutableListOf<String>()
-        lastName?.let { fields += "\"lastName\": ${jsonString(it)}" }
-        firstName?.let { fields += "\"firstName\": ${jsonString(it)}" }
-        if (includeMiddleName) {
-            fields += "\"middleName\": ${jsonNullableString(middleName)}"
-        }
         birthDate?.let { fields += "\"birthDate\": ${jsonString(it)}" }
         diagnosis?.let { fields += "\"diagnosis\": ${jsonString(it)}" }
         regionId?.let { fields += "\"regionId\": $it" }

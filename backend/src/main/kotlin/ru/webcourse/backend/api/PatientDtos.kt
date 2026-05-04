@@ -11,16 +11,8 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@Schema(description = "Запрос на создание новой карточки пациента.")
+@Schema(description = "Запрос на создание новой карточки пациента. Пациент идентифицируется только по сгенерированному коду.")
 data class CreatePatientRequest(
-    @field:NotBlank
-    @field:Schema(description = "Фамилия пациента.", example = "Иванов")
-    val lastName: String,
-    @field:NotBlank
-    @field:Schema(description = "Имя пациента.", example = "Иван")
-    val firstName: String,
-    @field:Schema(description = "Отчество пациента.", example = "Иванович", nullable = true)
-    val middleName: String? = null,
     @field:NotNull
     @field:PastOrPresent
     @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
@@ -70,12 +62,6 @@ data class OperationParametersRequest(
 
 @Schema(description = "Запрос на частичное обновление карточки пациента.")
 data class UpdatePatientRequest(
-    @field:Schema(description = "Фамилия пациента.", example = "Иванов")
-    val lastName: String? = null,
-    @field:Schema(description = "Имя пациента.", example = "Иван")
-    val firstName: String? = null,
-    @field:Schema(description = "Отчество пациента.", example = "Иванович", nullable = true)
-    val middleName: String? = null,
     @field:PastOrPresent
     @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
     val birthDate: LocalDate? = null,
@@ -93,7 +79,7 @@ data class UpdatePatientRequest(
     @field:Schema(description = "Параметры операции.")
     val operationParameters: OperationParametersRequest? = null,
     @field:Size(min = 6)
-    @field:Schema(description = "Новый пароль пациента. Логин пациента здесь изменить нельзя.", example = "newSecret123")
+    @field:Schema(description = "Новый пароль пациента. Код пациента через этот endpoint изменить нельзя.", example = "newSecret123")
     val password: String? = null,
 )
 
@@ -148,7 +134,7 @@ data class UpdateExaminationRequest(
     val comment: String? = null,
     @field:Valid
     @field:Size(min = 1)
-    @field:Schema(description = "Показатели, которые нужно добавить или обновить. Не переданные характеристики остаются без изменений.")
+    @field:Schema(description = "Показатели, которые нужно добавить или обновить. Непереданные характеристики остаются без изменений.")
     val measurements: List<UpdateExaminationMeasurementRequest>? = null,
 )
 
@@ -156,16 +142,10 @@ data class UpdateExaminationRequest(
 data class CreatedPatientResponse(
     @field:Schema(description = "Идентификатор созданного пациента.", example = "3")
     val id: Long,
-    @field:Schema(description = "Сгенерированный код пациента, используемый как login.", example = "PT-DEMO-006")
+    @field:Schema(description = "Сгенерированный код пациента, используемый как username.", example = "PT-DEMO-006")
     val patientCode: String,
     @field:Schema(description = "Сгенерированный временный пароль пациента.", example = "kvE@fNLGvDbQ")
     val temporaryPassword: String,
-    @field:Schema(description = "Фамилия пациента.", example = "Иванов")
-    val lastName: String,
-    @field:Schema(description = "Имя пациента.", example = "Иван")
-    val firstName: String,
-    @field:Schema(description = "Отчество пациента.", example = "Иванович", nullable = true)
-    val middleName: String?,
     @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
     val birthDate: LocalDate,
     @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
@@ -186,12 +166,6 @@ data class PatientSummaryResponse(
     val id: Long,
     @field:Schema(description = "Сгенерированный код пациента.", example = "PT-DEMO-001")
     val patientCode: String,
-    @field:Schema(description = "Фамилия пациента. Скрывается в режиме всех пациентов.", example = "Волков", nullable = true)
-    val lastName: String?,
-    @field:Schema(description = "Имя пациента. Скрывается в режиме всех пациентов.", example = "Андрей", nullable = true)
-    val firstName: String?,
-    @field:Schema(description = "Отчество пациента. Скрывается в режиме всех пациентов.", example = "Олегович", nullable = true)
-    val middleName: String?,
     @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
     val birthDate: LocalDate,
     @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
@@ -241,7 +215,7 @@ data class OperationParametersResponse(
     val deliverySystem: String,
 )
 
-@Schema(description = "Насколько персональные данные видны в возвращаемой карточке пациента.")
+@Schema(description = "Режим видимости карточки пациента.")
 enum class PatientCardViewMode {
     FULL,
     ANONYMIZED,
@@ -262,12 +236,6 @@ data class PatientCardResponse(
     val viewMode: PatientCardViewMode,
     @field:Schema(description = "Сгенерированный код пациента.", example = "PT-DEMO-001")
     val patientCode: String,
-    @field:Schema(description = "Фамилия пациента.", example = "Иванов", nullable = true)
-    val lastName: String?,
-    @field:Schema(description = "Имя пациента.", example = "Иван", nullable = true)
-    val firstName: String?,
-    @field:Schema(description = "Отчество пациента.", example = "Иванович", nullable = true)
-    val middleName: String?,
     @field:Schema(description = "Идентификатор региона.", example = "1")
     val regionId: Long,
     @field:Schema(description = "Название региона.", example = "Новосибирская область")

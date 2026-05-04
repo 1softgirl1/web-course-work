@@ -17,10 +17,10 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("own scope returns only doctor region with visible names", function () {
+  test("own scope returns only doctor region without patient names", function () {
     const body = res.getBody();
     expect(body.items.length).to.be.greaterThan(0);
     expect(body.items.every(item => item.regionId === 1)).to.equal(true);
-    expect(body.items.every(item => item.lastName !== null && item.firstName !== null)).to.equal(true);
+    expect(body.items.every(item => !("lastName" in item) && !("firstName" in item) && !("middleName" in item))).to.equal(true);
   });
 }

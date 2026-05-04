@@ -12,7 +12,6 @@ import ru.webcourse.backend.api.RefreshTokenRequest
 import ru.webcourse.backend.config.ActorPrincipal
 import ru.webcourse.backend.config.JwtService
 import ru.webcourse.backend.domain.DoctorProfileEntity
-import ru.webcourse.backend.domain.PatientProfileEntity
 import ru.webcourse.backend.domain.UserEntity
 import ru.webcourse.backend.domain.UserRole
 import ru.webcourse.backend.repository.DoctorProfileRepository
@@ -167,13 +166,13 @@ class AuthService(
         }
 
         user.role == UserRole.PATIENT -> {
-            val profile = patientProfileRepository.findDetailedByUserId(user.id)
+            patientProfileRepository.findDetailedByUserId(user.id)
                 ?: throw InvalidCredentialsException("Invalid credentials")
 
             AuthUserResponse(
                 id = user.id,
                 role = user.role.name,
-                displayName = profile.displayName(),
+                displayName = user.username,
                 email = null,
                 patientCode = user.username,
             )
@@ -189,12 +188,6 @@ class AuthService(
     }
 
     private fun DoctorProfileEntity.displayName(): String = buildList {
-        add(lastName)
-        add(firstName)
-        middleName?.takeIf { it.isNotBlank() }?.let(::add)
-    }.joinToString(" ")
-
-    private fun PatientProfileEntity.displayName(): String = buildList {
         add(lastName)
         add(firstName)
         middleName?.takeIf { it.isNotBlank() }?.let(::add)
