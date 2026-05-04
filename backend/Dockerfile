@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/openjdk/jdk:21-ubuntu AS build
 
 WORKDIR /workspace
 
-COPY gradlew settings.gradle build.gradle ./
+COPY gradlew settings.gradle build.gradle gradle.properties ./
 COPY gradle ./gradle
 COPY src ./src
 

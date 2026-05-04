@@ -34,7 +34,10 @@ interface RequestOptions {
 }
 
 const getBaseUrl = () => {
-  const raw = String(import.meta.env.VITE_API_BASE_URL ?? DEFAULT_API_BASE_URL).trim()
+  const configured = import.meta.env.VITE_API_BASE_URL
+  if (configured === '') return ''
+
+  const raw = String(configured ?? DEFAULT_API_BASE_URL).trim()
   if (!raw) return DEFAULT_API_BASE_URL
   return raw.endsWith('/') ? raw.slice(0, -1) : raw
 }
