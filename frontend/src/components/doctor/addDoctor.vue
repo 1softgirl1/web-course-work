@@ -5,6 +5,7 @@ import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
 import Badge from '@/components/ui/badge.vue'
+import Dialog from '@/components/ui/dialog.vue'
 import Field from '@/components/ui/field/field.vue'
 import FieldLabel from '@/components/ui/field/field-label.vue'
 import Select from '@/components/ui/select/select.vue'
@@ -72,6 +73,11 @@ const resetForm = () => {
   createdDoctorEmail.value = ''
   createdDoctorPassword.value = ''
   formError.value = ''
+}
+
+const closeSuccessDialog = () => {
+  submitted.value = false
+  resetForm()
 }
 
 const handleSubmit = async () => {
@@ -143,7 +149,7 @@ onMounted(async () => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <Card v-if="submitted" class="mx-auto flex w-full max-w-xl items-center md:mx-0">
+    <Dialog v-model="submitted" content-class="sm:max-w-xl">
       <div class="p-4 text-center sm:p-8">
         <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <CheckCircle class="h-8 w-8 text-green-600" />
@@ -151,12 +157,12 @@ onMounted(async () => {
         <h2 class="mb-2 text-xl font-semibold text-foreground">Врач успешно добавлен</h2>
 
 
-        <div class="mb-6 space-y-2 text-left">
-          <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+        <div class="mb-6 space-y-2 text-center">
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             <p class="text-muted-foreground">Логин (email):</p>
             <Badge variant="outline" class="text-sm font-medium">{{ createdDoctorEmail }}</Badge>
           </div>
-          <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+          <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4">
             <p class="text-muted-foreground">Временный пароль:</p>
             <p class="font-medium text-foreground">{{ createdDoctorPassword }}</p>
           </div>
@@ -166,12 +172,12 @@ onMounted(async () => {
           <router-link to="/doctor/allDoctors" class="w-full sm:w-auto">
             <Button variant="outline" class="w-full sm:w-auto">Назад</Button>
           </router-link>
-          <Button class="w-full sm:w-auto" @click="resetForm">Добавить еще врача</Button>
+          <Button class="w-full sm:w-auto" @click="closeSuccessDialog">Добавить еще врача</Button>
         </div>
       </div>
-    </Card>
+    </Dialog>
 
-    <div v-else>
+    <div>
       <div class="mb-6">
         <div class="mb-2 flex items-start gap-3 sm:gap-4">
           <router-link to="/doctor/allDoctors">
@@ -252,4 +258,3 @@ onMounted(async () => {
     </div>
   </div>
 </template>
-

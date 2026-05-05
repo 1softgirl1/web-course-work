@@ -394,7 +394,7 @@ onBeforeUnmount(() => {
             class="rounded-lg border border-border p-3"
           >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-1">
-              <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+              <div class="flex min-w-0 items-center gap-3 sm:gap-4">
                 <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                   <FileText class="h-6 w-6 stroke-1 text-primary" />
                 </div>
@@ -403,7 +403,6 @@ onBeforeUnmount(() => {
                     <h3 class="font-semibold leading-snug text-foreground sm:truncate">Обследование #{{ exam.id }}</h3>
                     <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                   </div>
-                  <p class="text-sm text-muted-foreground wrap-break-word">Врач: {{ exam.doctor }}</p>
                 </div>
               </div>
 
@@ -563,7 +562,7 @@ onBeforeUnmount(() => {
         <div v-if="selectedExam" class="space-y-4">
           <div>
             <h3 class="text-base font-semibold leading-tight text-foreground sm:text-lg">Обследование #{{ selectedExam.id }}</h3>
-            <p class="text-sm text-muted-foreground">{{ selectedExam.date }} · Врач: {{ selectedExam.doctor }}</p>
+            <p class="text-sm text-muted-foreground">{{ selectedExam.date }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
           </div>
 

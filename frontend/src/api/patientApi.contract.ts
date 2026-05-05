@@ -50,9 +50,6 @@ export interface CreateOperationParametersRequest extends OperationParametersRes
 export interface CreateValveRequest extends ValveResponse {}
 
 export interface CreatePatientRequest {
-  lastName: string
-  firstName: string
-  middleName: string | null
   birthDate: string
   diagnosis: string
   regionId: number
@@ -118,9 +115,6 @@ export interface DoctorPasswordResetResponse {
 }
 
 export interface UpdatePatientRequest {
-  lastName?: string
-  firstName?: string
-  middleName?: string | null
   birthDate?: string
   diagnosis?: string
   regionId?: number
@@ -137,9 +131,6 @@ export interface CreatedPatientResponse {
   id: number
   patientCode: string
   temporaryPassword: string
-  lastName: string
-  firstName: string
-  middleName: string | null
   birthDate: string
   diagnosis: string
   regionId: number
@@ -152,9 +143,6 @@ export interface CreatedPatientResponse {
 export interface PatientSummaryResponse {
   id: number
   patientCode: string
-  lastName: string | null
-  firstName: string | null
-  middleName: string | null
   birthDate: string
   diagnosis: string
   regionId: number
@@ -198,9 +186,6 @@ export interface PatientCardResponse {
   id: number
   viewMode: PatientViewMode
   patientCode: string
-  lastName: string | null
-  firstName: string | null
-  middleName: string | null
   regionId: number
   regionName: string
   birthDate: string

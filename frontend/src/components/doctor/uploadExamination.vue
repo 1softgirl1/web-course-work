@@ -5,6 +5,7 @@ import Card from '@/components/ui/card.vue'
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
 import Badge from '@/components/ui/badge.vue'
+import Dialog from '@/components/ui/dialog.vue'
 import Field from '@/components/ui/field/field.vue'
 import FieldLabel from '@/components/ui/field/field-label.vue'
 import { CheckCircle, Heart, Undo2 } from 'lucide-vue-next'
@@ -139,7 +140,6 @@ const parseMetricRows = (): EditableMetricInput[] => {
 }
 
 const resetForm = () => {
-  submitted.value = false
   if (editingExam.value) {
     hydrateFormFromEditing()
     return
@@ -147,6 +147,11 @@ const resetForm = () => {
   examDate.value = ''
   conclusion.value = ''
   metricRows.value = createFixedMetricRows()
+}
+
+const closeSuccessDialog = () => {
+  submitted.value = false
+  resetForm()
 }
 
 const showMetricValidationError = (error: unknown) => {
@@ -251,24 +256,24 @@ onMounted(async () => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <Card v-if="submitted" class="flex w-full max-w-xl items-center">
-      <div class="p-8 text-center">
+    <Dialog v-model="submitted" content-class="sm:max-w-xl">
+      <div class="p-4 text-center sm:p-8">
         <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <CheckCircle class="h-8 w-8 text-green-600" />
         </div>
-        <h2 class="mb-2 text-xl font-semibold text-foreground">Обследование успешно загружено</h2>
+        <h2 class="mb-6 text-xl font-semibold text-foreground">Обследование успешно загружено</h2>
         <div class="flex flex-col gap-2 sm:flex-row sm:justify-center">
           <router-link :to="backToPatientCardPath" class="w-full sm:w-auto">
             <Button variant="outline" class="w-full sm:w-auto">Назад</Button>
           </router-link>
-          <Button class="w-full sm:w-auto" @click="resetForm">
+          <Button class="w-full sm:w-auto" @click="closeSuccessDialog">
             {{ editingExam ? 'Вернуться к редактированию' : 'Добавить еще' }}
           </Button>
         </div>
       </div>
-    </Card>
+    </Dialog>
 
-    <div v-else>
+    <div>
       <div class="mb-6">
         <div class="mb-2 flex items-start gap-4">
           <router-link :to="backToPatientCardPath">

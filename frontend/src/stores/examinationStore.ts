@@ -78,9 +78,30 @@ const toIsoDate = (value: string): string => {
 }
 
 export function toRuExamDate(value: string): string {
-  const sourceDate = new Date(value)
+  const normalized = value.trim()
+
+  const ruMatch = normalized.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/)
+  if (ruMatch) {
+    const day = ruMatch[1].padStart(2, '0')
+    const month = ruMatch[2].padStart(2, '0')
+    const year = ruMatch[3]
+    return `${day}.${month}.${year}`
+  }
+
+  const isoMatch = normalized.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/)
+  if (isoMatch) {
+    const year = isoMatch[1]
+    const month = isoMatch[2].padStart(2, '0')
+    const day = isoMatch[3].padStart(2, '0')
+    return `${day}.${month}.${year}`
+  }
+
+  const sourceDate = new Date(normalized)
   if (Number.isNaN(sourceDate.getTime())) return value
-  return sourceDate.toLocaleDateString('ru-RU')
+  const day = String(sourceDate.getDate()).padStart(2, '0')
+  const month = String(sourceDate.getMonth() + 1).padStart(2, '0')
+  const year = String(sourceDate.getFullYear())
+  return `${day}.${month}.${year}`
 }
 
 const normalizeCode = (value: string): string => value.trim()
