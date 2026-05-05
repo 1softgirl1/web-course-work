@@ -82,7 +82,7 @@ onMounted(async () => {
       <Card
         v-for="exam in sortedExaminations"
         :key="exam.id"
-        class="transition-colors lg:h-25 hover:border-primary/30"
+        class="transition-colors lg:h-25 hover:border-primary/30 "
       >
         <div>
           <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-1">
@@ -91,7 +91,7 @@ onMounted(async () => {
                 <FileText class="h-6 w-6 stroke-1 text-primary" />
               </div>
               <div class="min-w-0">
-                <div class="mb-1 flex flex-wrap items-center gap-2 sm:flex-nowrap">
+                <div class="mb-1 flex flex-wrap items-center gap-2 sm:flex-nowrap ">
                   <h3 class="truncate font-semibold leading-snug text-foreground">Обследование #{{ exam.id }}</h3>
                   <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                 </div>

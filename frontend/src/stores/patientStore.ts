@@ -27,10 +27,6 @@ export interface ValveDetails {
 
 export interface Patient {
   code: string
-  fullName: string
-  lastName: string
-  firstName: string
-  middleName: string
   birthDate: string
   age: number
   diagnosis: string
@@ -44,9 +40,6 @@ export interface Patient {
 }
 
 export interface NewPatientInput {
-  lastName: string
-  firstName: string
-  middleName?: string
   birthDate: string
   region?: string
   regionId?: number
@@ -165,18 +158,9 @@ const createDefaultOperation = (params: OperationParametersResponse): PatientOpe
 })
 
 const toPatientFromSummary = (summary: PatientSummaryResponse): Patient => {
-  const safeLastName = summary.lastName ?? ''
-  const safeFirstName = summary.firstName ?? ''
-  const safeMiddleName = summary.middleName ?? ''
-  const fullName = [safeLastName, safeFirstName, safeMiddleName].filter(Boolean).join(' ')
-
   return {
     code: summary.patientCode,
-    fullName,
-    lastName: safeLastName,
-    firstName: safeFirstName,
-    middleName: safeMiddleName,
-    birthDate: summary.birthDate,
+    birthDate: formatRuDate(summary.birthDate),
     age: calculateAge(summary.birthDate),
     diagnosis: summary.diagnosis,
     operations: 1,
@@ -192,21 +176,12 @@ const toPatientFromSummary = (summary: PatientSummaryResponse): Patient => {
 }
 
 const toPatientFromCard = (card: PatientCardResponse, status: PatientStatus = 'RED'): Patient => {
-  const safeLastName = card.lastName ?? ''
-  const safeFirstName = card.firstName ?? ''
-  const safeMiddleName = card.middleName ?? ''
-  const fullName = [safeLastName, safeFirstName, safeMiddleName].filter(Boolean).join(' ')
-
   const lastExamIso = card.vitalsHistory.length > 0 ? card.vitalsHistory[card.vitalsHistory.length - 1].examDate : null
   rememberRegionName(card.regionId, card.regionName)
 
   return {
     code: card.patientCode,
-    fullName,
-    lastName: safeLastName,
-    firstName: safeFirstName,
-    middleName: safeMiddleName,
-    birthDate: card.birthDate,
+    birthDate: formatRuDate(card.birthDate),
     age: calculateAge(card.birthDate),
     diagnosis: card.diagnosis,
     operations: 1,
@@ -248,15 +223,9 @@ const toOperationParameters = (operations: PatientOperation[] | undefined): Oper
 }
 
 const toFallbackPatientFromCreated = (created: CreatedPatientResponse): Patient => {
-  const fullName = [created.lastName, created.firstName, created.middleName ?? ''].filter(Boolean).join(' ')
-
   return {
     code: created.patientCode,
-    fullName,
-    lastName: created.lastName,
-    firstName: created.firstName,
-    middleName: created.middleName ?? '',
-    birthDate: created.birthDate,
+    birthDate: formatRuDate(created.birthDate),
     age: calculateAge(created.birthDate),
     diagnosis: created.diagnosis,
     operations: 1,
@@ -621,9 +590,6 @@ export const usePatientStore = () => {
     }
 
     const payload: CreatePatientRequest = {
-      lastName: input.lastName.trim(),
-      firstName: input.firstName.trim(),
-      middleName: input.middleName?.trim() || null,
       birthDate: input.birthDate,
       diagnosis: input.diagnosis.trim(),
       regionId: resolvedRegionId,

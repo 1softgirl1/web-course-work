@@ -5,6 +5,7 @@ import Card from "@/components/ui/card.vue";
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
 import Select from '@/components/ui/select/select.vue'
+import Dialog from '@/components/ui/dialog.vue'
 
 
 import Field from "@/components/ui/field/field.vue";
@@ -20,9 +21,6 @@ import { useAuthStore } from '@/stores/authStore'
 
 const submitted = ref(false)
 const route = useRoute()
-const lastName = ref("")
-const firstName = ref("")
-const middleName = ref("")
 const birthDate = ref("")
 const regionId = ref("")
 const diagnosis = ref("")
@@ -108,9 +106,6 @@ const getOperationStatusClass = (operation: OperationItem): string => {
 
 const resetForm = () => {
   submitted.value = false
-  lastName.value = ""
-  firstName.value = ""
-  middleName.value = ""
   birthDate.value = ""
   regionId.value = ""
   diagnosis.value = ""
@@ -123,11 +118,16 @@ const resetForm = () => {
   createdPatientPassword.value = ""
 }
 
+const closeSuccessDialog = () => {
+  submitted.value = false
+  resetForm()
+}
+
 const handleSubmit = async (e: Event) => {
   e.preventDefault()
 
-  if (!lastName.value.trim() || !firstName.value.trim() || !birthDate.value || !regionId.value || !diagnosis.value) {
-    alert('Заполните обязательные поля: фамилию, имя, дату рождения, регион и диагноз')
+  if (!birthDate.value || !regionId.value || !diagnosis.value) {
+    alert('Заполните обязательные поля: дату рождения, регион и диагноз')
     return
   }
 
@@ -164,9 +164,6 @@ const handleSubmit = async (e: Event) => {
   try {
     const { patient, password } = await patientStore.addPatient(
       {
-        lastName: lastName.value,
-        firstName: firstName.value,
-        middleName: middleName.value,
         birthDate: birthDate.value,
         regionId: parsedRegionId,
         diagnosis: diagnosis.value,
@@ -207,7 +204,7 @@ onMounted(async () => {
 
 <template>
   <div class="p-4 sm:p-6 lg:p-8">
-    <Card v-if="submitted" class="mx-auto flex w-full max-w-xl items-center md:mx-0">
+    <Dialog v-model="submitted" content-class="sm:max-w-xl">
       <div class="p-4 text-center sm:p-8">
         <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
           <CheckCircle class="w-8 h-8 text-green-600" />
@@ -233,15 +230,15 @@ onMounted(async () => {
           <router-link :to="backPath" class="w-full sm:w-auto">
             <Button variant="outline" class="w-full sm:w-auto">Назад</Button>
           </router-link>
-          <Button class="w-full sm:w-auto" @click="resetForm">
+          <Button class="w-full sm:w-auto" @click="closeSuccessDialog">
             Добавить еще
           </Button>
         </div>
       </div>
-    </Card>
+    </Dialog>
 
     <!-- Форма загрузки -->
-    <div v-else>
+    <div>
       <div class="mb-6">
         <div class="mb-2 flex items-start gap-3 sm:gap-4">
           <router-link :to="backPath">
@@ -275,21 +272,6 @@ onMounted(async () => {
 
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
-          <Field>
-            <FieldLabel>Фамилия *</FieldLabel>
-            <Input v-model="lastName" placeholder="Фамилия" required />
-          </Field>
-
-          <Field>
-            <FieldLabel>Имя *</FieldLabel>
-            <Input v-model="firstName" placeholder="Имя" required />
-          </Field>
-
-          <Field>
-            <FieldLabel>Отчество</FieldLabel>
-            <Input v-model="middleName" placeholder="Отчество (при наличии)" />
-          </Field>
-
           <div class="grid sm:grid-cols-2 gap-4">
             <Field>
               <FieldLabel>Дата рождения *</FieldLabel>

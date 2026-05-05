@@ -458,9 +458,6 @@ const toSummary = (patient: MockPatientRecord, anonymized: boolean) => {
   return {
     id: patient.id,
     patientCode: patient.patientCode,
-    lastName: anonymized ? null : patient.lastName,
-    firstName: anonymized ? null : patient.firstName,
-    middleName: anonymized ? null : patient.middleName,
     birthDate: patient.birthDate,
     diagnosis: patient.diagnosis,
     regionId: patient.regionId,
@@ -489,9 +486,6 @@ const toCard = (patient: MockPatientRecord, anonymized: boolean): PatientCardRes
     id: patient.id,
     viewMode: anonymized ? 'ANONYMIZED' : 'FULL',
     patientCode: patient.patientCode,
-    lastName: anonymized ? null : patient.lastName,
-    firstName: anonymized ? null : patient.firstName,
-    middleName: anonymized ? null : patient.middleName,
     regionId: patient.regionId,
     regionName: patient.regionName,
     birthDate: patient.birthDate,
@@ -635,9 +629,9 @@ export const mockPatientApi = {
     const record: MockPatientRecord = {
       id,
       patientCode,
-      lastName: payload.lastName.trim(),
-      firstName: payload.firstName.trim(),
-      middleName: payload.middleName?.trim() || null,
+      lastName: 'Пациент',
+      firstName: patientCode,
+      middleName: null,
       birthDate: payload.birthDate,
       diagnosis: payload.diagnosis.trim(),
       regionId: payload.regionId,
@@ -663,9 +657,6 @@ export const mockPatientApi = {
       id: record.id,
       patientCode: record.patientCode,
       temporaryPassword: record.temporaryPassword,
-      lastName: record.lastName,
-      firstName: record.firstName,
-      middleName: record.middleName,
       birthDate: record.birthDate,
       diagnosis: record.diagnosis,
       regionId: record.regionId,
@@ -681,9 +672,6 @@ export const mockPatientApi = {
     if (!patient) return null
     if (!canEditPatient(patient)) return null
 
-    if (payload.lastName !== undefined) patient.lastName = payload.lastName.trim()
-    if (payload.firstName !== undefined) patient.firstName = payload.firstName.trim()
-    if (payload.middleName !== undefined) patient.middleName = payload.middleName?.trim() || null
     if (payload.birthDate !== undefined) patient.birthDate = payload.birthDate
     if (payload.diagnosis !== undefined) patient.diagnosis = payload.diagnosis.trim()
     if (payload.regionId !== undefined) {
