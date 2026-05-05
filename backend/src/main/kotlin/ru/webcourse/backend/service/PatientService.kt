@@ -1,5 +1,6 @@
 package ru.webcourse.backend.service
 
+import org.slf4j.LoggerFactory
 import org.springframework.security.access.AccessDeniedException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -36,6 +37,7 @@ import ru.webcourse.backend.repository.PatientProfileRepository
 import ru.webcourse.backend.repository.RegionRepository
 import ru.webcourse.backend.repository.UserRepository
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
 
 @Service
@@ -311,6 +313,8 @@ class PatientService(
             regionRepository.findById(regionId)
                 .orElseThrow { NotFoundException("Region with id=$regionId was not found") }
         } ?: patient.region
+        val oldRegion = patient.region
+        val regionChanged = oldRegion.id != updatedRegion.id
         val updatedUser = userRepository.save(
             patient.updatedUser(request.password, passwordEncoder)
         )
@@ -338,6 +342,17 @@ class PatientService(
                 createdAt = patient.createdAt,
             )
         )
+
+        if (regionChanged) {
+            logPatientRegionChange(
+                actor = requireNotNull(actor),
+                patient = updatedPatient,
+                oldRegionId = oldRegion.id,
+                oldRegionName = oldRegion.name,
+                newRegionId = updatedRegion.id,
+                newRegionName = updatedRegion.name,
+            )
+        }
 
         val examinations = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
         return updatedPatient.toCardResponse(
@@ -493,6 +508,29 @@ class PatientService(
         }
     }
 
+    private fun logPatientRegionChange(
+        actor: ActorPrincipal,
+        patient: PatientProfileEntity,
+        oldRegionId: Long,
+        oldRegionName: String,
+        newRegionId: Long,
+        newRegionName: String,
+    ) {
+        logger.info(
+            "Patient region changed: actorId={} actorUsername={} actorRole={} patientId={} patientCode={} changedAt={} oldRegionId={} oldRegionName=\"{}\" newRegionId={} newRegionName=\"{}\"",
+            actor.id,
+            actor.authUsername,
+            actor.role,
+            patient.id,
+            patient.user.username,
+            OffsetDateTime.now(),
+            oldRegionId,
+            oldRegionName,
+            newRegionId,
+            newRegionName,
+        )
+    }
+
     private fun String.trimNonBlank(fieldName: String): String =
         trim().takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("$fieldName must not be blank")
@@ -632,6 +670,8 @@ class PatientService(
     )
 
     private companion object {
+        private val logger = LoggerFactory.getLogger(PatientService::class.java)
+
         const val LIST_SCOPE_OWN = "own"
         const val LIST_SCOPE_ALL = "all"
         const val GREEN_THRESHOLD_DAYS = 91L
