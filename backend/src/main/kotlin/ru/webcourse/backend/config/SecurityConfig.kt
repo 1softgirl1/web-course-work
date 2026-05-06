@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -24,6 +25,8 @@ import ru.webcourse.backend.domain.UserRole
 @EnableConfigurationProperties(JwtProperties::class)
 class SecurityConfig(
     private val jwtAuthenticationFilter: JwtAuthenticationFilter,
+    @Value("\${app.cors.allowed-origins}")
+    private val corsAllowedOrigins: String,
 ) {
 
     @Bean
@@ -85,7 +88,10 @@ class SecurityConfig(
     @Bean
     fun corsConfigurationSource(): CorsConfigurationSource {
         val configuration = CorsConfiguration().apply {
-            allowedOriginPatterns = listOf("http://localhost:*", "http://127.0.0.1:*")
+            allowedOriginPatterns = corsAllowedOrigins
+                .split(',')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
             allowedMethods = listOf("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
             allowedHeaders = listOf("Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With")
             allowCredentials = true

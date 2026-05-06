@@ -1,2 +1,4 @@
 /.idea/
 /*.iml
+/deploy/.env
+/deploy/.env.local
