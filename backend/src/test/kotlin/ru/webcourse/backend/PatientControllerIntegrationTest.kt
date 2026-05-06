@@ -2,8 +2,11 @@ package ru.webcourse.backend
 
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 import org.springframework.http.HttpHeaders
 import org.springframework.http.MediaType
@@ -32,6 +35,7 @@ import ru.webcourse.backend.repository.UserRepository
 import java.math.BigDecimal
 import java.time.LocalDate
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -39,6 +43,7 @@ import kotlin.test.assertTrue
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest
 @AutoConfigureMockMvc
+@ExtendWith(OutputCaptureExtension::class)
 class PatientControllerIntegrationTest {
 
     companion object {
@@ -2033,6 +2038,38 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isUnauthorized() }
         }
+    }
+
+    @Test
+    fun patchPatientRegionWritesAuditLog(output: CapturedOutput) {
+        createDoctor(login = DOCTOR_EMAIL, regionId = 1L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest(regionId = 1L))
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchRequest(regionId = 2L)
+        }.andExpect {
+            status { isOk() }
+            jsonPath("$.regionId") { value(2) }
+            jsonPath("$.lastName") { doesNotExist() }
+            jsonPath("$.firstName") { doesNotExist() }
+            jsonPath("$.middleName") { doesNotExist() }
+        }
+
+        val logs = output.all
+        assertTrue(logs.contains("Patient region changed:"))
+        assertTrue(logs.contains("actorUsername=$DOCTOR_EMAIL"))
+        assertTrue(logs.contains("actorRole=DOCTOR"))
+        assertTrue(logs.contains("patientId=${created.id}"))
+        assertTrue(logs.contains("patientCode=${created.patientCode}"))
+        assertTrue(logs.contains("oldRegionId=1"))
+        assertTrue(logs.contains("oldRegionName=\"Алтайский край\""))
+        assertTrue(logs.contains("newRegionId=2"))
+        assertTrue(logs.contains("newRegionName=\"Амурская область\""))
+        assertFalse(logs.contains("lastName="))
+        assertFalse(logs.contains("firstName="))
+        assertFalse(logs.contains("middleName="))
     }
 
     @Test
