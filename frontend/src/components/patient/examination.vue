@@ -86,7 +86,7 @@ onMounted(async () => {
       >
         <div>
           <div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-1">
-            <div class="flex min-w-0 items-start gap-3 sm:gap-4">
+            <div class="flex min-w-0 items-center gap-3 sm:gap-4">
               <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
                 <FileText class="h-6 w-6 stroke-1 text-primary" />
               </div>
@@ -95,7 +95,6 @@ onMounted(async () => {
                   <h3 class="truncate font-semibold leading-snug text-foreground">Обследование #{{ exam.id }}</h3>
                   <Badge v-if="latestExamId === exam.id" variant="default" class="text-xs">Новое</Badge>
                 </div>
-                <p class="wrap-break-word text-sm text-muted-foreground">Врач: {{ exam.doctor }}</p>
               </div>
             </div>
 
@@ -125,7 +124,6 @@ onMounted(async () => {
             <Badge variant="outline">{{ selectedExam.date }}</Badge>
           </div>
 
-          <p class="text-sm text-muted-foreground">Врач: {{ selectedExam.doctor }}</p>
           <p class="mt-1 text-sm text-muted-foreground">Заключение: {{ selectedExam.conclusion || 'Нет данных' }}</p>
         </div>
 

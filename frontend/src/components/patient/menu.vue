@@ -1,5 +1,5 @@
-<script setup>
-import { ref } from "vue"
+﻿<script setup>
+import { computed, onMounted, ref } from "vue"
 import { useRoute } from "vue-router"
 
 import {
@@ -13,12 +13,15 @@ import {
 } from "lucide-vue-next"
 
 import Button from '@/components/ui/button.vue'
+import Badge from '@/components/ui/badge.vue'
 import { cn } from "@/lib/utils"
 import { useAuthStore } from '@/stores/authStore'
+import { usePatientStore } from '@/stores/patientStore'
 
 // router
 const route = useRoute()
 const authStore = useAuthStore()
+const patientStore = usePatientStore()
 
 // state
 const sidebarOpen = ref(false)
@@ -35,6 +38,20 @@ const isActive = (href) => route.path === href || route.path.startsWith(`${href}
 const handleLogout = async () => {
   await authStore.logout()
 }
+
+const patientRegion = computed(() => {
+  const code = authStore.user.value?.patientCode || ''
+  if (!code) return 'Не указан'
+  return patientStore.patients.find(patient => patient.code === code)?.region || 'Не указан'
+})
+
+onMounted(async () => {
+  try {
+    await patientStore.loadCurrentPatientCard()
+  } catch {
+    // keep fallback region label
+  }
+})
 </script>
 
 <template>
@@ -93,8 +110,12 @@ const handleLogout = async () => {
               <User class="w-5 h-5 text-primary" />
             </div>
             <div>
-              <p class="font-medium text-foreground text-sm">{{ authStore.user.value?.displayName || 'Пациент' }}</p>
-              <p class="text-xs font-medium text-muted-foreground">Код: {{ authStore.user.value?.patientCode || '—' }}</p>
+              <Badge variant="outline" class="text-xs font-medium">
+                {{ authStore.user.value?.patientCode || '—' }}
+              </Badge>
+              <p class="mt-1 text-xs text-muted-foreground">
+                {{ patientRegion }}
+              </p>
             </div>
           </div>
         </div>
