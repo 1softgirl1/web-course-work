@@ -10,9 +10,9 @@
 
 Локальные demo-миграции лежат отдельно и подключаются только Spring-профилем `local`:
 
-- [src/main/resources/db/local-migration](../src/main/resources/db/local-migration)
+- [src/main/resources/db/seed](../src/main/resources/db/seed)
 
-Default/prod профиль использует только `classpath:db/migration`. Профиль `local` добавляет `classpath:db/local-migration`.
+Default/prod профиль использует только `classpath:db/migration`. Профиль `local` добавляет `classpath:db/seed`.
 
 ## Список миграций
 

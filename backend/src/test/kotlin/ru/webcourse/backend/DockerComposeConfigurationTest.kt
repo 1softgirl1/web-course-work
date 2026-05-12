@@ -47,11 +47,11 @@ class DockerComposeConfigurationTest {
             "Default profile must use only production migrations",
         )
         assertFalse(
-            properties.contains("classpath:db/local-migration"),
+            properties.contains("classpath:db/seed"),
             "Default profile must not apply local demo migrations",
         )
         assertTrue(
-            localProperties.contains("classpath:db/migration,classpath:db/local-migration"),
+            localProperties.contains("classpath:db/migration,classpath:db/seed"),
             "Local profile must include demo migrations",
         )
         assertTrue(

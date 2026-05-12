@@ -4,7 +4,7 @@
 --   classpath:db/migration
 --
 -- Local demo data is applied only when the Spring `local` profile is active:
---   classpath:db/migration,classpath:db/local-migration
+--   classpath:db/migration,classpath:db/seed
 --
 -- Run locally with:
 --   .\gradlew.bat bootRun --args='--spring.profiles.active=local'
