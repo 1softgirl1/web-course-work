@@ -41,6 +41,8 @@ class DockerComposeConfigurationTest {
     fun defaultFlywayAndCorsConfigurationAreProductionSafe() {
         val properties = Files.readString(Path.of("src/main/resources/application.properties"))
         val localProperties = Files.readString(Path.of("src/main/resources/application-local.properties"))
+        val corsProperties = Files.readString(Path.of("src/main/kotlin/ru/webcourse/backend/config/CorsProperties.kt"))
+        val securityConfig = Files.readString(Path.of("src/main/kotlin/ru/webcourse/backend/config/SecurityConfig.kt"))
 
         assertTrue(
             properties.contains("spring.flyway.locations=classpath:db/migration"),
@@ -57,6 +59,18 @@ class DockerComposeConfigurationTest {
         assertTrue(
             properties.contains("app.cors.allowed-origins=\${CORS_ALLOWED_ORIGINS:"),
             "CORS origins must be configurable through env",
+        )
+        assertTrue(
+            corsProperties.contains("@ConfigurationProperties(prefix = \"app.cors\")"),
+            "CORS settings must be read through a dedicated configuration properties class",
+        )
+        assertTrue(
+            securityConfig.contains("CorsProperties"),
+            "Security config must use the dedicated CORS properties class",
+        )
+        assertFalse(
+            securityConfig.contains("@Value(\"\\\${app.cors.allowed-origins}\")"),
+            "Security config should not read CORS settings directly with @Value",
         )
     }
 }
