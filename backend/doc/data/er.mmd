@@ -1,0 +1,81 @@
+erDiagram
+    USERS {
+        bigint id PK
+        varchar username UK
+        varchar password_hash
+        varchar role
+        varchar status
+    }
+
+    REGIONS {
+        bigint id PK
+        varchar name UK
+    }
+
+    DOCTOR_PROFILES {
+        bigint id PK
+        bigint user_id FK,UK
+        varchar specialization
+        varchar workplace
+        varchar last_name
+        varchar first_name
+        varchar middle_name
+        bigint region_id FK
+    }
+
+    PATIENT_PROFILES {
+        bigint id PK
+        bigint user_id FK,UK
+        bigint region_id FK
+        date birth_date
+        text diagnosis
+        varchar valve_name
+        varchar valve_size
+        varchar valve_material
+        varchar operation_anesthesia
+        int operation_duration_minutes
+        varchar operation_delivery_system
+        text medications
+        timestamp created_at
+    }
+
+    EXAMINATIONS {
+        bigint id PK
+        bigint patient_id FK
+        varchar title
+        date exam_date
+        text comment
+    }
+
+    CHARACTERISTICS {
+        bigint id PK
+        varchar code UK
+        varchar name UK
+        varchar unit
+    }
+
+    EXAMINATION_CHARACTERISTICS {
+        bigint examination_id PK,FK
+        bigint characteristic_id PK,FK
+        numeric value
+        text comment
+    }
+
+    REFRESH_TOKENS {
+        bigint id PK
+        bigint user_id FK
+        varchar token_hash UK
+        timestamptz expires_at
+        timestamptz revoked_at
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    USERS ||--o| DOCTOR_PROFILES : "account for"
+    USERS ||--o| PATIENT_PROFILES : "account for"
+    USERS ||--o{ REFRESH_TOKENS : "has sessions"
+    REGIONS ||--o{ DOCTOR_PROFILES : "contains"
+    REGIONS ||--o{ PATIENT_PROFILES : "contains"
+    PATIENT_PROFILES ||--o{ EXAMINATIONS : "has"
+    EXAMINATIONS ||--o{ EXAMINATION_CHARACTERISTICS : "has values"
+    CHARACTERISTICS ||--o{ EXAMINATION_CHARACTERISTICS : "describes"
