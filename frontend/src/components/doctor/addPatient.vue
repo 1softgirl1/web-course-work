@@ -20,6 +20,7 @@ import { usePatientStore } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
 
 const submitted = ref(false)
+const formError = ref('')
 const route = useRoute()
 const birthDate = ref("")
 const regionId = ref("")
@@ -106,6 +107,7 @@ const getOperationStatusClass = (operation: OperationItem): string => {
 
 const resetForm = () => {
   submitted.value = false
+  formError.value = ''
   birthDate.value = ""
   regionId.value = ""
   diagnosis.value = ""
@@ -125,15 +127,16 @@ const closeSuccessDialog = () => {
 
 const handleSubmit = async (e: Event) => {
   e.preventDefault()
+  formError.value = ''
 
   if (!birthDate.value || !regionId.value || !diagnosis.value) {
-    alert('Заполните обязательные поля: дату рождения, регион и диагноз')
+    formError.value = 'Заполните обязательные поля: дату рождения, регион и диагноз.'
     return
   }
 
   const parsedRegionId = Number.parseInt(regionId.value, 10)
   if (!Number.isFinite(parsedRegionId) || parsedRegionId <= 0) {
-    alert('Некорректный регион')
+    formError.value = 'Некорректный регион.'
     return
   }
 
@@ -151,7 +154,7 @@ const handleSubmit = async (e: Event) => {
   })
 
   if (hasPartiallyFilledOperation) {
-    alert('Заполните все параметры операции или удалите незаполненную запись')
+    formError.value = 'Заполните все параметры операции или удалите незаполненную запись.'
     return
   }
 
@@ -182,7 +185,7 @@ const handleSubmit = async (e: Event) => {
     createdPatientPassword.value = password
     submitted.value = true
   } catch {
-    alert('Не удалось создать пациента. Проверьте заполнение формы и попробуйте снова.')
+    formError.value = 'Не удалось создать пациента. Проверьте заполнение формы и попробуйте снова.'
   }
 }
 
@@ -252,7 +255,6 @@ onMounted(async () => {
       </div>
 
       <Card class="mx-auto w-full max-w-3xl md:mx-0" >
-
         <template #header>
           <div class="flex items-start gap-3">
             <div class="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
@@ -379,6 +381,8 @@ onMounted(async () => {
           <Button type="submit" class="w-full" size="lg">
             Добавить пациента
           </Button>
+
+          <p v-if="formError" class="text-sm text-destructive">{{ formError }}</p>
         </form>
 
       </Card>

@@ -26,6 +26,7 @@ interface FormMetricRow {
 }
 
 const submitted = ref(false)
+const formError = ref('')
 const route = useRoute()
 const authStore = useAuthStore()
 const patientStore = usePatientStore()
@@ -156,49 +157,50 @@ const closeSuccessDialog = () => {
 
 const showMetricValidationError = (error: unknown) => {
   if (!(error instanceof Error)) {
-    alert('Не удалось сохранить обследование. Попробуйте снова.')
+    formError.value = 'Не удалось сохранить обследование. Попробуйте снова.'
     return
   }
 
   if (error.message === 'METRIC_VALUE_INVALID') {
-    alert('Если показатель заполнен, значение должно быть числом.')
+    formError.value = 'Если показатель заполнен, значение должно быть числом.'
     return
   }
 
   if (error.message === 'METRIC_CODE_DUPLICATE' || error.message.startsWith('METRIC_DUPLICATE:')) {
-    alert('Коды показателей не должны повторяться.')
+    formError.value = 'Коды показателей не должны повторяться.'
     return
   }
 
   if (error.message === 'METRICS_REQUIRED') {
-    alert('Добавьте минимум один показатель.')
+    formError.value = 'Добавьте минимум один показатель.'
     return
   }
 
-  alert('Не удалось сохранить обследование. Попробуйте снова.')
+  formError.value = 'Не удалось сохранить обследование. Попробуйте снова.'
 }
 
 const handleSubmit = async (e: Event) => {
   e.preventDefault()
+  formError.value = ''
 
   if (!examDate.value) {
-    alert('Заполните обязательное поле: дату обследования')
+    formError.value = 'Заполните обязательное поле: дату обследования.'
     return
   }
 
   if (!editingExam.value && !patientCode.value) {
-    alert('Не удалось определить пациента для сохранения обследования')
+    formError.value = 'Не удалось определить пациента для сохранения обследования.'
     return
   }
 
   if (!canEditPatientExaminations.value) {
-    alert('Редактирование обследований пациента из другого региона для обычного врача недоступно')
+    formError.value = 'Редактирование обследований пациента из другого региона для обычного врача недоступно.'
     return
   }
 
   const doctorFullName = resolvedDoctorFullName.value
   if (!doctorFullName) {
-    alert('Не удалось определить ФИО врача из личного кабинета')
+    formError.value = 'Не удалось определить ФИО врача из личного кабинета.'
     return
   }
 
@@ -211,7 +213,7 @@ const handleSubmit = async (e: Event) => {
   }
 
   if (!editingExam.value && metrics.length === 0) {
-    alert('Добавьте минимум один показатель.')
+    formError.value = 'Добавьте минимум один показатель.'
     return
   }
 
@@ -291,6 +293,7 @@ onMounted(async () => {
       <p v-if="loadError" class="mb-4 text-sm text-destructive">{{ loadError }}</p>
 
       <Card class="w-full max-w-4xl">
+        <p v-if="formError" class="px-6 pt-6 text-sm text-destructive">{{ formError }}</p>
         <template #header>
           <div class="flex items-start gap-3">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
