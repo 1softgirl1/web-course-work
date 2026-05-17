@@ -21,7 +21,7 @@ cd .\backend\bruno
 npx --yes @usebruno/cli run . -r --env local
 ```
 
-Перед запуском CLI backend должен быть доступен на `http://localhost:8080`, а база должна быть создана с профилем `local`, чтобы применились demo-миграции из `db/local-migration`.
+Перед запуском CLI backend должен быть доступен на `http://localhost:8080`, а база должна быть создана с профилем `local`, чтобы применились demo-миграции из `db/seed`.
 
 ## Что Проверяет Коллекция
 

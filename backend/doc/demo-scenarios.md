@@ -10,7 +10,7 @@
 .\gradlew.bat bootRun --args='--spring.profiles.active=local'
 ```
 
-Профиль `local` подключает дополнительные миграции из `classpath:db/local-migration`. В default/prod профиле эти демо-данные не применяются.
+Профиль `local` подключает дополнительные миграции из `classpath:db/seed`. В default/prod профиле эти демо-данные не применяются.
 
 ## Демо-Логины
 

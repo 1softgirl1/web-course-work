@@ -1,0 +1,99 @@
+services:
+  backend:
+    container_name: ${PREFIX_NAME}-backend
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      DB_USERNAME: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT15M}
+      JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL:-PT720H}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
+    networks:
+      - app-network
+      - nginx-external
+    expose:
+      - "8080"
+    depends_on:
+      front-builder:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17
+    container_name: ${PREFIX_NAME}-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - app-network
+    expose:
+      - "5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: ${PREFIX_NAME}-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      SCRIPT_NAME: /db/admin
+    networks:
+      - app-network
+      - nginx-external
+    expose:
+      - "80"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  front-builder:
+    container_name: ${PREFIX_NAME}-frontend-builder
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      target: build
+      args:
+        VITE_API_BASE_URL: ""
+        VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+    environment:
+      VITE_API_BASE_URL: ""
+      VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+    volumes:
+      - web-data:/app/dist
+    command: ["npm", "run", "build"]
+
+networks:
+  app-network:
+    name: ${COMMON_NAME}_${PREFIX_NAME}-app-network
+  nginx-external:
+    external: true
+    name: ${COMMON_NAME}_nginx-network
+
+volumes:
+  postgres-data:
+    name: ${COMMON_NAME}_${PREFIX_NAME}-postgres-data
+  pgadmin-data:
+    name: ${COMMON_NAME}_${PREFIX_NAME}-pgadmin-data
+  web-data:
+    external: true
+    name: ${COMMON_NAME}_web-data

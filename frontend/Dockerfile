@@ -1,27 +1,23 @@
-FROM node:24-bookworm-slim AS build
+FROM node:24-bookworm-slim AS dependencies
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
 
-COPY . .
-
-ARG VITE_API_BASE_URL=
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-
-RUN npm run build
-
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
-ENV PORT=80 \
-    BACKEND_URL=http://backend:8080
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
 
-COPY docker-server.mjs ./docker-server.mjs
-COPY --from=build /app/dist ./dist
+ARG VITE_API_BASE_URL=
+ARG VITE_BASE_PATH=/
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 
-EXPOSE 80
+RUN mkdir -p ./dist
+VOLUME ["/app/dist"]
 
-CMD ["node", "docker-server.mjs"]
+CMD ["npm", "run", "build"]

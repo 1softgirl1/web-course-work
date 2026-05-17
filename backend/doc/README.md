@@ -3,6 +3,8 @@
 В этой папке лежат рабочие материалы по backend:
 
 - `database.md` — описание структуры базы данных.
+- `data/er.mmd` — Mermaid-код ER-диаграммы базы данных.
+- `data/er.png` — PNG-экспорт ER-диаграммы базы данных.
 - `migration.md` — описание Flyway-миграций и их назначения.
 - `demo-seed.sql` — памятка о переносе демо-данных в local-only Flyway migrations.
 - `demo-scenarios.md` — краткая памятка по демо-сценариям и запуску.
