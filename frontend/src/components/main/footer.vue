@@ -1,8 +1,32 @@
 <script setup >
 import { Heart, Mail, Phone, MapPin} from "lucide-vue-next"
 
-import {RouterLink} from "vue-router";
+import {RouterLink, useRoute, useRouter} from "vue-router";
 
+const route = useRoute()
+const router = useRouter()
+
+const navLinks = [
+  { id: 'about', label: 'О проекте' },
+  { id: 'faq', label: 'Частые вопросы' },
+  { id: 'contacts', label: 'Контакты' },
+]
+
+const scrollToSection = (sectionId) => {
+  const target = document.getElementById(sectionId)
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+const handleNavClick = async (sectionId) => {
+  if (route.path !== '/') {
+    await router.push('/')
+    requestAnimationFrame(() => scrollToSection(sectionId))
+    return
+  }
+
+  scrollToSection(sectionId)
+}
 </script>
 
 <template>
@@ -26,24 +50,31 @@ import {RouterLink} from "vue-router";
           <h4 class="mb-4 font-semibold text-background">Разделы сайта</h4>
           <ul class="space-y-3">
             <li>
-              <a href="/#about" class="text-sm text-background/70 transition-colors hover:text-background">
+              <button
+                type="button"
+                class="text-sm text-background/70 transition-colors hover:text-background"
+                @click="handleNavClick('about')"
+              >
                 О проекте
-              </a>
+              </button>
             </li>
             <li>
-              <a href="/#faq" class="text-sm text-background/70 transition-colors hover:text-background">
+              <button
+                type="button"
+                class="text-sm text-background/70 transition-colors hover:text-background"
+                @click="handleNavClick('faq')"
+              >
                 Частые вопросы
-              </a>
+              </button>
             </li>
             <li>
-              <a href="/#contacts" class="text-sm text-background/70 transition-colors hover:text-background">
+              <button
+                type="button"
+                class="text-sm text-background/70 transition-colors hover:text-background"
+                @click="handleNavClick('contacts')"
+              >
                 Контакты
-              </a>
-            </li>
-            <li>
-              <RouterLink to="/login" class="text-sm text-background/70 transition-colors hover:text-background">
-                Вход в систему
-              </RouterLink>
+              </button>
             </li>
           </ul>
         </div>
@@ -89,11 +120,11 @@ import {RouterLink} from "vue-router";
           <ul class="space-y-3">
             <li class="flex items-center gap-3 text-sm text-background/70">
               <Mail class="h-4 w-4 shrink-0" />
-              <span class="break-all">restr.ru</span>
+              <span class="break-all">kkkd@cardio42.ru</span>
             </li>
             <li class="flex items-center gap-3 text-sm text-background/70">
               <Phone class="h-4 w-4 shrink-0" />
-              <span>8 (800) 123-45-67</span>
+              <span>+7 (3842) 78-02-78</span>
             </li>
             <li class="flex items-start gap-3 text-sm text-background/70">
               <MapPin class="mt-0.5 h-4 w-4 shrink-0" />
