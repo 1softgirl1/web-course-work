@@ -191,7 +191,7 @@ VITE_API_BASE_URL=http://localhost:8080
 ### 8.3 Авто-refresh токена
 
 При `401` для непубличных auth endpoint:
-1. Выполняется `/auth/refresh` с refresh token
+1. Выполняется `/api/auth/refresh` с refresh token
 2. При успехе сессия обновляется
 3. Исходный запрос повторяется один раз
 4. При неуспехе сессия очищается и пользователь переводится на `#/login`

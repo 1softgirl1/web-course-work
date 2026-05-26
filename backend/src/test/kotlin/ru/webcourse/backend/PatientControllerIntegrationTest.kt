@@ -106,7 +106,7 @@ class PatientControllerIntegrationTest {
     fun doctorCanLoginByEmailAndReceiveJwt() {
         createDoctor(login = DOCTOR_EMAIL)
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -131,7 +131,7 @@ class PatientControllerIntegrationTest {
         createDoctor(login = DOCTOR_EMAIL)
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -155,7 +155,7 @@ class PatientControllerIntegrationTest {
     fun loginReturns401ForInvalidDoctorCredentials() {
         createDoctor(login = DOCTOR_EMAIL)
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -173,7 +173,7 @@ class PatientControllerIntegrationTest {
         createDoctor(login = DOCTOR_EMAIL)
         val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -197,7 +197,7 @@ class PatientControllerIntegrationTest {
             )
         )
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -215,7 +215,7 @@ class PatientControllerIntegrationTest {
         createDoctor(login = DOCTOR_EMAIL)
         val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
 
-        val refreshResponse = mockMvc.post("/auth/refresh") {
+        val refreshResponse = mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -235,7 +235,7 @@ class PatientControllerIntegrationTest {
 
         assertNotEquals(session.refreshToken, newRefreshToken)
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -252,7 +252,7 @@ class PatientControllerIntegrationTest {
             status { isOk() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -270,7 +270,7 @@ class PatientControllerIntegrationTest {
         val firstSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
         val secondSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             with(bearer("invalid-stale-access-token"))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -282,7 +282,7 @@ class PatientControllerIntegrationTest {
             status { isOk() }
         }
 
-        mockMvc.post("/auth/logout") {
+        mockMvc.post("/api/auth/logout") {
             with(bearer("invalid-stale-access-token"))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -299,7 +299,7 @@ class PatientControllerIntegrationTest {
     fun refreshReturns401ForUnknownRefreshToken() {
         createDoctor(login = DOCTOR_EMAIL)
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -326,7 +326,7 @@ class PatientControllerIntegrationTest {
             user.id,
         )
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -343,7 +343,7 @@ class PatientControllerIntegrationTest {
         createDoctor(login = DOCTOR_EMAIL)
         val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
 
-        mockMvc.post("/auth/logout") {
+        mockMvc.post("/api/auth/logout") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -354,7 +354,7 @@ class PatientControllerIntegrationTest {
             status { isNoContent() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -365,7 +365,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/logout") {
+        mockMvc.post("/api/auth/logout") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -384,7 +384,7 @@ class PatientControllerIntegrationTest {
         val currentSession = loginSession(created.patientCode, created.temporaryPassword)
         val otherSession = loginSession(created.patientCode, created.temporaryPassword)
 
-        val changeResponse = mockMvc.post("/auth/password/change") {
+        val changeResponse = mockMvc.post("/api/auth/password/change") {
             with(bearer(currentSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -411,7 +411,7 @@ class PatientControllerIntegrationTest {
             )
         )
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -423,7 +423,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -435,7 +435,7 @@ class PatientControllerIntegrationTest {
             status { isOk() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -446,7 +446,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -457,7 +457,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -478,7 +478,7 @@ class PatientControllerIntegrationTest {
             val session = loginSession(username, DOCTOR_PASSWORD)
             val newPassword = "doctor-new-password-$index"
 
-            mockMvc.post("/auth/password/change") {
+            mockMvc.post("/api/auth/password/change") {
                 with(bearer(session.accessToken))
                 contentType = MediaType.APPLICATION_JSON
                 content = """
@@ -493,7 +493,7 @@ class PatientControllerIntegrationTest {
                 jsonPath("$.user.email") { value(username) }
             }
 
-            mockMvc.post("/auth/login") {
+            mockMvc.post("/api/auth/login") {
                 contentType = MediaType.APPLICATION_JSON
                 content = """
                     {
@@ -514,7 +514,7 @@ class PatientControllerIntegrationTest {
         val doctorSession = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
         val otherDoctorSession = loginSession(SECOND_DOCTOR_EMAIL, DOCTOR_PASSWORD)
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(doctorSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -528,7 +528,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(doctorSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -542,7 +542,7 @@ class PatientControllerIntegrationTest {
             status { isForbidden() }
         }
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(doctorSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -556,7 +556,7 @@ class PatientControllerIntegrationTest {
             status { isBadRequest() }
         }
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(doctorSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -570,7 +570,7 @@ class PatientControllerIntegrationTest {
             status { isBadRequest() }
         }
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(doctorSession.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = "{}"
@@ -578,7 +578,7 @@ class PatientControllerIntegrationTest {
             status { isBadRequest() }
         }
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -607,7 +607,7 @@ class PatientControllerIntegrationTest {
             )
         )
 
-        mockMvc.post("/auth/password/change") {
+        mockMvc.post("/api/auth/password/change") {
             with(bearer(session.accessToken))
             contentType = MediaType.APPLICATION_JSON
             content = """
@@ -732,7 +732,7 @@ class PatientControllerIntegrationTest {
         }.andReturn()
 
         val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -851,14 +851,14 @@ class PatientControllerIntegrationTest {
         }.andReturn()
 
         val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """{ "username": "$DOCTOR_EMAIL", "password": "$DOCTOR_PASSWORD" }"""
         }.andExpect {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -869,7 +869,7 @@ class PatientControllerIntegrationTest {
             status { isUnauthorized() }
         }
 
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -894,7 +894,7 @@ class PatientControllerIntegrationTest {
         }.andReturn()
 
         val temporaryPassword = extractJsonString(response.response.contentAsString, "temporaryPassword")
-        mockMvc.post("/auth/login") {
+        mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -2028,7 +2028,7 @@ class PatientControllerIntegrationTest {
         assertEquals(created.patientCode, storedUser.username)
         assertTrue(passwordEncoder.matches("new-secret-password", storedUser.passwordHash))
 
-        mockMvc.post("/auth/refresh") {
+        mockMvc.post("/api/auth/refresh") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {
@@ -2260,7 +2260,7 @@ class PatientControllerIntegrationTest {
     }
 
     private fun loginSession(login: String, password: String): AuthSessionPayload {
-        val response = mockMvc.post("/auth/login") {
+        val response = mockMvc.post("/api/auth/login") {
             contentType = MediaType.APPLICATION_JSON
             content = """
                 {

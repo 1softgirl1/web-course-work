@@ -46,6 +46,6 @@ docker compose --env-file deploy/.env -f deploy/compose.yaml up -d --build
 
 ## Nginx
 
-`nginx.conf` - серверный конфиг для общего nginx. В нем временно проксируется `/auth`, пока auth endpoints не перенесены под `/api/auth`.
+`nginx.conf` - серверный конфиг для общего nginx. Он проксирует backend API, включая auth endpoints под `/api/auth`.
 
 Сертификаты сейчас не настраиваются в этом проекте: когда сертификат выдадут, TLS-блок можно добавить в общий nginx поверх этой схемы.

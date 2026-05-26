@@ -8,7 +8,7 @@ import { apiRequest } from '@/api/httpClient'
 
 export const authApi = {
   login(payload: LoginRequest) {
-    return apiRequest<AuthResponse>('/auth/login', {
+    return apiRequest<AuthResponse>('/api/auth/login', {
       method: 'POST',
       auth: false,
       body: payload,
@@ -16,7 +16,7 @@ export const authApi = {
   },
 
   refresh(payload: RefreshTokenRequest) {
-    return apiRequest<AuthResponse>('/auth/refresh', {
+    return apiRequest<AuthResponse>('/api/auth/refresh', {
       method: 'POST',
       auth: false,
       body: payload,
@@ -25,7 +25,7 @@ export const authApi = {
   },
 
   logout(payload: RefreshTokenRequest) {
-    return apiRequest<void>('/auth/logout', {
+    return apiRequest<void>('/api/auth/logout', {
       method: 'POST',
       auth: false,
       body: payload,
@@ -34,7 +34,7 @@ export const authApi = {
   },
 
   changeOwnPassword(payload: ChangePasswordRequest) {
-    return apiRequest<AuthResponse>('/auth/password/change', {
+    return apiRequest<AuthResponse>('/api/auth/password/change', {
       method: 'POST',
       body: payload,
     })

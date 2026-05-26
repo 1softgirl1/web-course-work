@@ -62,7 +62,7 @@
 
 ## Лучший Порядок Показа
 
-1. `POST /auth/login` — войти как `doctor.demo@example.com`.
+1. `POST /api/auth/login` — войти как `doctor.demo@example.com`.
 2. `GET /api/doctor/patients?scope=own` — показать пациентов региона врача.
 3. `GET /api/doctor/patients?scope=all` — показать пациентов всех регионов.
 4. `GET /api/doctor/patients?scope=all&regionId=2` — показать фильтр по региону.
@@ -75,7 +75,7 @@
 11. `PATCH /api/patients/{id}/examinations/{examId}` — исправить или дозаполнить показатели обследования.
 12. `PATCH /api/patients/{id}` — изменить медицинские данные карточки пациента.
 13. `POST /api/doctor/patients` — создать нового пациента прямо на встрече.
-14. `POST /auth/login` — войти как `PT-DEMO-001`.
+14. `POST /api/auth/login` — войти как `PT-DEMO-001`.
 15. `GET /api/patients/{id}` — показать self-access пациента.
 
 ## Важно

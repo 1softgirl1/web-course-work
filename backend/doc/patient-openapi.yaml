@@ -6,7 +6,7 @@ servers:
   - url: http://localhost:8080
     description: Local backend server
 paths:
-  /auth/login:
+  /api/auth/login:
     post:
       tags: [Auth]
       operationId: login

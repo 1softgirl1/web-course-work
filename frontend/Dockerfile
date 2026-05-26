@@ -1,11 +1,11 @@
-FROM node:24-bookworm-slim AS dependencies
+FROM node:24-alpine AS dependencies
 
 WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci
 
-FROM node:24-bookworm-slim AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 

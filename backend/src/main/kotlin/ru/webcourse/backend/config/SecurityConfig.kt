@@ -40,11 +40,11 @@ class SecurityConfig(
                 it.accessDeniedHandler(accessDeniedHandler())
             }
             .authorizeHttpRequests {
-                it.requestMatchers(HttpMethod.OPTIONS, "/api/**", "/auth/**").permitAll()
-                it.requestMatchers(HttpMethod.POST, "/auth/login").permitAll()
-                it.requestMatchers(HttpMethod.POST, "/auth/refresh").permitAll()
-                it.requestMatchers(HttpMethod.POST, "/auth/logout").permitAll()
-                it.requestMatchers(HttpMethod.POST, "/auth/password/change").authenticated()
+                it.requestMatchers(HttpMethod.OPTIONS, "/api/**").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+                it.requestMatchers(HttpMethod.POST, "/api/auth/password/change").authenticated()
                 it.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 it.requestMatchers(HttpMethod.GET, "/api/doctors/me").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers("/api/doctors/**").hasRole(UserRole.DOCTOR_EXTENDED.name)
@@ -94,7 +94,6 @@ class SecurityConfig(
         }
 
         return UrlBasedCorsConfigurationSource().apply {
-            registerCorsConfiguration("/auth/**", configuration)
             registerCorsConfiguration("/api/**", configuration)
         }
     }

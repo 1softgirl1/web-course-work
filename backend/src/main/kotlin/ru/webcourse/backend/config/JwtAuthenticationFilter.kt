@@ -22,7 +22,7 @@ class JwtAuthenticationFilter(
         response: HttpServletResponse,
         filterChain: FilterChain,
     ) {
-        if (request.requestURI.startsWith("/auth/") && request.requestURI != "/auth/password/change") {
+        if (request.requestURI.startsWith("/api/auth/") && request.requestURI != "/api/auth/password/change") {
             filterChain.doFilter(request, response)
             return
         }

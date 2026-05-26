@@ -21,7 +21,7 @@ import ru.webcourse.backend.error.ApiErrorResponse
 import ru.webcourse.backend.service.AuthService
 
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/auth")
 @Tag(name = "Авторизация")
 class AuthController(
     private val authService: AuthService,

@@ -73,7 +73,7 @@ const parseError = async (response: Response): Promise<ApiClientError> => {
 }
 
 const isPublicAuthEndpoint = (path: string) =>
-  path === '/auth/login' || path === '/auth/refresh' || path === '/auth/logout'
+  path === '/api/auth/login' || path === '/api/auth/refresh' || path === '/api/auth/logout'
 
 const buildHeaders = (auth: boolean): Headers => {
   const headers = new Headers()
@@ -100,7 +100,7 @@ const refreshSession = async (): Promise<string | null> => {
     const baseUrl = getBaseUrl()
     const payload: RefreshTokenRequest = { refreshToken: snapshot.refreshToken }
 
-    const response = await fetch(`${baseUrl}/auth/refresh`, {
+    const response = await fetch(`${baseUrl}/api/auth/refresh`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
