@@ -16,6 +16,7 @@ import ru.webcourse.backend.api.PatientCardResponse
 import ru.webcourse.backend.api.PatientCardViewMode
 import ru.webcourse.backend.api.PatientListResponse
 import ru.webcourse.backend.api.PatientMonitoringStatus
+import ru.webcourse.backend.api.PatientSex
 import ru.webcourse.backend.api.PatientSummaryResponse
 import ru.webcourse.backend.api.UpdateExaminationRequest
 import ru.webcourse.backend.api.UpdatePatientRequest
@@ -80,7 +81,11 @@ class PatientService(
             user = patientUser,
             region = region,
             birthDate = request.birthDate,
+            sex = request.sex.name,
             diagnosis = request.diagnosis.trim(),
+            operationPlace = request.operationPlace.trim(),
+            observationPlace = request.observationPlace.trim(),
+            coronaryAnatomy = request.coronaryAnatomy.trim(),
             valveName = request.valve.name.trim(),
             valveSize = request.valve.size.trim(),
             valveMaterial = request.valve.material.trim(),
@@ -328,7 +333,11 @@ class PatientService(
                 user = updatedUser,
                 region = updatedRegion,
                 birthDate = request.birthDate ?: patient.birthDate,
+                sex = request.sex?.name ?: patient.sex,
                 diagnosis = request.diagnosis?.trimNonBlank("diagnosis") ?: patient.diagnosis,
+                operationPlace = request.operationPlace?.trimNonBlank("operationPlace") ?: patient.operationPlace,
+                observationPlace = request.observationPlace?.trimNonBlank("observationPlace") ?: patient.observationPlace,
+                coronaryAnatomy = request.coronaryAnatomy?.trimNonBlank("coronaryAnatomy") ?: patient.coronaryAnatomy,
                 valveName = request.valve?.name?.trimNonBlank("valve.name") ?: patient.valveName,
                 valveSize = request.valve?.size?.trimNonBlank("valve.size") ?: patient.valveSize,
                 valveMaterial = request.valve?.material?.trimNonBlank("valve.material") ?: patient.valveMaterial,
@@ -457,8 +466,12 @@ class PatientService(
     private fun validatePatchRequest(request: UpdatePatientRequest) {
         if (
             request.birthDate == null &&
+            request.sex == null &&
             request.diagnosis == null &&
             request.regionId == null &&
+            request.operationPlace == null &&
+            request.observationPlace == null &&
+            request.coronaryAnatomy == null &&
             request.medications == null &&
             request.valve == null &&
             request.operationParameters == null &&
@@ -468,6 +481,9 @@ class PatientService(
         }
 
         request.diagnosis?.trimNonBlank("diagnosis")
+        request.operationPlace?.trimNonBlank("operationPlace")
+        request.observationPlace?.trimNonBlank("observationPlace")
+        request.coronaryAnatomy?.trimNonBlank("coronaryAnatomy")
         request.medications?.trimNonBlank("medications")
         request.valve?.apply {
             name.trimNonBlank("valve.name")
@@ -563,8 +579,12 @@ class PatientService(
         patientCode = user.username,
         temporaryPassword = generatedPassword,
         birthDate = birthDate,
+        sex = sexEnum(),
         diagnosis = diagnosis,
         regionId = region.id,
+        operationPlace = operationPlace,
+        observationPlace = observationPlace,
+        coronaryAnatomy = coronaryAnatomy,
         valve = valveResponse(),
         operationParameters = operationParametersResponse(),
         medications = medications,
@@ -578,8 +598,12 @@ class PatientService(
         id = id,
         patientCode = user.username,
         birthDate = birthDate,
+        sex = sexEnum(),
         diagnosis = diagnosis,
         regionId = region.id,
+        operationPlace = operationPlace,
+        observationPlace = observationPlace,
+        coronaryAnatomy = coronaryAnatomy,
         status = status,
         valve = valveResponse(),
         operationParameters = operationParametersResponse(),
@@ -598,13 +622,19 @@ class PatientService(
         regionId = region.id,
         regionName = region.name,
         birthDate = birthDate,
+        sex = sexEnum(),
         diagnosis = diagnosis,
+        operationPlace = operationPlace,
+        observationPlace = observationPlace,
+        coronaryAnatomy = coronaryAnatomy,
         valve = valveResponse(),
         operationParameters = operationParametersResponse(),
         medications = medications,
         createdAt = createdAt,
         vitalsHistory = examinations.map { it.toVitalsHistoryResponse() },
     )
+
+    private fun PatientProfileEntity.sexEnum(): PatientSex = PatientSex.valueOf(sex)
 
     private fun PatientProfileEntity.valveResponse() = ValveResponse(
         name = valveName,

@@ -31,6 +31,12 @@ const props = withDefaults(
 
 const birthDateLabel = computed(() => props.patient.birthDate || 'Нет данных')
 
+const sexLabel = computed(() => {
+  if (props.patient.sex === 'M') return 'Мужской'
+  if (props.patient.sex === 'F') return 'Женский'
+  return 'Не указано'
+})
+
 const valveName = computed(() => props.patient.valve.name || 'Не указано')
 const valveSize = computed(() => props.patient.valve.size || 'Не указано')
 const valveMaterial = computed(() => props.patient.valve.material || 'Не указано')
@@ -73,6 +79,16 @@ const canShowPasswordBlock = computed(() => {
                 <p class="font-medium text-foreground">{{ birthDateLabel }}</p>
                 <p class="text-sm text-muted-foreground">{{ patient.age }} лет</p>
               </div>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <User class="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">Пол</p>
+              <p class="font-medium text-foreground">{{ sexLabel }}</p>
             </div>
           </div>
 
@@ -144,6 +160,38 @@ const canShowPasswordBlock = computed(() => {
           <div>
             <p class="text-sm text-muted-foreground">Диагноз</p>
             <p class="font-medium text-foreground break-words">{{ patient.diagnosis || 'Нет данных' }}</p>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-3">
+          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+            <Stethoscope class="h-5 w-5 text-red-500" />
+          </div>
+          <div>
+            <p class="text-sm text-muted-foreground">Коронарная анатомия</p>
+            <p class="font-medium text-foreground break-words">{{ patient.coronaryAnatomy || 'Нет данных' }}</p>
+          </div>
+        </div>
+
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <MapPin class="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">Место проведения операции</p>
+              <p class="font-medium text-foreground break-words">{{ patient.operationPlace || 'Нет данных' }}</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
+              <MapPin class="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <p class="text-sm text-muted-foreground">Место постоянного наблюдения</p>
+              <p class="font-medium text-foreground break-words">{{ patient.observationPlace || 'Нет данных' }}</p>
+            </div>
           </div>
         </div>
 

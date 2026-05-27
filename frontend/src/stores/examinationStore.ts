@@ -39,7 +39,30 @@ export interface MetricDescriptor {
   unit: string
 }
 
-const FIXED_METRIC_COUNT = 50
+const FIXED_METRIC_CATALOG: MetricDescriptor[] = [
+  { characteristicCode: 'weight_kg', characteristicName: 'Вес', unit: 'кг' },
+  { characteristicCode: 'height_cm', characteristicName: 'Рост', unit: 'см' },
+  { characteristicCode: 'exercise_tolerance', characteristicName: 'Переносимость физической нагрузки', unit: 'NYHA' },
+  { characteristicCode: 'rv_size_mm', characteristicName: 'Размер ПЖ', unit: 'мм' },
+  { characteristicCode: 'contractility_pct', characteristicName: 'Сократимость', unit: '%' },
+  { characteristicCode: 'tc_insufficiency', characteristicName: 'Недостаточность ТК', unit: 'степень' },
+  { characteristicCode: 'rvsp_mmhg', characteristicName: 'СДПЖ', unit: 'мм рт. ст.' },
+  { characteristicCode: 'ef_pct', characteristicName: 'ФВ', unit: '%' },
+  { characteristicCode: 'edv_rv_lv_ratio', characteristicName: 'иКДО ПЖ/ЛЖ', unit: 'индекс' },
+  { characteristicCode: 'rvot_mm', characteristicName: 'ВОПЖ, диаметр', unit: 'мм' },
+  { characteristicCode: 'rvot_gradient', characteristicName: 'ВОПЖ, ср градиент', unit: 'мм рт. ст.' },
+  { characteristicCode: 'pa_annulus_mm', characteristicName: 'ФК ЛА, диаметр', unit: 'мм' },
+  { characteristicCode: 'pa_annulus_gradient', characteristicName: 'ФК ЛА, ср градиент', unit: 'мм рт. ст.' },
+  { characteristicCode: 'pa_trunk_mm', characteristicName: 'Ствол ЛА, диаметр', unit: 'мм' },
+  { characteristicCode: 'pa_trunk_gradient', characteristicName: 'Ствол ЛА, ср градиент', unit: 'мм рт. ст.' },
+  { characteristicCode: 'rpa_mm', characteristicName: 'ПВЛА, диаметр', unit: 'мм' },
+  { characteristicCode: 'rpa_gradient', characteristicName: 'ПВЛА, ср градиент', unit: 'мм рт. ст.' },
+  { characteristicCode: 'lpa_mm', characteristicName: 'ЛВЛА, диаметр', unit: 'мм' },
+  { characteristicCode: 'lpa_gradient', characteristicName: 'ЛВЛА, ср градиент', unit: 'мм рт. ст.' },
+  { characteristicCode: 'ivs_mm', characteristicName: 'МЖП', unit: 'мм' },
+  { characteristicCode: 'ias_mm', characteristicName: 'МПП', unit: 'мм' },
+  { characteristicCode: 'arch_mm', characteristicName: 'Дуга аорты', unit: 'мм' },
+]
 
 export interface NewExamination {
   patientCode: string
@@ -267,14 +290,7 @@ const hasPatchChanges = (payload: UpdateExaminationRequest): boolean => {
 }
 
 const buildFallbackMetricCatalog = (): MetricDescriptor[] => {
-  return Array.from({ length: FIXED_METRIC_COUNT }, (_, index) => {
-    const ordinal = String(index + 1).padStart(2, '0')
-    return {
-      characteristicCode: `metric_${ordinal}`,
-      characteristicName: `Metric ${ordinal}`,
-      unit: `unit_${ordinal}`,
-    }
-  })
+  return FIXED_METRIC_CATALOG.map(metric => ({ ...metric }))
 }
 
 export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescriptor[] => {
@@ -287,7 +303,6 @@ export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescrip
   exams.forEach(exam => {
     exam.metrics.forEach(metric => {
       const existing = byCode.get(metric.characteristicCode)
-      if (!existing) return
       byCode.set(metric.characteristicCode, {
         characteristicCode: metric.characteristicCode,
         characteristicName: metric.characteristicName || existing?.characteristicName || metric.characteristicCode,
@@ -296,9 +311,14 @@ export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescrip
     })
   })
 
-  return [...byCode.values()].sort((left, right) =>
-    left.characteristicCode.localeCompare(right.characteristicCode),
-  )
+  return [...byCode.values()].sort((left, right) => {
+    const leftIndex = FIXED_METRIC_CATALOG.findIndex(item => item.characteristicCode === left.characteristicCode)
+    const rightIndex = FIXED_METRIC_CATALOG.findIndex(item => item.characteristicCode === right.characteristicCode)
+    if (leftIndex >= 0 && rightIndex >= 0) return leftIndex - rightIndex
+    if (leftIndex >= 0) return -1
+    if (rightIndex >= 0) return 1
+    return left.characteristicCode.localeCompare(right.characteristicCode)
+  })
 }
 
 export const useExaminationStore = () => {

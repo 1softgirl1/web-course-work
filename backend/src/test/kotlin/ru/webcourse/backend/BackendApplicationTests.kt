@@ -83,7 +83,8 @@ class BackendApplicationTests {
             select conname
             from pg_constraint
             where conname in (
-                'chk_patient_profiles_operation_duration'
+                'chk_patient_profiles_operation_duration',
+                'chk_patient_profiles_sex'
             )
             """.trimIndent(),
             String::class.java
@@ -110,6 +111,11 @@ class BackendApplicationTests {
         assertTrue("previous_operations" !in patientProfileColumns)
         assertTrue("doctor_id" !in patientProfileColumns)
         assertTrue("age" !in patientProfileColumns)
+        assertTrue("sex" in patientProfileColumns)
+        assertTrue("operation_place" in patientProfileColumns)
+        assertTrue("observation_place" in patientProfileColumns)
+        assertTrue("coronary_anatomy" in patientProfileColumns)
+        assertTrue("chk_patient_profiles_sex" in constraintNames)
 
         val characteristicsColumns = jdbcTemplate.queryForList(
             """
@@ -143,7 +149,7 @@ class BackendApplicationTests {
             Long::class.javaObjectType
         ) ?: 0L
 
-        assertEquals(50, characteristicsCount)
+        assertEquals(22, characteristicsCount)
 
         val seededCharacteristics = jdbcTemplate.queryForList(
             """
@@ -152,9 +158,15 @@ class BackendApplicationTests {
             order by code
             """.trimIndent(),
             String::class.java
-        )
-        assertEquals("metric_01", seededCharacteristics.first())
-        assertEquals("metric_50", seededCharacteristics.last())
+        ).toSet()
+        assertTrue("weight_kg" in seededCharacteristics)
+        assertTrue("height_cm" in seededCharacteristics)
+        assertTrue("ef_pct" in seededCharacteristics)
+        assertTrue("rvsp_mmhg" in seededCharacteristics)
+        assertTrue("exercise_tolerance" in seededCharacteristics)
+        assertTrue("tc_insufficiency" in seededCharacteristics)
+        assertTrue("arch_mm" in seededCharacteristics)
+        assertTrue(seededCharacteristics.none { it.startsWith("metric_") })
 
         val examinationCharacteristicColumns = jdbcTemplate.queryForList(
             """

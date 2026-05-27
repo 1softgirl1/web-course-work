@@ -1456,8 +1456,8 @@ class PatientControllerIntegrationTest {
             jsonPath("$.vitalsHistory.length()") { value(1) }
             jsonPath("$.vitalsHistory[0].title") { value("Follow-up") }
             jsonPath("$.vitalsHistory[0].measurements.length()") { value(2) }
-            jsonPath("$.vitalsHistory[0].measurements[0].characteristicCode") { value("metric_01") }
-            jsonPath("$.vitalsHistory[0].measurements[0].unit") { value("unit_01") }
+            jsonPath("$.vitalsHistory[0].measurements[0].characteristicCode") { value("arch_mm") }
+            jsonPath("$.vitalsHistory[0].measurements[0].unit") { value("мм") }
         }
     }
 
@@ -1492,8 +1492,8 @@ class PatientControllerIntegrationTest {
             jsonPath("$.lastName") { doesNotExist() }
             jsonPath("$.firstName") { doesNotExist() }
             jsonPath("$.middleName") { doesNotExist() }
-            jsonPath("$.vitalsHistory[0].measurements[1].characteristicCode") { value("metric_02") }
-            jsonPath("$.vitalsHistory[0].measurements[1].unit") { value("unit_02") }
+            jsonPath("$.vitalsHistory[0].measurements[1].characteristicCode") { value("ef_pct") }
+            jsonPath("$.vitalsHistory[0].measurements[1].unit") { value("%") }
         }
     }
 
@@ -1532,7 +1532,7 @@ class PatientControllerIntegrationTest {
             jsonPath("$.title") { value("Control check") }
             jsonPath("$.examDate") { value("2026-04-10") }
             jsonPath("$.measurements.length()") { value(2) }
-            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.measurements[0].characteristicCode") { value("arch_mm") }
             jsonPath("$.measurements[0].value") { value("120.5") }
         }
     }
@@ -1623,7 +1623,7 @@ class PatientControllerIntegrationTest {
                   "examDate": "2026-04-10",
                   "measurements": [
                     {
-                      "characteristicCode": "metric_01",
+                      "characteristicCode": "arch_mm",
                       "value": "oops"
                     }
                   ]
@@ -1648,11 +1648,11 @@ class PatientControllerIntegrationTest {
                   "examDate": "2026-04-10",
                   "measurements": [
                     {
-                      "characteristicCode": "metric_01",
+                      "characteristicCode": "arch_mm",
                       "value": 120.5
                     },
                     {
-                      "characteristicCode": "metric_01",
+                      "characteristicCode": "arch_mm",
                       "value": 121.0
                     }
                   ]
@@ -1660,7 +1660,7 @@ class PatientControllerIntegrationTest {
             """.trimIndent()
         }.andExpect {
             status { isBadRequest() }
-            jsonPath("$.message") { value("Duplicate characteristicCode values are not allowed: metric_01") }
+            jsonPath("$.message") { value("Duplicate characteristicCode values are not allowed: arch_mm") }
         }
     }
 
@@ -1709,7 +1709,7 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.items.length()") { value(1) }
-            jsonPath("$.items[0].measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.items[0].measurements[0].characteristicCode") { value("arch_mm") }
         }
     }
 
@@ -1737,7 +1737,7 @@ class PatientControllerIntegrationTest {
                 {
                   "measurements": [
                     {
-                      "characteristicCode": "metric_01",
+                      "characteristicCode": "arch_mm",
                       "value": 135.25,
                       "comment": "Corrected value"
                     }
@@ -1747,10 +1747,10 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.measurements.length()") { value(2) }
-            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
+            jsonPath("$.measurements[0].characteristicCode") { value("arch_mm") }
             jsonPath("$.measurements[0].value") { value("135.25") }
             jsonPath("$.measurements[0].comment") { value("Corrected value") }
-            jsonPath("$.measurements[1].characteristicCode") { value("metric_02") }
+            jsonPath("$.measurements[1].characteristicCode") { value("ef_pct") }
             jsonPath("$.measurements[1].value") { value("80") }
             jsonPath("$.measurements[1].comment") { value("Second measurement") }
         }
@@ -1769,7 +1769,7 @@ class PatientControllerIntegrationTest {
                 {
                   "measurements": [
                     {
-                      "characteristicCode": "metric_03",
+                      "characteristicCode": "ivs_mm",
                       "value": 42.75,
                       "comment": "Late lab result"
                     }
@@ -1779,9 +1779,9 @@ class PatientControllerIntegrationTest {
         }.andExpect {
             status { isOk() }
             jsonPath("$.measurements.length()") { value(3) }
-            jsonPath("$.measurements[0].characteristicCode") { value("metric_01") }
-            jsonPath("$.measurements[1].characteristicCode") { value("metric_02") }
-            jsonPath("$.measurements[2].characteristicCode") { value("metric_03") }
+            jsonPath("$.measurements[0].characteristicCode") { value("arch_mm") }
+            jsonPath("$.measurements[1].characteristicCode") { value("ef_pct") }
+            jsonPath("$.measurements[2].characteristicCode") { value("ivs_mm") }
             jsonPath("$.measurements[2].value") { value("42.75") }
             jsonPath("$.measurements[2].comment") { value("Late lab result") }
         }
@@ -1922,15 +1922,15 @@ class PatientControllerIntegrationTest {
             """
                 {
                   "measurements": [
-                    { "characteristicCode": "metric_01", "value": 1 },
-                    { "characteristicCode": "metric_01", "value": 2 }
+                    { "characteristicCode": "arch_mm", "value": 1 },
+                    { "characteristicCode": "arch_mm", "value": 2 }
                   ]
                 }
             """.trimIndent(),
             """
                 {
                   "measurements": [
-                    { "characteristicCode": "metric_03" }
+                    { "characteristicCode": "ivs_mm" }
                   ]
                 }
             """.trimIndent(),
@@ -2319,14 +2319,14 @@ class PatientControllerIntegrationTest {
         val firstCharacteristicId = jdbcTemplate.queryForObject(
             "select id from characteristics where code = ?",
             Long::class.javaObjectType,
-            "metric_01"
-        ) ?: error("Characteristic metric_01 was not found")
+            "arch_mm"
+        ) ?: error("Characteristic arch_mm was not found")
 
         val secondCharacteristicId = jdbcTemplate.queryForObject(
             "select id from characteristics where code = ?",
             Long::class.javaObjectType,
-            "metric_02"
-        ) ?: error("Characteristic metric_02 was not found")
+            "ef_pct"
+        ) ?: error("Characteristic ef_pct was not found")
 
         jdbcTemplate.update(
             """
@@ -2417,15 +2417,23 @@ class PatientControllerIntegrationTest {
 
     private fun validCreateRequest(
         birthDate: String = "1971-01-15",
+        sex: String = "M",
         diagnosis: String = "Aortic valve stenosis",
         regionId: Long = 1L,
+        operationPlace: String = "НМИЦ им. Е.Н. Мешалкина",
+        observationPlace: String = "Городская детская поликлиника №1",
+        coronaryAnatomy: String = "Правый тип, без аномалий",
         durationMinutes: Int = 185,
         medications: String = "Warfarin, aspirin",
     ): String = """
         {
           "birthDate": ${jsonString(birthDate)},
+          "sex": ${jsonString(sex)},
           "diagnosis": ${jsonString(diagnosis)},
           "regionId": $regionId,
+          "operationPlace": ${jsonString(operationPlace)},
+          "observationPlace": ${jsonString(observationPlace)},
+          "coronaryAnatomy": ${jsonString(coronaryAnatomy)},
           "valve": {
             "name": "MedValve",
             "size": "27",
@@ -2443,7 +2451,7 @@ class PatientControllerIntegrationTest {
     private fun validCreateExaminationRequest(
         title: String = "Control check",
         examDate: String = "2026-04-10",
-        characteristicCode: String = "metric_01",
+        characteristicCode: String = "arch_mm",
     ): String = """
         {
           "title": ${jsonString(title)},
@@ -2456,7 +2464,7 @@ class PatientControllerIntegrationTest {
               "comment": "First metric"
             },
             {
-              "characteristicCode": "metric_02",
+              "characteristicCode": "ef_pct",
               "value": 80,
               "comment": "Second metric"
             }
@@ -2466,8 +2474,12 @@ class PatientControllerIntegrationTest {
 
     private fun validPatchRequest(
         birthDate: String? = null,
+        sex: String? = null,
         diagnosis: String? = null,
         regionId: Long? = null,
+        operationPlace: String? = null,
+        observationPlace: String? = null,
+        coronaryAnatomy: String? = null,
         medications: String? = null,
         valveName: String? = null,
         valveSize: String? = null,
@@ -2479,8 +2491,12 @@ class PatientControllerIntegrationTest {
     ): String {
         val fields = mutableListOf<String>()
         birthDate?.let { fields += "\"birthDate\": ${jsonString(it)}" }
+        sex?.let { fields += "\"sex\": ${jsonString(it)}" }
         diagnosis?.let { fields += "\"diagnosis\": ${jsonString(it)}" }
         regionId?.let { fields += "\"regionId\": $it" }
+        operationPlace?.let { fields += "\"operationPlace\": ${jsonString(it)}" }
+        observationPlace?.let { fields += "\"observationPlace\": ${jsonString(it)}" }
+        coronaryAnatomy?.let { fields += "\"coronaryAnatomy\": ${jsonString(it)}" }
         medications?.let { fields += "\"medications\": ${jsonString(it)}" }
         if (valveName != null || valveSize != null || valveMaterial != null) {
             fields += """

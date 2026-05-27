@@ -67,9 +67,8 @@ paths:
       summary: List patients available to the doctor
       description: >
         Returns a paginated list of patients available to the authenticated doctor.
-        scope=own returns only the doctor's own region with visible names.
-        scope=all returns patients from all regions with anonymized names
-        (lastName, firstName, middleName are null), and supports regionId and diagnosis filters.
+        scope=own returns only the doctor's own region; scope=all returns patients from all regions
+        and supports regionId and diagnosis filters. Patient identity is always anonymized (only patientCode is exposed).
         Each patient has a computed status based on the latest examination date:
         GREEN for less than 3 months, YELLOW for 3-6 months, RED for more than 6 months.
         The default ordering is RED first, then YELLOW, then GREEN.
@@ -129,49 +128,51 @@ paths:
                     items:
                       - id: 3
                         patientCode: PT-DEMO-003
-                        lastName: Volkov
-                        firstName: Andrey
-                        middleName: Olegovich
-                        birthDate: '1959-11-02'
-                        diagnosis: Postoperative observation
+                        birthDate: '2009-11-02'
+                        sex: M
+                        diagnosis: Общий артериальный ствол, тип I
                         regionId: 1
+                        operationPlace: НМИЦ им. Е.Н. Мешалкина
+                        observationPlace: Детская краевая клиническая больница, Новосибирск
+                        coronaryAnatomy: Сбалансированный тип
                         status: RED
                         valve:
-                          name: Abbott Portico
-                          size: 27 mm
-                          material: Bioprosthetic
+                          name: Contegra
+                          size: 22 mm
+                          material: Кондуит из яремной вены быка
                         operationParameters:
                           anesthesia: General anesthesia
-                          durationMinutes: 135
-                          deliverySystem: Transfemoral
-                        medications: Warfarin 2.5 mg daily
+                          durationMinutes: 310
+                          deliverySystem: Sternotomy
+                        medications: Дигоксин 0.125 мг, Фуросемид 20 мг
                         createdAt: '2026-01-20T14:45:00'
                         lastExaminationAt: '2025-09-01'
                     page: 0
                     limit: 20
                     total: 3
                 allPatientsAnonymized:
-                  summary: All regions with anonymized names
+                  summary: All regions (patient identity is anonymized by code)
                   value:
                     items:
                       - id: 5
                         patientCode: PT-DEMO-005
-                        lastName: null
-                        firstName: null
-                        middleName: null
-                        birthDate: '1976-12-04'
-                        diagnosis: Valve replacement follow-up
+                        birthDate: '2012-12-04'
+                        sex: M
+                        diagnosis: ДОМС с ДМЖП
                         regionId: 3
+                        operationPlace: ФГБУ НМИЦ ССХ им. А.Н. Бакулева
+                        observationPlace: Детская республиканская клиническая больница, Уфа
+                        coronaryAnatomy: Сбалансированный тип
                         status: YELLOW
                         valve:
-                          name: CoreValve
-                          size: 29 mm
-                          material: Bioprosthetic
+                          name: Contegra
+                          size: 18 mm
+                          material: Кондуит из яремной вены быка
                         operationParameters:
                           anesthesia: General anesthesia
-                          durationMinutes: 160
-                          deliverySystem: Transaortic
-                        medications: Clopidogrel 75 mg daily
+                          durationMinutes: 295
+                          deliverySystem: Sternotomy
+                        medications: Эналаприл 5 мг, Бисопролол 1.25 мг
                         createdAt: '2026-03-15T16:20:00'
                         lastExaminationAt: '2026-01-05'
                     page: 0
@@ -391,49 +392,55 @@ components:
         deliverySystem:
           type: string
       required: [anesthesia, durationMinutes, deliverySystem]
+    PatientSex:
+      type: string
+      enum: [M, F]
+      description: Биологический пол пациента.
     CreatePatientRequest:
       type: object
       properties:
-        lastName:
-          type: string
-        firstName:
-          type: string
-        middleName:
-          type: string
-          nullable: true
         birthDate:
           type: string
           format: date
+        sex:
+          $ref: '#/components/schemas/PatientSex'
         diagnosis:
           type: string
         regionId:
           type: integer
           format: int64
+        operationPlace:
+          type: string
+        observationPlace:
+          type: string
+        coronaryAnatomy:
+          type: string
         valve:
           $ref: '#/components/schemas/CreateValveRequest'
         operationParameters:
           $ref: '#/components/schemas/CreateOperationParametersRequest'
         medications:
           type: string
-      required: [lastName, firstName, birthDate, diagnosis, regionId, valve, operationParameters, medications]
+      required: [birthDate, sex, diagnosis, regionId, operationPlace, observationPlace, coronaryAnatomy, valve, operationParameters, medications]
     UpdatePatientRequest:
       type: object
       properties:
-        lastName:
-          type: string
-        firstName:
-          type: string
-        middleName:
-          type: string
-          nullable: true
         birthDate:
           type: string
           format: date
+        sex:
+          $ref: '#/components/schemas/PatientSex'
         diagnosis:
           type: string
         regionId:
           type: integer
           format: int64
+        operationPlace:
+          type: string
+        observationPlace:
+          type: string
+        coronaryAnatomy:
+          type: string
         medications:
           type: string
         valve:
@@ -500,21 +507,22 @@ components:
           type: string
         temporaryPassword:
           type: string
-        lastName:
-          type: string
-        firstName:
-          type: string
-        middleName:
-          type: string
-          nullable: true
         birthDate:
           type: string
           format: date
+        sex:
+          $ref: '#/components/schemas/PatientSex'
         diagnosis:
           type: string
         regionId:
           type: integer
           format: int64
+        operationPlace:
+          type: string
+        observationPlace:
+          type: string
+        coronaryAnatomy:
+          type: string
         valve:
           $ref: '#/components/schemas/ValveResponse'
         operationParameters:
@@ -524,7 +532,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, patientCode, temporaryPassword, lastName, firstName, birthDate, diagnosis, regionId, valve, operationParameters, medications, createdAt]
+      required: [id, patientCode, temporaryPassword, birthDate, sex, diagnosis, regionId, operationPlace, observationPlace, coronaryAnatomy, valve, operationParameters, medications, createdAt]
     PatientSummaryResponse:
       type: object
       properties:
@@ -533,23 +541,22 @@ components:
           format: int64
         patientCode:
           type: string
-        lastName:
-          type: string
-          nullable: true
-        firstName:
-          type: string
-          nullable: true
-        middleName:
-          type: string
-          nullable: true
         birthDate:
           type: string
           format: date
+        sex:
+          $ref: '#/components/schemas/PatientSex'
         diagnosis:
           type: string
         regionId:
           type: integer
           format: int64
+        operationPlace:
+          type: string
+        observationPlace:
+          type: string
+        coronaryAnatomy:
+          type: string
         status:
           type: string
           enum: [GREEN, YELLOW, RED]
@@ -566,7 +573,7 @@ components:
           type: string
           format: date
           nullable: true
-      required: [id, patientCode, birthDate, diagnosis, regionId, status, valve, operationParameters, medications, createdAt]
+      required: [id, patientCode, birthDate, sex, diagnosis, regionId, operationPlace, observationPlace, coronaryAnatomy, status, valve, operationParameters, medications, createdAt]
     PatientListResponse:
       type: object
       properties:
@@ -657,15 +664,6 @@ components:
           enum: [FULL, ANONYMIZED]
         patientCode:
           type: string
-        lastName:
-          type: string
-          nullable: true
-        firstName:
-          type: string
-          nullable: true
-        middleName:
-          type: string
-          nullable: true
         regionId:
           type: integer
           format: int64
@@ -674,7 +672,15 @@ components:
         birthDate:
           type: string
           format: date
+        sex:
+          $ref: '#/components/schemas/PatientSex'
         diagnosis:
+          type: string
+        operationPlace:
+          type: string
+        observationPlace:
+          type: string
+        coronaryAnatomy:
           type: string
         valve:
           $ref: '#/components/schemas/ValveResponse'
@@ -689,5 +695,5 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/VitalsHistoryItemResponse'
-      required: [id, viewMode, patientCode, regionId, regionName, birthDate, diagnosis, valve, operationParameters, medications, createdAt, vitalsHistory]
+      required: [id, viewMode, patientCode, regionId, regionName, birthDate, sex, diagnosis, operationPlace, observationPlace, coronaryAnatomy, valve, operationParameters, medications, createdAt, vitalsHistory]
 

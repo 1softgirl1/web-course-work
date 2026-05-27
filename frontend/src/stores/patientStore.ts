@@ -4,6 +4,7 @@ import type {
   CreatedPatientResponse,
   OperationParametersResponse,
   PatientCardResponse,
+  PatientSex,
   PatientStatus,
   PatientSummaryResponse,
   UpdatePatientRequest,
@@ -29,7 +30,11 @@ export interface Patient {
   code: string
   birthDate: string
   age: number
+  sex: PatientSex
   diagnosis: string
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   operations: number
   operationDetails: PatientOperation[]
   medications: string
@@ -41,9 +46,13 @@ export interface Patient {
 
 export interface NewPatientInput {
   birthDate: string
+  sex: PatientSex
   region?: string
   regionId?: number
   diagnosis: string
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   operations?: PatientOperation[]
   valve?: ValveDetails
   medications?: string
@@ -162,7 +171,11 @@ const toPatientFromSummary = (summary: PatientSummaryResponse): Patient => {
     code: summary.patientCode,
     birthDate: formatRuDate(summary.birthDate),
     age: calculateAge(summary.birthDate),
+    sex: summary.sex,
     diagnosis: summary.diagnosis,
+    operationPlace: summary.operationPlace,
+    observationPlace: summary.observationPlace,
+    coronaryAnatomy: summary.coronaryAnatomy,
     operations: 1,
     operationDetails: [createDefaultOperation(summary.operationParameters)],
     medications: summary.medications,
@@ -183,7 +196,11 @@ const toPatientFromCard = (card: PatientCardResponse, status: PatientStatus = 'R
     code: card.patientCode,
     birthDate: formatRuDate(card.birthDate),
     age: calculateAge(card.birthDate),
+    sex: card.sex,
     diagnosis: card.diagnosis,
+    operationPlace: card.operationPlace,
+    observationPlace: card.observationPlace,
+    coronaryAnatomy: card.coronaryAnatomy,
     operations: 1,
     operationDetails: [createDefaultOperation(card.operationParameters)],
     medications: card.medications,
@@ -227,7 +244,11 @@ const toFallbackPatientFromCreated = (created: CreatedPatientResponse): Patient 
     code: created.patientCode,
     birthDate: formatRuDate(created.birthDate),
     age: calculateAge(created.birthDate),
+    sex: created.sex,
     diagnosis: created.diagnosis,
+    operationPlace: created.operationPlace,
+    observationPlace: created.observationPlace,
+    coronaryAnatomy: created.coronaryAnatomy,
     operations: 1,
     operationDetails: [createDefaultOperation(created.operationParameters)],
     medications: created.medications,
@@ -591,8 +612,12 @@ export const usePatientStore = () => {
 
     const payload: CreatePatientRequest = {
       birthDate: input.birthDate,
+      sex: input.sex,
       diagnosis: input.diagnosis.trim(),
       regionId: resolvedRegionId,
+      operationPlace: input.operationPlace.trim(),
+      observationPlace: input.observationPlace.trim(),
+      coronaryAnatomy: input.coronaryAnatomy.trim(),
       medications: input.medications?.trim() || '',
       valve: {
         name: input.valve?.name?.trim() || '',

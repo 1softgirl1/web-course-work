@@ -11,18 +11,36 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+@Schema(description = "Биологический пол пациента.")
+enum class PatientSex {
+    M,
+    F,
+}
+
 @Schema(description = "Запрос на создание новой карточки пациента. Пациент идентифицируется только по сгенерированному коду.")
 data class CreatePatientRequest(
     @field:NotNull
     @field:PastOrPresent
-    @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
+    @field:Schema(description = "Дата рождения пациента.", example = "2012-05-12")
     val birthDate: LocalDate,
+    @field:NotNull
+    @field:Schema(description = "Биологический пол пациента.", example = "M")
+    val sex: PatientSex,
     @field:NotBlank
-    @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
+    @field:Schema(description = "Текущий клинический диагноз.", example = "Тетрада Фалло, состояние после радикальной коррекции")
     val diagnosis: String,
     @field:Positive
     @field:Schema(description = "Идентификатор региона, выбранного врачом.", example = "1")
     val regionId: Long,
+    @field:NotBlank
+    @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина")
+    val operationPlace: String,
+    @field:NotBlank
+    @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1")
+    val observationPlace: String,
+    @field:NotBlank
+    @field:Schema(description = "Коронарная анатомия пациента.", example = "Правый тип, без аномалий")
+    val coronaryAnatomy: String,
     @field:Valid
     @field:Schema(description = "Характеристики клапана.")
     val valve: ValveRequest,
@@ -63,13 +81,21 @@ data class OperationParametersRequest(
 @Schema(description = "Запрос на частичное обновление карточки пациента.")
 data class UpdatePatientRequest(
     @field:PastOrPresent
-    @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
+    @field:Schema(description = "Дата рождения пациента.", example = "2012-05-12")
     val birthDate: LocalDate? = null,
-    @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
+    @field:Schema(description = "Биологический пол пациента.", example = "F", nullable = true)
+    val sex: PatientSex? = null,
+    @field:Schema(description = "Текущий диагноз.", example = "Тетрада Фалло, состояние после радикальной коррекции")
     val diagnosis: String? = null,
     @field:Positive
     @field:Schema(description = "Идентификатор целевого региона.", example = "2")
     val regionId: Long? = null,
+    @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина", nullable = true)
+    val operationPlace: String? = null,
+    @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1", nullable = true)
+    val observationPlace: String? = null,
+    @field:Schema(description = "Коронарная анатомия пациента.", example = "Правый тип, без аномалий", nullable = true)
+    val coronaryAnatomy: String? = null,
     @field:Schema(description = "Текущие медикаменты.", example = "Бисопролол 5 мг ежедневно")
     val medications: String? = null,
     @field:Valid
@@ -146,12 +172,20 @@ data class CreatedPatientResponse(
     val patientCode: String,
     @field:Schema(description = "Сгенерированный временный пароль пациента.", example = "kvE@fNLGvDbQ")
     val temporaryPassword: String,
-    @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
+    @field:Schema(description = "Дата рождения пациента.", example = "2012-05-12")
     val birthDate: LocalDate,
-    @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
+    @field:Schema(description = "Биологический пол пациента.", example = "M")
+    val sex: PatientSex,
+    @field:Schema(description = "Текущий диагноз.", example = "Тетрада Фалло, состояние после радикальной коррекции")
     val diagnosis: String,
     @field:Schema(description = "Назначенный идентификатор региона.", example = "1")
     val regionId: Long,
+    @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина")
+    val operationPlace: String,
+    @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1")
+    val observationPlace: String,
+    @field:Schema(description = "Коронарная анатомия пациента.", example = "Правый тип, без аномалий")
+    val coronaryAnatomy: String,
     val valve: ValveResponse,
     val operationParameters: OperationParametersResponse,
     @field:Schema(description = "Текущие медикаменты.", example = "Бисопролол 5 мг ежедневно")
@@ -166,12 +200,20 @@ data class PatientSummaryResponse(
     val id: Long,
     @field:Schema(description = "Сгенерированный код пациента.", example = "PT-DEMO-001")
     val patientCode: String,
-    @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
+    @field:Schema(description = "Дата рождения пациента.", example = "2012-05-12")
     val birthDate: LocalDate,
-    @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
+    @field:Schema(description = "Биологический пол пациента.", example = "M")
+    val sex: PatientSex,
+    @field:Schema(description = "Текущий диагноз.", example = "Тетрада Фалло, состояние после радикальной коррекции")
     val diagnosis: String,
     @field:Schema(description = "Идентификатор региона.", example = "1")
     val regionId: Long,
+    @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина")
+    val operationPlace: String,
+    @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1")
+    val observationPlace: String,
+    @field:Schema(description = "Коронарная анатомия пациента.", example = "Правый тип, без аномалий")
+    val coronaryAnatomy: String,
     @field:Schema(description = "Статус мониторинга, вычисляемый по последнему обследованию.", example = "GREEN")
     val status: PatientMonitoringStatus,
     val valve: ValveResponse,
@@ -240,10 +282,18 @@ data class PatientCardResponse(
     val regionId: Long,
     @field:Schema(description = "Название региона.", example = "Новосибирская область")
     val regionName: String,
-    @field:Schema(description = "Дата рождения пациента.", example = "1990-05-12")
+    @field:Schema(description = "Дата рождения пациента.", example = "2012-05-12")
     val birthDate: LocalDate,
-    @field:Schema(description = "Текущий диагноз.", example = "Стеноз аортального клапана")
+    @field:Schema(description = "Биологический пол пациента.", example = "M")
+    val sex: PatientSex,
+    @field:Schema(description = "Текущий диагноз.", example = "Тетрада Фалло, состояние после радикальной коррекции")
     val diagnosis: String,
+    @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина")
+    val operationPlace: String,
+    @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1")
+    val observationPlace: String,
+    @field:Schema(description = "Коронарная анатомия пациента.", example = "Правый тип, без аномалий")
+    val coronaryAnatomy: String,
     val valve: ValveResponse,
     val operationParameters: OperationParametersResponse,
     @field:Schema(description = "Текущие медикаменты.", example = "Бисопролол 5 мг ежедневно")

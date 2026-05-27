@@ -23,8 +23,12 @@ const submitted = ref(false)
 const formError = ref('')
 const route = useRoute()
 const birthDate = ref("")
+const sex = ref<'M' | 'F' | ''>("")
 const regionId = ref("")
 const diagnosis = ref("")
+const operationPlace = ref("")
+const observationPlace = ref("")
+const coronaryAnatomy = ref("")
 const valveName = ref("")
 const valveSize = ref("")
 const valveMaterial = ref("")
@@ -109,8 +113,12 @@ const resetForm = () => {
   submitted.value = false
   formError.value = ''
   birthDate.value = ""
+  sex.value = ""
   regionId.value = ""
   diagnosis.value = ""
+  operationPlace.value = ""
+  observationPlace.value = ""
+  coronaryAnatomy.value = ""
   valveName.value = ""
   valveSize.value = ""
   valveMaterial.value = ""
@@ -129,8 +137,16 @@ const handleSubmit = async (e: Event) => {
   e.preventDefault()
   formError.value = ''
 
-  if (!birthDate.value || !regionId.value || !diagnosis.value) {
-    formError.value = 'Заполните обязательные поля: дату рождения, регион и диагноз.'
+  if (
+    !birthDate.value ||
+    !sex.value ||
+    !regionId.value ||
+    !diagnosis.value.trim() ||
+    !operationPlace.value.trim() ||
+    !observationPlace.value.trim() ||
+    !coronaryAnatomy.value.trim()
+  ) {
+    formError.value = 'Заполните обязательные поля: дату рождения, пол, регион, диагноз, места операции/наблюдения и коронарную анатомию.'
     return
   }
 
@@ -168,8 +184,12 @@ const handleSubmit = async (e: Event) => {
     const { patient, password } = await patientStore.addPatient(
       {
         birthDate: birthDate.value,
+        sex: sex.value as 'M' | 'F',
         regionId: parsedRegionId,
         diagnosis: diagnosis.value,
+        operationPlace: operationPlace.value,
+        observationPlace: observationPlace.value,
+        coronaryAnatomy: coronaryAnatomy.value,
         operations: filledOperations,
         medications: filledMedications,
         valve: {
@@ -280,23 +300,52 @@ onMounted(async () => {
               <Input v-model="birthDate" type="date" required />
             </Field>
             <Field>
-              <FieldLabel>Регион *</FieldLabel>
-              <Select v-model="regionId">
+              <FieldLabel>Пол *</FieldLabel>
+              <Select v-model="sex">
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите регион" />
+                  <SelectValue placeholder="Выберите пол" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem v-for="item in availableRegions" :key="item.id" :value="String(item.id)">
-                    {{ item.name }}
-                  </SelectItem>
+                  <SelectItem value="M">Мужской</SelectItem>
+                  <SelectItem value="F">Женский</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
           </div>
 
           <Field>
+            <FieldLabel>Регион *</FieldLabel>
+            <Select v-model="regionId">
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите регион" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="item in availableRegions" :key="item.id" :value="String(item.id)">
+                  {{ item.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
             <FieldLabel>Диагноз *</FieldLabel>
-            <Input v-model="diagnosis" placeholder="Диагноз" required />
+            <Input v-model="diagnosis" placeholder="Например: Тетрада Фалло, состояние после радикальной коррекции" required />
+          </Field>
+
+          <div class="grid sm:grid-cols-2 gap-4">
+            <Field>
+              <FieldLabel>Место проведения операции *</FieldLabel>
+              <Input v-model="operationPlace" placeholder="Например: НМИЦ им. Е.Н. Мешалкина" required />
+            </Field>
+            <Field>
+              <FieldLabel>Место постоянного наблюдения *</FieldLabel>
+              <Input v-model="observationPlace" placeholder="Например: Городская детская поликлиника №1" required />
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel>Коронарная анатомия *</FieldLabel>
+            <Input v-model="coronaryAnatomy" placeholder="Например: Правый тип, без аномалий" required />
           </Field>
 
           <div class="space-y-4">

@@ -341,14 +341,17 @@ onMounted(async () => {
               >
                 <div class="md:col-span-5">
                   <FieldLabel>Показатель</FieldLabel>
-                  <div class="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{{ row.characteristicCode }}</Badge>
-
-                    <span v-if="knownMetricByCode[row.characteristicCode]?.unit" class="text-xs text-muted-foreground">
-                      ({{ knownMetricByCode[row.characteristicCode]?.unit }})
-                    </span>
+                  <div class="flex flex-col gap-1">
+                    <p class="text-sm font-medium text-foreground">
+                      {{ knownMetricByCode[row.characteristicCode]?.characteristicName || row.characteristicCode }}
+                    </p>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" class="text-xs">{{ row.characteristicCode }}</Badge>
+                      <span v-if="knownMetricByCode[row.characteristicCode]?.unit" class="text-xs text-muted-foreground">
+                        ({{ knownMetricByCode[row.characteristicCode]?.unit }})
+                      </span>
+                    </div>
                   </div>
-
                 </div>
 
                 <div class="md:col-span-3">

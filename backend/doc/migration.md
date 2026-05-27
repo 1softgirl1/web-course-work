@@ -35,7 +35,7 @@ Default/prod профиль использует только `classpath:db/migr
 
 ### `V4__create_patient_profiles.sql`
 
-Создает таблицу `patient_profiles` в актуальной форме карточки пациента:
+Создает таблицу `patient_profiles` в базовой форме карточки пациента:
 
 - `birth_date`;
 - диагноз;
@@ -43,6 +43,8 @@ Default/prod профиль использует только `classpath:db/migr
 - параметры операции;
 - медикаменты;
 - `created_at`.
+
+Дополнительные регистрационные поля (`sex`, `operation_place`, `observation_place`, `coronary_anatomy`) добавляются отдельной миграцией `V13`.
 
 ФИО пациента в этой таблице не хранится. Обезличенный код пациента хранится в `users.username` и возвращается в API как `patientCode`.
 
@@ -72,7 +74,7 @@ Default/prod профиль использует только `classpath:db/migr
 
 ### `V10__seed_characteristics_catalog.sql`
 
-Заполняет каталог характеристик обследований 50 placeholder-значениями с кодами `metric_01` ... `metric_50`.
+Заполняет каталог характеристик обследований 50 placeholder-значениями с кодами `metric_01` ... `metric_50`. Этот placeholder-набор позже полностью заменяется миграцией `V14`.
 
 ### `V11__create_refresh_tokens.sql`
 
@@ -83,6 +85,19 @@ Default/prod профиль использует только `classpath:db/migr
 ### `V12__add_doctor_workplace.sql`
 
 Добавляет обязательное поле `workplace` в `doctor_profiles`.
+
+### `V13__add_patient_profile_indicators.sql`
+
+Добавляет регистрационные поля показателей в `patient_profiles`:
+
+- `sex varchar(1)` с `CHECK (sex IN ('M','F'))` — биологический пол пациента;
+- `operation_place` — место проведения операции;
+- `observation_place` — место постоянного наблюдения;
+- `coronary_anatomy` — текстовое описание коронарной анатомии (фиксируется один раз при регистрации).
+
+### `V14__replace_characteristics_catalog.sql`
+
+Полностью заменяет placeholder-каталог из `V10` на актуальные показатели из `pokazateli.md` (22 записи: антропометрия, ЭхоКГ-параметры правого сердца и лёгочной артерии, шкалы NYHA и степени регургитации трикуспидального клапана). Сначала удаляются placeholder-измерения и сами `metric_*` записи, затем вставляется новый каталог.
 
 ## Local-only demo migrations
 
@@ -122,7 +137,7 @@ Default/prod профиль использует только `classpath:db/migr
 
 ## Текущее состояние
 
-- Все 12 миграций применяются успешно на чистой БД.
+- Все 14 миграций применяются успешно на чистой БД.
 - В профиле `local` дополнительно применяются 5 local-only demo migrations.
 - Тесты поднимают PostgreSQL через Testcontainers и проверяют применение миграций.
 - Миграции синхронизированы с текущей backend-реализацией создания пациента, региональной модели доступа, каталога характеристик, refresh-сессий и управления врачами.

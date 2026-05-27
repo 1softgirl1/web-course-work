@@ -18,7 +18,7 @@ body:json {
   {
     "measurements": [
       {
-        "characteristicCode": "metric_01",
+        "characteristicCode": "weight_kg",
         "value": 76,
         "comment": "Corrected from Bruno"
       }
@@ -31,10 +31,10 @@ tests {
     const body = res.getBody();
     expect(res.getStatus()).to.equal(200);
     expect(body.measurements.length).to.equal(2);
-    const metric01 = body.measurements.find(item => item.characteristicCode === "metric_01");
-    const metric02 = body.measurements.find(item => item.characteristicCode === "metric_02");
-    expect(metric01.value).to.equal("76");
-    expect(metric01.comment).to.equal("Corrected from Bruno");
-    expect(metric02).to.exist;
+    const weightKg = body.measurements.find(item => item.characteristicCode === "weight_kg");
+    const efPct = body.measurements.find(item => item.characteristicCode === "ef_pct");
+    expect(weightKg.value).to.equal("76");
+    expect(weightKg.comment).to.equal("Corrected from Bruno");
+    expect(efPct).to.exist;
   });
 }

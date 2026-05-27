@@ -18,7 +18,7 @@ body:json {
   {
     "measurements": [
       {
-        "characteristicCode": "metric_03",
+        "characteristicCode": "height_cm",
         "value": 42.5,
         "comment": "Late lab result"
       }
@@ -31,7 +31,7 @@ tests {
     const body = res.getBody();
     expect(res.getStatus()).to.equal(200);
     expect(body.measurements.length).to.equal(3);
-    const metric03 = body.measurements.find(item => item.characteristicCode === "metric_03");
-    expect(metric03.value).to.equal("42.5");
+    const heightCm = body.measurements.find(item => item.characteristicCode === "height_cm");
+    expect(heightCm.value).to.equal("42.5");
   });
 }

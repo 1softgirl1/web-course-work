@@ -49,10 +49,16 @@ export interface CreateOperationParametersRequest extends OperationParametersRes
 
 export interface CreateValveRequest extends ValveResponse {}
 
+export type PatientSex = 'M' | 'F'
+
 export interface CreatePatientRequest {
   birthDate: string
+  sex: PatientSex
   diagnosis: string
   regionId: number
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   valve: CreateValveRequest
   operationParameters: CreateOperationParametersRequest
   medications: string
@@ -116,8 +122,12 @@ export interface DoctorPasswordResetResponse {
 
 export interface UpdatePatientRequest {
   birthDate?: string
+  sex?: PatientSex
   diagnosis?: string
   regionId?: number
+  operationPlace?: string
+  observationPlace?: string
+  coronaryAnatomy?: string
   medications?: string
   valve?: CreateValveRequest
   operationParameters?: CreateOperationParametersRequest
@@ -132,8 +142,12 @@ export interface CreatedPatientResponse {
   patientCode: string
   temporaryPassword: string
   birthDate: string
+  sex: PatientSex
   diagnosis: string
   regionId: number
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   valve: ValveResponse
   operationParameters: OperationParametersResponse
   medications: string
@@ -144,8 +158,12 @@ export interface PatientSummaryResponse {
   id: number
   patientCode: string
   birthDate: string
+  sex: PatientSex
   diagnosis: string
   regionId: number
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   status: PatientStatus
   valve: ValveResponse
   operationParameters: OperationParametersResponse
@@ -189,7 +207,11 @@ export interface PatientCardResponse {
   regionId: number
   regionName: string
   birthDate: string
+  sex: PatientSex
   diagnosis: string
+  operationPlace: string
+  observationPlace: string
+  coronaryAnatomy: string
   valve: ValveResponse
   operationParameters: OperationParametersResponse
   medications: string

@@ -27,8 +27,16 @@ class PatientProfileEntity(
     val region: RegionEntity,
     @Column(name = "birth_date", nullable = false)
     val birthDate: LocalDate,
+    @Column(name = "sex", nullable = false, length = 1)
+    val sex: String,
     @Column(name = "diagnosis", nullable = false)
     val diagnosis: String,
+    @Column(name = "operation_place", nullable = false)
+    val operationPlace: String,
+    @Column(name = "observation_place", nullable = false)
+    val observationPlace: String,
+    @Column(name = "coronary_anatomy", nullable = false)
+    val coronaryAnatomy: String,
     @Column(name = "valve_name", nullable = false)
     val valveName: String,
     @Column(name = "valve_size", nullable = false)
