@@ -37,31 +37,34 @@ export interface MetricDescriptor {
   characteristicCode: string
   characteristicName: string
   unit: string
+  placeholder?: string
 }
 
+// Placeholders подобраны под типичные значения для педиатрической ЭхоКГ
+// (или середину диапазона нормы) из pokazateli.md.
 const FIXED_METRIC_CATALOG: MetricDescriptor[] = [
-  { characteristicCode: 'weight_kg', characteristicName: 'Вес', unit: 'кг' },
-  { characteristicCode: 'height_cm', characteristicName: 'Рост', unit: 'см' },
-  { characteristicCode: 'exercise_tolerance', characteristicName: 'Переносимость физической нагрузки', unit: 'NYHA' },
-  { characteristicCode: 'rv_size_mm', characteristicName: 'Размер ПЖ', unit: 'мм' },
-  { characteristicCode: 'contractility_pct', characteristicName: 'Сократимость', unit: '%' },
-  { characteristicCode: 'tc_insufficiency', characteristicName: 'Недостаточность ТК', unit: 'степень' },
-  { characteristicCode: 'rvsp_mmhg', characteristicName: 'СДПЖ', unit: 'мм рт. ст.' },
-  { characteristicCode: 'ef_pct', characteristicName: 'ФВ', unit: '%' },
-  { characteristicCode: 'edv_rv_lv_ratio', characteristicName: 'иКДО ПЖ/ЛЖ', unit: 'индекс' },
-  { characteristicCode: 'rvot_mm', characteristicName: 'ВОПЖ, диаметр', unit: 'мм' },
-  { characteristicCode: 'rvot_gradient', characteristicName: 'ВОПЖ, ср градиент', unit: 'мм рт. ст.' },
-  { characteristicCode: 'pa_annulus_mm', characteristicName: 'ФК ЛА, диаметр', unit: 'мм' },
-  { characteristicCode: 'pa_annulus_gradient', characteristicName: 'ФК ЛА, ср градиент', unit: 'мм рт. ст.' },
-  { characteristicCode: 'pa_trunk_mm', characteristicName: 'Ствол ЛА, диаметр', unit: 'мм' },
-  { characteristicCode: 'pa_trunk_gradient', characteristicName: 'Ствол ЛА, ср градиент', unit: 'мм рт. ст.' },
-  { characteristicCode: 'rpa_mm', characteristicName: 'ПВЛА, диаметр', unit: 'мм' },
-  { characteristicCode: 'rpa_gradient', characteristicName: 'ПВЛА, ср градиент', unit: 'мм рт. ст.' },
-  { characteristicCode: 'lpa_mm', characteristicName: 'ЛВЛА, диаметр', unit: 'мм' },
-  { characteristicCode: 'lpa_gradient', characteristicName: 'ЛВЛА, ср градиент', unit: 'мм рт. ст.' },
-  { characteristicCode: 'ivs_mm', characteristicName: 'МЖП', unit: 'мм' },
-  { characteristicCode: 'ias_mm', characteristicName: 'МПП', unit: 'мм' },
-  { characteristicCode: 'arch_mm', characteristicName: 'Дуга аорты', unit: 'мм' },
+  { characteristicCode: 'weight_kg', characteristicName: 'Вес', unit: 'кг', placeholder: '35' },
+  { characteristicCode: 'height_cm', characteristicName: 'Рост', unit: 'см', placeholder: '140' },
+  { characteristicCode: 'exercise_tolerance', characteristicName: 'Переносимость физической нагрузки', unit: 'NYHA', placeholder: '1' },
+  { characteristicCode: 'rv_size_mm', characteristicName: 'Размер ПЖ', unit: 'мм', placeholder: '28' },
+  { characteristicCode: 'contractility_pct', characteristicName: 'Сократимость', unit: '%', placeholder: '60' },
+  { characteristicCode: 'tc_insufficiency', characteristicName: 'Недостаточность ТК', unit: 'степень', placeholder: '1' },
+  { characteristicCode: 'rvsp_mmhg', characteristicName: 'СДПЖ', unit: 'мм рт. ст.', placeholder: '25' },
+  { characteristicCode: 'ef_pct', characteristicName: 'ФВ', unit: '%', placeholder: '60' },
+  { characteristicCode: 'edv_rv_lv_ratio', characteristicName: 'иКДО ПЖ/ЛЖ', unit: 'индекс', placeholder: '0.75' },
+  { characteristicCode: 'rvot_mm', characteristicName: 'ВОПЖ, диаметр', unit: 'мм', placeholder: '20' },
+  { characteristicCode: 'rvot_gradient', characteristicName: 'ВОПЖ, ср градиент', unit: 'мм рт. ст.', placeholder: '8' },
+  { characteristicCode: 'pa_annulus_mm', characteristicName: 'ФК ЛА, диаметр', unit: 'мм', placeholder: '18' },
+  { characteristicCode: 'pa_annulus_gradient', characteristicName: 'ФК ЛА, ср градиент', unit: 'мм рт. ст.', placeholder: '7' },
+  { characteristicCode: 'pa_trunk_mm', characteristicName: 'Ствол ЛА, диаметр', unit: 'мм', placeholder: '22' },
+  { characteristicCode: 'pa_trunk_gradient', characteristicName: 'Ствол ЛА, ср градиент', unit: 'мм рт. ст.', placeholder: '5' },
+  { characteristicCode: 'rpa_mm', characteristicName: 'ПВЛА, диаметр', unit: 'мм', placeholder: '14' },
+  { characteristicCode: 'rpa_gradient', characteristicName: 'ПВЛА, ср градиент', unit: 'мм рт. ст.', placeholder: '5' },
+  { characteristicCode: 'lpa_mm', characteristicName: 'ЛВЛА, диаметр', unit: 'мм', placeholder: '13' },
+  { characteristicCode: 'lpa_gradient', characteristicName: 'ЛВЛА, ср градиент', unit: 'мм рт. ст.', placeholder: '5' },
+  { characteristicCode: 'ivs_mm', characteristicName: 'МЖП', unit: 'мм', placeholder: '6' },
+  { characteristicCode: 'ias_mm', characteristicName: 'МПП', unit: 'мм', placeholder: '4' },
+  { characteristicCode: 'arch_mm', characteristicName: 'Дуга аорты', unit: 'мм', placeholder: '16' },
 ]
 
 export interface NewExamination {
@@ -307,6 +310,7 @@ export const buildMetricCatalogFromExams = (exams: Examination[]): MetricDescrip
         characteristicCode: metric.characteristicCode,
         characteristicName: metric.characteristicName || existing?.characteristicName || metric.characteristicCode,
         unit: metric.unit || existing?.unit || '',
+        placeholder: existing?.placeholder,
       })
     })
   })

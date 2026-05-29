@@ -339,24 +339,28 @@ onMounted(async () => {
                 :key="row.characteristicCode"
                 class="grid grid-cols-1 gap-2 rounded-lg border border-border bg-background p-3 md:grid-cols-12"
               >
-                <div class="md:col-span-5">
-                  <FieldLabel>Показатель</FieldLabel>
-                  <div class="flex flex-col gap-1">
+                <div class="md:col-span-5 flex items-end">
+                  <div class="flex flex-wrap items-center gap-2">
                     <p class="text-sm font-medium text-foreground">
-                      {{ knownMetricByCode[row.characteristicCode]?.characteristicName || row.characteristicCode }}
+                      {{ knownMetricByCode[row.characteristicCode]?.characteristicName || '—' }}
                     </p>
-                    <div class="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" class="text-xs">{{ row.characteristicCode }}</Badge>
-                      <span v-if="knownMetricByCode[row.characteristicCode]?.unit" class="text-xs text-muted-foreground">
-                        ({{ knownMetricByCode[row.characteristicCode]?.unit }})
-                      </span>
-                    </div>
+                    <Badge
+                      v-if="knownMetricByCode[row.characteristicCode]?.unit"
+                      variant="outline"
+                      class="text-xs"
+                    >
+                      {{ knownMetricByCode[row.characteristicCode]?.unit }}
+                    </Badge>
                   </div>
                 </div>
 
                 <div class="md:col-span-3">
                   <FieldLabel>Значение</FieldLabel>
-                  <Input v-model="row.value" type="number" placeholder="72" />
+                  <Input
+                    v-model="row.value"
+                    type="number"
+                    :placeholder="knownMetricByCode[row.characteristicCode]?.placeholder ?? ''"
+                  />
                 </div>
 
                 <div class="md:col-span-4">
