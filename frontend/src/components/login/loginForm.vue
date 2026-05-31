@@ -42,7 +42,6 @@ const authError = ref('')
 
 async function handleLogin() {
   authError.value = ''
-  authStore.setSelectedLoginRole(activeTab.value === 'doctor' ? 'doctor' : 'patient')
 
   const payload = activeTab.value === 'patient'
     ? { username: patientLogin.value.trim(), password: patientPassword.value }
@@ -55,17 +54,10 @@ async function handleLogin() {
 
   try {
     const response = await authStore.login(payload)
-    const expectedRole = activeTab.value === 'patient' ? 'PATIENT' : 'DOCTOR'
-    const isDoctorRole = response.user.role === 'DOCTOR' || response.user.role === 'DOCTOR_EXTENDED'
-
-    if (
-      (expectedRole === 'PATIENT' && response.user.role !== 'PATIENT')
-      || (expectedRole === 'DOCTOR' && !isDoctorRole)
-    ) {
-      await authStore.logout()
-      authError.value = 'Выбранная роль не соответствует роли учетной записи. Перейдите на другую вкладку и повторите попытку.'
-      return
-    }
+    // Привязываем selectedLoginRole к фактической роли учётной записи,
+    // чтобы router-guard корректно пропустил в кабинет, даже если пользователь
+    // открыл "не свою" вкладку (например, пациент через таб «Врач»).
+    authStore.setSelectedLoginRole(response.user.role === 'PATIENT' ? 'patient' : 'doctor')
 
     if (typeof window !== 'undefined') {
       localStorage.setItem('doctorFullName', response.user.displayName)

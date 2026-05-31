@@ -19,6 +19,7 @@ import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
 import { Search, Download, Calendar, MapPin, Plus, Funnel } from 'lucide-vue-next'
 import { toHumanErrorMessage } from '@/api/httpClient'
+import { formatYearsRu } from '@/lib/utils'
 
 type ExamStatus = 'green' | 'yellow' | 'red'
 
@@ -225,7 +226,7 @@ onMounted(async () => {
               </span>
             </div>
 
-            <p class="mt-1 text-xs text-muted-foreground">{{ patient.age }} лет</p>
+            <p class="mt-1 text-xs text-muted-foreground">{{ formatYearsRu(patient.age) }}</p>
             <p class="mt-1 text-sm text-muted-foreground wrap-break-word">Диагноз: {{ patient.diagnosis }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Операции: {{ patient.operations }}</p>
             <p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
@@ -259,7 +260,7 @@ onMounted(async () => {
                   <Badge variant="outline">{{ patient.code }}</Badge>
                 </TableCell>
 
-                <TableCell>{{ patient.age }} лет</TableCell>
+                <TableCell>{{ formatYearsRu(patient.age) }}</TableCell>
                 <TableCell class="max-w-50 truncate">{{ patient.diagnosis }}</TableCell>
                 <TableCell>{{ patient.operations }}</TableCell>
 

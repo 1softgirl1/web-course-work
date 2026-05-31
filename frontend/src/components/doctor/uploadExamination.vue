@@ -339,19 +339,17 @@ onMounted(async () => {
                 :key="row.characteristicCode"
                 class="grid grid-cols-1 gap-2 rounded-lg border border-border bg-background p-3 md:grid-cols-12"
               >
-                <div class="md:col-span-5 flex items-end">
-                  <div class="flex flex-wrap items-center gap-2">
-                    <p class="text-sm font-medium text-foreground">
-                      {{ knownMetricByCode[row.characteristicCode]?.characteristicName || '—' }}
-                    </p>
-                    <Badge
-                      v-if="knownMetricByCode[row.characteristicCode]?.unit"
-                      variant="outline"
-                      class="text-xs"
-                    >
-                      {{ knownMetricByCode[row.characteristicCode]?.unit }}
-                    </Badge>
-                  </div>
+                <div class="md:col-span-5 flex flex-col justify-start gap-1.5 pt-1">
+                  <p class="text-sm font-medium leading-tight text-foreground break-words">
+                    {{ knownMetricByCode[row.characteristicCode]?.characteristicName || '—' }}
+                  </p>
+                  <Badge
+                    v-if="knownMetricByCode[row.characteristicCode]?.unit"
+                    variant="outline"
+                    class="text-xs w-fit"
+                  >
+                    {{ knownMetricByCode[row.characteristicCode]?.unit }}
+                  </Badge>
                 </div>
 
                 <div class="md:col-span-3">

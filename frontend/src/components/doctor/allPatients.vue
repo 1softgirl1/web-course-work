@@ -22,6 +22,7 @@ import TableRow from '@/components/ui/table/tableRow.vue'
 import { usePatientStore, type Patient } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
 import { toHumanErrorMessage } from '@/api/httpClient'
+import { formatYearsRu } from '@/lib/utils'
 
 import { Search, Download, Calendar, MapPin, Funnel, Plus } from 'lucide-vue-next'
 
@@ -253,7 +254,7 @@ onMounted(async () => {
             class="inline-block w-2.5 h-2.5 rounded-full"
             :class="getExamStatusDotClass('yellow')"
         />
-       <p>Обследование менее 3-6 месяцев назад</p>
+       <p>Обследование 3-6 месяцев назад</p>
      </div>
      <div class="flex items-center gap-2">
         <span
@@ -289,7 +290,7 @@ onMounted(async () => {
               </span>
             </div>
 
-            <p class="text-xs text-muted-foreground">Возраст: {{ patient.age }} лет</p>
+            <p class="text-xs text-muted-foreground">Возраст: {{ formatYearsRu(patient.age) }}</p>
             <p class="mt-1 text-sm text-muted-foreground wrap-break-word">Диагноз: {{ patient.diagnosis }}</p>
             <p class="mt-1 text-sm text-muted-foreground">Операции: {{ patient.operations }}</p>
             <p class="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
@@ -326,7 +327,7 @@ onMounted(async () => {
 
 
                 <TableCell>
-                  {{ patient.age }} лет
+                  {{ formatYearsRu(patient.age) }}
                 </TableCell>
 
                 <TableCell class="max-w-50 truncate">

@@ -16,6 +16,7 @@ import {
   User,
 } from 'lucide-vue-next'
 import type { Patient } from '@/stores/patientStore'
+import { formatYearsRu } from '@/lib/utils'
 
 const props = withDefaults(
   defineProps<{
@@ -36,6 +37,8 @@ const sexLabel = computed(() => {
   if (props.patient.sex === 'F') return 'Женский'
   return 'Не указано'
 })
+
+const operation = computed(() => props.patient.operationDetails[0] ?? null)
 
 const valveName = computed(() => props.patient.valve.name || 'Не указано')
 const valveSize = computed(() => props.patient.valve.size || 'Не указано')
@@ -77,7 +80,7 @@ const canShowPasswordBlock = computed(() => {
               <p class="text-sm text-muted-foreground">Дата рождения</p>
               <div class="flex items-baseline gap-2">
                 <p class="font-medium text-foreground">{{ birthDateLabel }}</p>
-                <p class="text-sm text-muted-foreground">{{ patient.age }} лет</p>
+                <p class="text-sm text-muted-foreground">{{ formatYearsRu(patient.age) }}</p>
               </div>
             </div>
           </div>
@@ -196,44 +199,30 @@ const canShowPasswordBlock = computed(() => {
         </div>
 
         <div>
-          <div class="flex items-start gap-3">
+          <div class="mb-3 flex items-start gap-3">
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10">
               <Activity class="h-5 w-5 text-red-500" />
             </div>
-            <div class="mb-5">
-              <p class="text-sm text-muted-foreground">Операции</p>
-              <p class="font-medium text-foreground">Всего операций: {{ patient.operations || 'Нет данных' }}</p>
+            <div>
+              <p class="text-sm text-muted-foreground">Операция</p>
+              <p class="font-medium text-foreground break-words">{{ operation?.name || 'Нет данных' }}</p>
             </div>
           </div>
 
-          <div v-if="patient.operationDetails.length > 0" class="space-y-3">
-            <div
-              v-for="(operation, index) in patient.operationDetails"
-              :key="`operation-${index}`"
-              class="rounded-xl border border-border/80 bg-muted/20 p-4"
-            >
+          <div v-if="operation" class="grid gap-2 sm:grid-cols-3">
+            <div class="rounded-lg bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">Наркоз</p>
+              <p class="text-sm font-medium text-foreground">{{ operation.anesthesia || 'Не указано' }}</p>
+            </div>
 
-              <div class="mb-3 flex items-center  gap-3">
-                <Badge variant="outline" class="text-xs">Операция {{ index + 1 }}</Badge>
-                <p class="font-semibold text-foreground break-words">{{ operation.name }}</p>
-              </div>
+            <div class="rounded-lg bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">Продолжительность</p>
+              <p class="text-sm font-medium text-foreground">{{ operation.duration || 'Не указано' }}</p>
+            </div>
 
-              <div class="grid gap-2 sm:grid-cols-3">
-                <div class="rounded-lg bg-background px-3 py-2">
-                  <p class="text-xs text-muted-foreground">Наркоз</p>
-                  <p class="text-sm font-medium text-foreground">{{ operation.anesthesia || 'Не указано' }}</p>
-                </div>
-
-                <div class="rounded-lg bg-background px-3 py-2">
-                  <p class="text-xs text-muted-foreground">Продолжительность</p>
-                  <p class="text-sm font-medium text-foreground">{{ operation.duration || 'Не указано' }}</p>
-                </div>
-
-                <div class="rounded-lg bg-background px-3 py-2">
-                  <p class="text-xs text-muted-foreground">Система доставки</p>
-                  <p class="text-sm font-medium text-foreground break-words">{{ operation.deliverySystem || 'Не указано' }}</p>
-                </div>
-              </div>
+            <div class="rounded-lg bg-background px-3 py-2">
+              <p class="text-xs text-muted-foreground">Система доставки</p>
+              <p class="text-sm font-medium text-foreground break-words">{{ operation.deliverySystem || 'Не указано' }}</p>
             </div>
           </div>
           <p v-else class="text-sm text-muted-foreground">Нет данных</p>
