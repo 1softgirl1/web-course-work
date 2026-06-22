@@ -1,14 +1,15 @@
 services:
   backend:
-    container_name: ${PREFIX_NAME}-backend
+    container_name: registry-backend
     build:
-      context: ../backend
+      context: ./backend
       dockerfile: Dockerfile
     environment:
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
       DB_USERNAME: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
+      SPRING_PROFILES_ACTIVE: ${ACTIVE_PROFILE:-prod}
+      JWT_SECRET: ${JWT_SECRET:-web-course-work-super-secret-jwt-key-please-change}
       JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-PT15M}
       JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL:-PT720H}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:*,http://127.0.0.1:*}
@@ -16,7 +17,7 @@ services:
       - app-network
       - nginx-external
     expose:
-      - "8080"
+      - '8080'
     depends_on:
       front-builder:
         condition: service_completed_successfully
@@ -26,74 +27,85 @@ services:
 
   postgres:
     image: postgres:17
-    container_name: ${PREFIX_NAME}-postgres
+    container_name: registry-postgres
     environment:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     networks:
+      # nginx-external — чтобы центральный nginx (stream) дотягивался до БД по имени
       - app-network
+      - nginx-external
     expose:
-      - "5432"
+      - '5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
     restart: unless-stopped
 
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: ${PREFIX_NAME}-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
-      PGADMIN_CONFIG_SERVER_MODE: "False"
-      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
-      SCRIPT_NAME: /db/admin
-    networks:
-      - app-network
-      - nginx-external
-    expose:
-      - "80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
+#  pgadmin:
+#    image: dpage/pgadmin4
+#    container_name: registry-pgadmin
+#    environment:
+#      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
+#      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+#      PGADMIN_CONFIG_SERVER_MODE: False
+#      SCRIPT_NAME: ${PGADMIN_SCRIPT_NAME:-/db/admin}
+#    networks:
+#      - app-network
+#      - nginx-external
+#    expose:
+#      - '80'
+#    volumes:
+#      - type: volume
+#        source: pgadmin-data
+#        target: /var/lib/pgadmin
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#    restart: unless-stopped
+#    deploy:
+#      resources:
+#        limits:
+#          cpus: '0.25'
+#          memory: 256M
 
   front-builder:
-    container_name: ${PREFIX_NAME}-frontend-builder
+    container_name: registry-frontend-builder
+    environment:
+      VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://test.duvanoff.su}
     build:
-      context: ../frontend
+      context: ./frontend
       dockerfile: Dockerfile
       target: build
       args:
-        VITE_API_BASE_URL: ""
         VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
-    environment:
-      VITE_API_BASE_URL: ""
-      VITE_BASE_PATH: ${VITE_BASE_PATH:-/}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost}
     volumes:
-      - web-data:/app/dist
-    command: ["npm", "run", "build"]
+      - type: volume
+        source: web-data
+        target: /app/web-data
+    command: [ 'sh', '-c', 'npm run build && rm -rf /app/web-data/registry && cp -r /app/dist/. /app/web-data/registry' ]
 
 networks:
   app-network:
-    name: ${COMMON_NAME}_${PREFIX_NAME}-app-network
   nginx-external:
     external: true
     name: ${COMMON_NAME}_nginx-network
 
 volumes:
   postgres-data:
-    name: ${COMMON_NAME}_${PREFIX_NAME}-postgres-data
+    name: ${COMMON_NAME}_registry-postgres-data
   pgadmin-data:
-    name: ${COMMON_NAME}_${PREFIX_NAME}-pgadmin-data
+    name: ${COMMON_NAME}_registry-pgadmin-data
   web-data:
     external: true
     name: ${COMMON_NAME}_web-data
