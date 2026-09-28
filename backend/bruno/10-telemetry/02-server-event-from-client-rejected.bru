@@ -1,0 +1,27 @@
+meta {
+  name: 02 server event from client rejected
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/telemetry/events
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{telemetryDoctorToken}}
+}
+
+body:json {
+  {
+    "eventName": "patient_created"
+  }
+}
+
+tests {
+  test("server-only event cannot be sent by client", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

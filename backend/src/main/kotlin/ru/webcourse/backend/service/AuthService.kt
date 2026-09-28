@@ -17,6 +17,10 @@ import ru.webcourse.backend.domain.UserRole
 import ru.webcourse.backend.repository.DoctorProfileRepository
 import ru.webcourse.backend.repository.PatientProfileRepository
 import ru.webcourse.backend.repository.UserRepository
+import ru.webcourse.backend.telemetry.Telemetry
+import ru.webcourse.backend.telemetry.TelemetryEvent
+import java.time.Duration
+import java.time.Instant
 
 @Service
 class AuthService(
@@ -26,16 +30,46 @@ class AuthService(
     private val passwordEncoder: PasswordEncoder,
     private val jwtService: JwtService,
     private val refreshTokenService: RefreshTokenService,
+    private val telemetry: Telemetry,
 ) {
 
     @Transactional
     fun login(request: LoginRequest): AuthResponse {
         val username = request.username.trim()
-        return if ('@' in username) {
-            loginDoctorByEmail(username, request.password)
-        } else {
-            loginPatientByCode(username, request.password)
+        val loginType = if ('@' in username) "doctor" else "patient"
+        val response = try {
+            if (loginType == "doctor") {
+                loginDoctorByEmail(username, request.password)
+            } else {
+                loginPatientByCode(username, request.password)
+            }
+        } catch (exception: RuntimeException) {
+            val reasonCode = when (exception) {
+                is InvalidCredentialsException -> "invalid_credentials"
+                is AccessDeniedException -> "inactive"
+                else -> throw exception
+            }
+            // Written right away (the transaction rolls back); the raw login is never stored.
+            telemetry.record(
+                TelemetryEvent.LOGIN_FAILED,
+                result = "failed",
+                metadata = mapOf("reason_code" to reasonCode, "login_type" to loginType),
+                actor = null,
+                afterCommit = false,
+            )
+            throw exception
         }
+
+        telemetry.record(
+            TelemetryEvent.LOGIN_SUCCESS,
+            entityType = "user",
+            entityId = response.user.id,
+            metadata = mapOf("login_type" to loginType),
+            actorUserId = response.user.id,
+            actorRole = response.user.role,
+            sessionId = jwtService.parseAccessToken(response.accessToken).sessionId,
+        )
+        return response
     }
 
     @Transactional
@@ -51,7 +85,18 @@ class AuthService(
 
     @Transactional
     fun logout(request: RefreshTokenRequest) {
-        refreshTokenService.revoke(request.refreshToken.trim())
+        val session = refreshTokenService.revoke(request.refreshToken.trim()) ?: return
+        telemetry.record(
+            TelemetryEvent.LOGOUT,
+            entityType = "user",
+            entityId = session.user.id,
+            metadata = mapOf(
+                "session_duration_sec" to Duration.between(session.sessionStartedAt, Instant.now()).seconds,
+            ),
+            actorUserId = session.user.id,
+            actorRole = session.user.role.name,
+            sessionId = session.sessionId.toString(),
+        )
     }
 
     @Transactional
@@ -89,6 +134,12 @@ class AuthService(
             }
         }
 
+        telemetry.record(
+            TelemetryEvent.PASSWORD_CHANGED,
+            entityType = "user",
+            entityId = updatedUser.id,
+            metadata = mapOf("changed_by" to "self", "other_sessions_revoked" to true),
+        )
         return issueTokens(updatedUser, rotated.newToken)
     }
 
@@ -138,6 +189,7 @@ class AuthService(
             passwordHash = user.passwordHash,
             role = user.role.name,
             status = user.status,
+            sessionId = refreshToken.loginSessionId.toString(),
         )
         val accessToken = jwtService.generateAccessToken(principal)
         val authUser = buildAuthUser(user)

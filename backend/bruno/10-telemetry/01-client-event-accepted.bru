@@ -1,0 +1,31 @@
+meta {
+  name: 01 client event accepted
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/telemetry/events
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+  Authorization: Bearer {{telemetryDoctorToken}}
+}
+
+body:json {
+  {
+    "eventName": "dashboard_opened",
+    "routeTemplate": "/doctor/myPatients",
+    "frontendVersion": "bruno",
+    "metadata": { "tab": "my", "diagnosis": "must be dropped" }
+  }
+}
+
+tests {
+  test("whitelisted client event returns 202 with request id", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(res.getHeader("x-request-id")).to.be.a("string");
+  });
+}

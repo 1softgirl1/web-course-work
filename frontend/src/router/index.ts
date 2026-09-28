@@ -18,6 +18,7 @@ import doctorProfileAdmin from "../components/doctor/doctorProfileAdmin.vue"
 import addPatient from "../components/doctor/addPatient.vue"
 import addDoctor from "../components/doctor/addDoctor.vue"
 import doctorCard from "@/components/doctor/doctorCard.vue";
+import telemetryStats from "@/components/doctor/telemetryStats.vue";
 
 const routes = [
     { path: '/', component: Main },
@@ -50,6 +51,7 @@ const routes = [
             { path: 'patientCard/:code', component: doctorPatientCard },
             { path: 'patientCard/:code/addExamination', component: uploadExamination },
             { path: 'doctorCard', component: doctorCard},
+            { path: 'telemetry', component: telemetryStats, meta: { roles: ['DOCTOR_EXTENDED'] } },
 
         ],
     },

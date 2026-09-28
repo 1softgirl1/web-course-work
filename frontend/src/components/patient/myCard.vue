@@ -6,6 +6,7 @@ import { usePatientStore } from '@/stores/patientStore'
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import { toHumanErrorMessage } from '@/api/httpClient'
+import { trackPageLoadFailed } from '@/api/telemetry'
 
 const patientStore = usePatientStore()
 const authStore = useAuthStore()
@@ -24,6 +25,7 @@ onMounted(async () => {
     await patientStore.loadCurrentPatientCard()
   } catch (error) {
     loadError.value = toHumanErrorMessage(error)
+    trackPageLoadFailed('patient_card', route.matched.at(-1)?.path, error)
   }
 })
 </script>

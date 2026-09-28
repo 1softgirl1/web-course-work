@@ -161,6 +161,7 @@ export interface PatientSummaryResponse {
   sex: PatientSex
   diagnosis: string
   regionId: number
+  regionName: string
   operationPlace: string
   observationPlace: string
   coronaryAnatomy: string

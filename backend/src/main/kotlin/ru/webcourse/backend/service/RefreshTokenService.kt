@@ -11,6 +11,7 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.time.Instant
 import java.util.Base64
+import java.util.UUID
 
 @Service
 class RefreshTokenService(
@@ -19,11 +20,18 @@ class RefreshTokenService(
 ) {
 
     @Transactional
-    fun issue(user: UserEntity, now: Instant = Instant.now()): IssuedRefreshToken {
+    fun issue(
+        user: UserEntity,
+        now: Instant = Instant.now(),
+        sessionId: UUID = UUID.randomUUID(),
+        sessionStartedAt: Instant = now,
+    ): IssuedRefreshToken {
         val rawToken = generateRawToken()
         val session = refreshTokenSessionRepository.save(
             RefreshTokenSessionEntity(
                 user = user,
+                sessionId = sessionId,
+                sessionStartedAt = sessionStartedAt,
                 tokenHash = hashToken(rawToken),
                 expiresAt = now.plus(jwtProperties.refreshTokenTtl),
                 createdAt = now,
@@ -33,6 +41,7 @@ class RefreshTokenService(
 
         return IssuedRefreshToken(
             sessionId = session.id,
+            loginSessionId = session.sessionId,
             token = rawToken,
             expiresAt = session.expiresAt,
         )
@@ -66,7 +75,7 @@ class RefreshTokenService(
         validateUser(session.user)
         session.revoke(now)
 
-        val newToken = issue(session.user, now)
+        val newToken = issue(session.user, now, session.sessionId, session.sessionStartedAt)
         return RotatedRefreshToken(
             revokedSession = session,
             newToken = newToken,
@@ -96,12 +105,13 @@ class RefreshTokenService(
         return rotated
     }
 
+    /** Returns the session that was active before this call, or null if the token was unknown or already revoked. */
     @Transactional
-    fun revoke(rawToken: String, now: Instant = Instant.now()) {
-        val session = refreshTokenSessionRepository.findByTokenHashForUpdate(hashToken(rawToken)) ?: return
-        if (session.revokedAt == null) {
-            session.revoke(now)
-        }
+    fun revoke(rawToken: String, now: Instant = Instant.now()): RefreshTokenSessionEntity? {
+        val session = refreshTokenSessionRepository.findByTokenHashForUpdate(hashToken(rawToken)) ?: return null
+        if (session.revokedAt != null) return null
+        session.revoke(now)
+        return session
     }
 
     @Transactional
@@ -131,6 +141,7 @@ class RefreshTokenService(
 
 data class IssuedRefreshToken(
     val sessionId: Long,
+    val loginSessionId: UUID,
     val token: String,
     val expiresAt: Instant,
 )

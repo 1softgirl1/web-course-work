@@ -7,6 +7,7 @@ import {
   User,
   Stethoscope,
   Globe,
+  BarChart3,
   LogOut,
   Menu,
   X,
@@ -28,6 +29,7 @@ const doctorNavigation = [
 const doctorExtendedNavigation = [
   { name: 'Все пациенты', href: '/doctor/allPatients', icon: Globe },
   { name: 'Все врачи', href: '/doctor/allDoctors', icon: Stethoscope },
+  { name: 'Статистика', href: '/doctor/telemetry', icon: BarChart3 },
   { name: 'Моя карточка', href: '/doctor/doctorCard', icon: User },
 ]
 
@@ -59,6 +61,7 @@ const resolveActiveHref = () => {
   if (route.path.startsWith('/doctor/myPatients')) return '/doctor/myPatients'
   if (route.path.startsWith('/doctor/allDoctors')) return '/doctor/allDoctors'
   if (route.path.startsWith('/doctor/doctorCard')) return '/doctor/doctorCard'
+  if (route.path.startsWith('/doctor/telemetry')) return '/doctor/telemetry'
 
   if (route.path.startsWith('/doctor/patientCard/')) {
     if (route.query.from === 'allPatients') return '/doctor/allPatients'

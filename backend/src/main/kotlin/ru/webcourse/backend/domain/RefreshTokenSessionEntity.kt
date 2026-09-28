@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.PreUpdate
 import jakarta.persistence.Table
 import java.time.Instant
+import java.util.UUID
 
 @Entity
 @Table(name = "refresh_tokens")
@@ -31,6 +32,12 @@ class RefreshTokenSessionEntity(
 
     @Column(name = "revoked_at")
     var revokedAt: Instant? = null,
+
+    @Column(name = "session_id", nullable = false)
+    val sessionId: UUID = UUID.randomUUID(),
+
+    @Column(name = "session_started_at", nullable = false)
+    val sessionStartedAt: Instant = Instant.now(),
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),

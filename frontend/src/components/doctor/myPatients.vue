@@ -1,6 +1,7 @@
 ﻿<script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { track, trackPageLoadFailed, createDebouncedTracker } from '@/api/telemetry'
 import Card from '@/components/ui/card.vue'
 import Button from '@/components/ui/button.vue'
 import Input from '@/components/ui/input.vue'
@@ -27,6 +28,12 @@ const patientStore = usePatientStore()
 const route = useRoute()
 const router = useRouter()
 const loadError = ref('')
+const trackFiltersLater = createDebouncedTracker()
+const trackSearchLater = createDebouncedTracker()
+const activeFilterTypes = () => [
+  searchQuery.value.trim() ? 'search' : '',
+  diagnosisQuery.value !== 'all' ? 'diagnosis' : '',
+].filter(Boolean)
 
 const getQueryString = (key: string, fallback: string): string => {
   const value = route.query[key]
@@ -92,6 +99,29 @@ const pageNumbers = computed<number[]>(() => {
   return Array.from({ length: totalPages.value }, (_, index) => index + 1)
 })
 
+// Only which filters are set and how many rows remain: search text and diagnosis values stay local.
+watch([searchQuery, diagnosisQuery], () => {
+  const filterTypes = activeFilterTypes()
+  if (filterTypes.length === 0) return
+  const query = searchQuery.value.trim()
+  if (query) {
+    // Search text itself stays in the browser: it may be a diagnosis or a patient code.
+    trackSearchLater('search_used', {
+      routeTemplate: route.matched.at(-1)?.path,
+      metadata: { tab: 'my', query_length: query.length, result_count: filteredData.value.length },
+    })
+  }
+  trackFiltersLater('patient_filter_applied', {
+    routeTemplate: route.matched.at(-1)?.path,
+    metadata: {
+      tab: 'my',
+      filter_types: filterTypes.join(','),
+      filters_count: filterTypes.length,
+      result_count: filteredData.value.length,
+    },
+  })
+})
+
 watch([searchQuery, diagnosisQuery], () => {
   currentPage.value = 1
 })
@@ -134,8 +164,10 @@ const openPatientCard = (code: string) => {
 onMounted(async () => {
   try {
     await patientStore.loadPatients('own')
+    track('dashboard_opened', { routeTemplate: route.matched.at(-1)?.path, metadata: { tab: 'my' } })
   } catch (error) {
     loadError.value = toHumanErrorMessage(error)
+    trackPageLoadFailed('doctor_my_patients', route.matched.at(-1)?.path, error)
   }
 })
 </script>

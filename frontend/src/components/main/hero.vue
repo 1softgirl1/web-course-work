@@ -7,6 +7,7 @@ import { RegionsStore, CITY_TO_REGION } from "../../stores/regionsStore.ts"
 import { ShieldCheck, User, Phone, Mail, MapPin, LucideHospital, Stethoscope, LogIn } from "lucide-vue-next"
 import RegionModal from "@/components/main/regionModal.vue"
 import RegionConfirmModal from "@/components/main/regionConfirmModal.vue"
+import { track } from "@/api/telemetry"
 
 const TEXTS = {
   badge: "Медицинский регистр пациентов",
@@ -90,6 +91,9 @@ const applySelectedRegion = (region: Region) => {
   noCardioCenterMessage.value = region.clinics.length
     ? ""
     : `В регионе ${region.name} пока нет кардиоцентра. Пожалуйста, выберите другой регион.`
+  track("regional_contacts_shown", {
+    metadata: { region_code: region.id, has_center: region.clinics.length > 0, centers_count: region.clinics.length },
+  })
 }
 
 const detectRegionByBrowserGeolocation = async (): Promise<Region | null> => {
@@ -131,6 +135,7 @@ const detectRegionByBrowserGeolocation = async (): Promise<Region | null> => {
 
 // Обработчик выбора региона из модалки
 const handleRegionSelect = (region: Region) => {
+  track("public_region_selected_manual", { metadata: { region_code: region.id } })
   applySelectedRegion(region)
   openModal.value = false
 }
@@ -147,6 +152,7 @@ const handleConfirmDetectedRegion = () => {
     return
   }
 
+  track("public_region_confirmed", { metadata: { region_code: detectedRegion.value.id } })
   applySelectedRegion(detectedRegion.value)
   openConfirmModal.value = false
 }
@@ -176,6 +182,10 @@ onMounted(async () => {
     : `В регионе ${defaultRegion.name} пока нет кардиоцентра. Пожалуйста, выберите другой регион.`
 
   const geoRegion = await detectRegionByBrowserGeolocation()
+  // Only the matched public region code: coordinates and address never leave the browser.
+  track("public_region_detected", {
+    metadata: { method: "browser_geo", result: geoRegion ? "found" : "not_found", ...(geoRegion ? { region_code: geoRegion.id } : {}) },
+  })
   if (geoRegion) {
     detectedRegion.value = geoRegion
     openConfirmModal.value = true
@@ -211,11 +221,11 @@ onMounted(async () => {
 
         <div class="gap-4 sm:flex sm:justify-center">
 
-          <RouterLink to="/login?role=doctor" class="block sm:inline-block">
+          <RouterLink to="/login?role=doctor" class="block sm:inline-block" @click="track('public_login_clicked', { metadata: { role_hint: 'doctor', placement: 'hero' } })">
             <Button variant="outline" size="lg" class=" mb-8 w-full sm:w-auto"><Stethoscope class="mr-2 h-4 w-4" /> {{ TEXTS.doctorBtn }}</Button>
           </RouterLink>
 
-          <RouterLink to="/login?role=patient" class="block sm:inline-block">
+          <RouterLink to="/login?role=patient" class="block sm:inline-block" @click="track('public_login_clicked', { metadata: { role_hint: 'patient', placement: 'hero' } })">
             <Button   size="lg" class="mb-8 w-full sm:w-auto"><User class="mr-2 h-4 w-4" /> {{ TEXTS.patientBtn }}</Button>
           </RouterLink>
         </div>

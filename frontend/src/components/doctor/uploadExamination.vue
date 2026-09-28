@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { track, trackFormValidation } from '@/api/telemetry'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import Card from '@/components/ui/card.vue'
@@ -163,16 +164,19 @@ const showMetricValidationError = (error: unknown) => {
 
   if (error.message === 'METRIC_VALUE_INVALID') {
     formError.value = 'Если показатель заполнен, значение должно быть числом.'
+    trackFormValidation('examination', ['measurements.value'])
     return
   }
 
   if (error.message === 'METRIC_CODE_DUPLICATE' || error.message.startsWith('METRIC_DUPLICATE:')) {
     formError.value = 'Коды показателей не должны повторяться.'
+    trackFormValidation('examination', ['measurements.characteristicCode'])
     return
   }
 
   if (error.message === 'METRICS_REQUIRED') {
     formError.value = 'Добавьте минимум один показатель.'
+    trackFormValidation('examination', ['measurements'])
     return
   }
 
@@ -185,6 +189,7 @@ const handleSubmit = async (e: Event) => {
 
   if (!examDate.value) {
     formError.value = 'Заполните обязательное поле: дату обследования.'
+    trackFormValidation('examination', ['examDate'])
     return
   }
 
@@ -214,6 +219,7 @@ const handleSubmit = async (e: Event) => {
 
   if (!editingExam.value && metrics.length === 0) {
     formError.value = 'Добавьте минимум один показатель.'
+    trackFormValidation('examination', ['measurements'])
     return
   }
 
@@ -248,6 +254,11 @@ onMounted(async () => {
   try {
     await patientStore.loadPatientCardByCode(patientCode.value)
     await examinationStore.loadByPatientCode(patientCode.value)
+    track('examination_form_opened', {
+      patientId: patientStore.resolvePatientIdByCode(patientCode.value),
+      routeTemplate: route.matched.at(-1)?.path,
+      metadata: { source: 'patient_card', mode: editingExam.value ? 'edit' : 'new' },
+    })
     hydrateFormFromEditing()
     loadError.value = ''
   } catch {

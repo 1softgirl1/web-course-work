@@ -1,5 +1,7 @@
 ﻿<script setup lang="ts">
-import { computed, ref, useSlots } from 'vue'
+import { computed, ref, useSlots, watch } from 'vue'
+import { track } from '@/api/telemetry'
+import { usePatientStore } from '@/stores/patientStore'
 import Card from '@/components/ui/card.vue'
 import Badge from '@/components/ui/badge.vue'
 import Dialog from '@/components/ui/dialog.vue'
@@ -45,6 +47,13 @@ const valveSize = computed(() => props.patient.valve.size || 'Не указан�
 const valveMaterial = computed(() => props.patient.valve.material || 'Не указано')
 
 const isRegionChangeOpen = ref(false)
+watch(isRegionChangeOpen, open => {
+  if (!open) return
+  track('patient_move_clicked', {
+    patientId: usePatientStore().resolvePatientIdByCode(props.patient.code),
+    metadata: { source: 'patient_lk' },
+  })
+})
 const isPasswordModalOpen = ref(false)
 const slots = useSlots()
 

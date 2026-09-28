@@ -2,6 +2,7 @@ package ru.webcourse.backend.api
 
 import io.swagger.v3.oas.annotations.media.Schema
 import jakarta.validation.ConstraintViolationException
+import org.slf4j.LoggerFactory
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -10,15 +11,20 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.validation.FieldError
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
+import org.springframework.web.ErrorResponse
 import org.springframework.web.bind.annotation.RestControllerAdvice
 import ru.webcourse.backend.error.ApiErrorResponse
 import ru.webcourse.backend.service.ConflictException
 import ru.webcourse.backend.service.InvalidCredentialsException
 import ru.webcourse.backend.service.NotFoundException
+import ru.webcourse.backend.telemetry.Telemetry
+import ru.webcourse.backend.telemetry.TelemetryEvent
 import java.time.OffsetDateTime
 
 @RestControllerAdvice
-class ApiExceptionHandler {
+class ApiExceptionHandler(
+    private val telemetry: Telemetry,
+) {
 
     @ExceptionHandler(NotFoundException::class)
     fun handleNotFound(exception: NotFoundException): ResponseEntity<ApiErrorResponse> =
@@ -47,6 +53,7 @@ class ApiExceptionHandler {
             val message = error.defaultMessage ?: "Invalid value"
             "$field: $message"
         }
+        recordValidationError(exception.bindingResult.fieldErrors.map { it.field })
 
         return buildError(
             status = HttpStatus.BAD_REQUEST,
@@ -56,30 +63,60 @@ class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ConstraintViolationException::class)
-    fun handleConstraintViolation(exception: ConstraintViolationException): ResponseEntity<ApiErrorResponse> =
-        buildError(
+    fun handleConstraintViolation(exception: ConstraintViolationException): ResponseEntity<ApiErrorResponse> {
+        recordValidationError(exception.constraintViolations.map { it.propertyPath.toString().substringAfterLast('.') })
+        return buildError(
             status = HttpStatus.BAD_REQUEST,
             message = "Validation failed",
             details = exception.constraintViolations.map { violation ->
                 "${violation.propertyPath}: ${violation.message}"
             },
         )
+    }
 
     @ExceptionHandler(HttpMessageNotReadableException::class)
-    fun handleUnreadableMessage(exception: HttpMessageNotReadableException): ResponseEntity<ApiErrorResponse> =
-        buildError(
+    fun handleUnreadableMessage(exception: HttpMessageNotReadableException): ResponseEntity<ApiErrorResponse> {
+        recordValidationError(emptyList())
+        return buildError(
             status = HttpStatus.BAD_REQUEST,
             message = "Validation failed",
             details = listOf(exception.mostSpecificCause.message ?: "Malformed request body"),
         )
+    }
 
     @ExceptionHandler(IllegalArgumentException::class)
-    fun handleIllegalArgument(exception: IllegalArgumentException): ResponseEntity<ApiErrorResponse> =
-        buildError(HttpStatus.BAD_REQUEST, exception.message ?: "Validation failed")
+    fun handleIllegalArgument(exception: IllegalArgumentException): ResponseEntity<ApiErrorResponse> {
+        recordValidationError(emptyList())
+        return buildError(HttpStatus.BAD_REQUEST, exception.message ?: "Validation failed")
+    }
 
     @ExceptionHandler(IllegalStateException::class)
     fun handleIllegalState(exception: IllegalStateException): ResponseEntity<ApiErrorResponse> =
         buildError(HttpStatus.INTERNAL_SERVER_ERROR, exception.message ?: "Internal error")
+
+    /** Unhandled errors: uniform body without internals; details stay in the log under the request id. */
+    @ExceptionHandler(Exception::class)
+    fun handleUnexpected(exception: Exception): ResponseEntity<ApiErrorResponse> {
+        // Spring MVC's own exceptions (404 no handler, 405, type mismatch...) keep their status.
+        if (exception is ErrorResponse) {
+            val status = HttpStatus.valueOf(exception.statusCode.value())
+            return buildError(status, exception.body.detail ?: status.reasonPhrase)
+        }
+        logger.error("Unhandled API error", exception)
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal error")
+    }
+
+    // Field codes and counts only, never the submitted values.
+    private fun recordValidationError(fieldCodes: List<String>) {
+        telemetry.record(
+            TelemetryEvent.VALIDATION_ERROR,
+            result = "validation_error",
+            metadata = mapOf(
+                "field_codes" to fieldCodes.distinct().sorted().joinToString(",").take(255),
+                "errors_count" to fieldCodes.size.coerceAtLeast(1),
+            ),
+        )
+    }
 
     private fun buildError(
         status: HttpStatus,
@@ -94,4 +131,8 @@ class ApiExceptionHandler {
             timestamp = OffsetDateTime.now(),
         )
     )
+
+    private companion object {
+        val logger = LoggerFactory.getLogger(ApiExceptionHandler::class.java)
+    }
 }

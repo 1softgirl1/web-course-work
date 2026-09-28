@@ -208,6 +208,8 @@ data class PatientSummaryResponse(
     val diagnosis: String,
     @field:Schema(description = "Идентификатор региона.", example = "1")
     val regionId: Long,
+    @field:Schema(description = "Название региона.", example = "Алтайский край")
+    val regionName: String,
     @field:Schema(description = "Место проведения операции.", example = "НМИЦ им. Е.Н. Мешалкина")
     val operationPlace: String,
     @field:Schema(description = "Место постоянного наблюдения.", example = "Городская детская поликлиника №1")

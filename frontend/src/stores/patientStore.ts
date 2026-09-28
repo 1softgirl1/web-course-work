@@ -424,25 +424,7 @@ const loadPatients = async (scope: 'own' | 'all' = 'own') => {
       page += 1
     }
 
-    const missingRegionSamples = new Map<number, PatientSummaryResponse>()
-    summaries.forEach(summary => {
-      if (!state.regionNamesById[summary.regionId] && !missingRegionSamples.has(summary.regionId)) {
-        missingRegionSamples.set(summary.regionId, summary)
-      }
-    })
-
-    for (const sample of missingRegionSamples.values()) {
-      try {
-        const card = await patientsApi.getPatientCard(sample.id)
-        state.cardsByCode[card.patientCode] = card
-        state.patientIdsByCode[card.patientCode] = card.id
-        rememberRegionName(card.regionId, card.regionName)
-      } catch (error) {
-        if (!(error instanceof ApiClientError && (error.status === 403 || error.status === 404))) {
-          throw error
-        }
-      }
-    }
+    summaries.forEach(summary => rememberRegionName(summary.regionId, summary.regionName))
 
     const mapped = summaries.map(toPatientFromSummary)
     const nextPatientIdsByCode: Record<string, number> = { ...state.patientIdsByCode }
@@ -488,25 +470,7 @@ const loadKnownRegionsFromDoctorPatients = async () => {
     page += 1
   }
 
-  const missingRegionSamples = new Map<number, PatientSummaryResponse>()
-  summaries.forEach(summary => {
-    if (!state.regionNamesById[summary.regionId] && !missingRegionSamples.has(summary.regionId)) {
-      missingRegionSamples.set(summary.regionId, summary)
-    }
-  })
-
-  for (const sample of missingRegionSamples.values()) {
-    try {
-      const card = await patientsApi.getPatientCard(sample.id)
-      state.cardsByCode[card.patientCode] = card
-      state.patientIdsByCode[card.patientCode] = card.id
-      rememberRegionName(card.regionId, card.regionName)
-    } catch (error) {
-      if (!(error instanceof ApiClientError && (error.status === 403 || error.status === 404))) {
-        throw error
-      }
-    }
-  }
+  summaries.forEach(summary => rememberRegionName(summary.regionId, summary.regionName))
 
   persistPatientIdsCache()
 }

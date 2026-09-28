@@ -20,6 +20,8 @@ import ru.webcourse.backend.domain.UserStatus
 import ru.webcourse.backend.repository.DoctorProfileRepository
 import ru.webcourse.backend.repository.RegionRepository
 import ru.webcourse.backend.repository.UserRepository
+import ru.webcourse.backend.telemetry.Telemetry
+import ru.webcourse.backend.telemetry.TelemetryEvent
 
 @Service
 class DoctorService(
@@ -29,6 +31,7 @@ class DoctorService(
     private val passwordEncoder: PasswordEncoder,
     private val credentialsGenerator: PatientCredentialsGenerator,
     private val refreshTokenService: RefreshTokenService,
+    private val telemetry: Telemetry,
 ) {
 
     @Transactional
@@ -61,6 +64,12 @@ class DoctorService(
             )
         )
 
+        telemetry.record(
+            TelemetryEvent.DOCTOR_CREATED,
+            entityType = ENTITY_DOCTOR,
+            entityId = doctor.id,
+            metadata = mapOf("doctor_user_id" to user.id, "region_id" to region.id, "role" to request.role.name),
+        )
         return CreatedDoctorResponse(
             doctor = doctor.toDoctorResponse(),
             temporaryPassword = temporaryPassword,
@@ -142,6 +151,20 @@ class DoctorService(
                 .orElseThrow { NotFoundException("Region with id=$regionId was not found") }
         } ?: doctor.region
 
+        // Diff before saving: merge copies the new state into the managed `doctor`, so afterwards old == new.
+        val oldRegionId = doctor.region.id
+        val changedCodes = listOfNotNull(
+            "username".takeIf { updatedUsername != doctor.user.username },
+            "role".takeIf { updatedRole != doctor.user.role },
+            "status".takeIf { updatedStatus != doctor.user.status },
+            "lastName".takeIf { request.lastName != null && request.lastName.trim() != doctor.lastName },
+            "firstName".takeIf { request.firstName != null && request.firstName.trim() != doctor.firstName },
+            "middleName".takeIf { request.middleName != null && request.middleName.trim().ifBlank { null } != doctor.middleName },
+            "specialization".takeIf { request.specialization != null && request.specialization.trim() != doctor.specialization },
+            "workplace".takeIf { request.workplace != null && request.workplace.trim() != doctor.workplace },
+            "regionId".takeIf { updatedRegion.id != oldRegionId },
+        )
+
         val updatedUser = userRepository.save(
             UserEntity(
                 id = doctor.user.id,
@@ -167,6 +190,24 @@ class DoctorService(
             )
         )
 
+        telemetry.record(
+            TelemetryEvent.DOCTOR_PROFILE_UPDATED,
+            entityType = ENTITY_DOCTOR,
+            entityId = updatedDoctor.id,
+            metadata = mapOf(
+                "doctor_user_id" to updatedUser.id,
+                "changed_field_codes" to changedCodes.joinToString(","),
+                "changed_fields_count" to changedCodes.size,
+            ),
+        )
+        if (updatedRegion.id != oldRegionId) {
+            telemetry.record(
+                TelemetryEvent.DOCTOR_REGION_CHANGED,
+                entityType = ENTITY_DOCTOR,
+                entityId = updatedDoctor.id,
+                metadata = mapOf("doctor_user_id" to updatedUser.id, "from_region_id" to oldRegionId, "to_region_id" to updatedRegion.id),
+            )
+        }
         return updatedDoctor.toDoctorResponse()
     }
 
@@ -188,6 +229,12 @@ class DoctorService(
             )
         )
         refreshTokenService.revokeAllForUser(updatedUser.id)
+        telemetry.record(
+            TelemetryEvent.PASSWORD_CHANGED,
+            entityType = "user",
+            entityId = updatedUser.id,
+            metadata = mapOf("changed_by" to "admin_reset", "target_role" to updatedUser.role.name),
+        )
 
         return DoctorPasswordResetResponse(
             id = doctor.id,
@@ -273,4 +320,8 @@ class DoctorService(
             regionId = region.id,
             regionName = region.name,
         )
+
+    private companion object {
+        const val ENTITY_DOCTOR = "doctor_profile"
+    }
 }

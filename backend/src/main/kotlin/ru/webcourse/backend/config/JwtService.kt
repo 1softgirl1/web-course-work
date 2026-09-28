@@ -25,6 +25,7 @@ class JwtService(
             .subject(principal.id.toString())
             .claim(CLAIM_ROLE, principal.role)
             .claim(CLAIM_USERNAME, principal.authUsername)
+            .apply { principal.sessionId?.let { claim(CLAIM_SESSION_ID, it) } }
             .issuedAt(Date.from(issuedAt))
             .expiration(Date.from(expiresAt))
             .signWith(signingKey)
@@ -50,6 +51,7 @@ class JwtService(
         userId = subject.toLong(),
         role = get(CLAIM_ROLE, String::class.java),
         username = get(CLAIM_USERNAME, String::class.java),
+        sessionId = get(CLAIM_SESSION_ID, String::class.java),
     )
 
     private fun buildSigningKey(rawSecret: String): SecretKey {
@@ -63,6 +65,7 @@ class JwtService(
     companion object {
         private const val CLAIM_ROLE = "role"
         private const val CLAIM_USERNAME = "username"
+        private const val CLAIM_SESSION_ID = "sid"
     }
 }
 
@@ -75,4 +78,5 @@ data class JwtTokenPayload(
     val userId: Long,
     val role: String,
     val username: String,
+    val sessionId: String? = null,
 )

@@ -1,4 +1,5 @@
 <script setup lang="ts" >
+import { trackFormValidation } from '@/api/telemetry'
 import { computed, onMounted, ref } from "vue"
 import { useRoute } from 'vue-router'
 import Card from "@/components/ui/card.vue";
@@ -147,12 +148,14 @@ const handleSubmit = async (e: Event) => {
     !coronaryAnatomy.value.trim()
   ) {
     formError.value = 'Заполните обязательные поля: дату рождения, пол, регион, диагноз, места операции/наблюдения и коронарную анатомию.'
+    trackFormValidation('create_patient', ['required'])
     return
   }
 
   const parsedRegionId = Number.parseInt(regionId.value, 10)
   if (!Number.isFinite(parsedRegionId) || parsedRegionId <= 0) {
     formError.value = 'Некорректный регион.'
+    trackFormValidation('create_patient', ['regionId'])
     return
   }
 
@@ -171,6 +174,7 @@ const handleSubmit = async (e: Event) => {
 
   if (hasPartiallyFilledOperation) {
     formError.value = 'Заполните все параметры операции или удалите незаполненную запись.'
+    trackFormValidation('create_patient', ['operationParameters'])
     return
   }
 

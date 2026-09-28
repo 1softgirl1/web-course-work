@@ -1,4 +1,5 @@
 ﻿<script setup lang="ts">
+import { trackFormValidation } from '@/api/telemetry'
 import { ref } from 'vue'
 import Input from '@/components/ui/input.vue'
 import Button from '@/components/ui/button.vue'
@@ -41,11 +42,13 @@ const submitChangePassword = async () => {
 
   if (!current || !next || !confirm) {
     errorMessage.value = 'Заполните все поля'
+    trackFormValidation('change_password', ['required'])
     return
   }
 
   if (next !== confirm) {
     errorMessage.value = 'Новый пароль и подтверждение не совпадают'
+    trackFormValidation('change_password', ['confirmPassword'])
     return
   }
 

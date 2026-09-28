@@ -17,17 +17,22 @@
 <script setup>
 import { ref, defineProps } from 'vue';
 import { ChevronDownIcon } from "lucide-vue-next";
+import { track } from "@/api/telemetry";
 
 const props = defineProps({
   question: String,
   answer: String,
   initiallyOpen: { type: Boolean, default: false },
+  index: { type: Number, default: null },
 });
 
 const isOpen = ref(props.initiallyOpen);
 
 function toggle() {
   isOpen.value = !isOpen.value;
+  if (isOpen.value && props.index !== null) {
+    track("help_opened", { metadata: { page: "faq", question_index: props.index } });
+  }
 }
 </script>
 
