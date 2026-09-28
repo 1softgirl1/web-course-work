@@ -25,16 +25,16 @@ class DockerComposeConfigurationTest {
     }
 
     @Test
-    fun localDeployOverrideEnablesLocalProfileAndNginxEntrypoint() {
-        val compose = Files.readString(Path.of("../deploy/compose.local.yaml"))
+    fun rootComposeRunsWholeStackLocally() {
+        val compose = Files.readString(Path.of("../docker-compose.yml"))
 
-        assertTrue(compose.contains("SPRING_PROFILES_ACTIVE: local"), "Local override must enable local profile")
-        assertTrue(compose.contains("nginx:"), "Local override must provide nginx")
-        assertTrue(compose.contains("\${NGINX_PORT:-8088}:80"), "Local nginx should expose one local entrypoint")
-        assertFalse(compose.contains("BACKEND_PORT"), "Local override should not expose backend directly")
-        assertFalse(compose.contains("POSTGRES_PORT"), "Local override should not expose PostgreSQL directly")
-        assertFalse(compose.contains("PGADMIN_PORT"), "Local override should serve pgAdmin through nginx")
-        assertTrue(compose.contains("external: false"), "Local override must not require external server resources")
+        assertTrue(compose.contains("SPRING_PROFILES_ACTIVE: local"), "Local compose must enable local profile")
+        assertTrue(compose.contains("nginx:"), "Local compose must provide nginx")
+        assertFalse(compose.contains("external: true"), "Local compose must not require external server resources")
+        // Mounted local configs must exist, otherwise docker creates empty dirs and nginx/pgAdmin break.
+        Regex("""\./(docker/[\w.-]+):""").findAll(compose).forEach {
+            assertTrue(Files.exists(Path.of("..", it.groupValues[1])), "Missing mounted file ${it.groupValues[1]}")
+        }
     }
 
     @Test

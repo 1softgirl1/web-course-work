@@ -11,6 +11,7 @@ data class ActorPrincipal(
     private val passwordHash: String,
     val role: String,
     val status: UserStatus,
+    val sessionId: String? = null,
 ) : UserDetails {
     override fun getAuthorities(): Collection<GrantedAuthority> = listOf(
         SimpleGrantedAuthority("ROLE_$role")

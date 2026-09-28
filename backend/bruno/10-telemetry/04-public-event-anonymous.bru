@@ -1,0 +1,27 @@
+meta {
+  name: 04 public event anonymous
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/telemetry/events
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "eventName": "public_page_opened",
+    "metadata": { "page": "main", "referrer_source": "direct", "device_type": "desktop" }
+  }
+}
+
+tests {
+  test("public-zone event is accepted without token", function () {
+    expect(res.getStatus()).to.equal(202);
+  });
+}

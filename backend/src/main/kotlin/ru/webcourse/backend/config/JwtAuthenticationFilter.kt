@@ -3,6 +3,7 @@ package ru.webcourse.backend.config
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
+import io.jsonwebtoken.ExpiredJwtException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
@@ -10,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.stereotype.Component
 import org.springframework.web.filter.OncePerRequestFilter
 import ru.webcourse.backend.repository.UserRepository
+import ru.webcourse.backend.telemetry.Telemetry
 
 @Component
 class JwtAuthenticationFilter(
@@ -40,12 +42,18 @@ class JwtAuthenticationFilter(
         }
 
         val payload = runCatching { jwtService.parseAccessToken(token) }.getOrElse {
+            // Expired tokens are the normal refresh flow; everything else is worth a telemetry fact.
+            request.setAttribute(
+                Telemetry.AUTH_FAILURE_REQUEST_ATTRIBUTE,
+                if (it is ExpiredJwtException) "expired_token" else "invalid_token",
+            )
             unauthorized(response, "Invalid bearer token")
             return
         }
 
         val user = userRepository.findById(payload.userId).orElse(null)
         if (user == null || user.username != payload.username || user.role.name != payload.role) {
+            request.setAttribute(Telemetry.AUTH_FAILURE_REQUEST_ATTRIBUTE, "stale_token")
             unauthorized(response, "Invalid bearer token")
             return
         }
@@ -61,6 +69,7 @@ class JwtAuthenticationFilter(
             passwordHash = user.passwordHash,
             role = user.role.name,
             status = user.status,
+            sessionId = payload.sessionId,
         )
 
         val authentication = UsernamePasswordAuthenticationToken(
@@ -69,6 +78,7 @@ class JwtAuthenticationFilter(
             principal.authorities,
         )
         SecurityContextHolder.getContext().authentication = authentication
+        request.setAttribute(Telemetry.ACTOR_REQUEST_ATTRIBUTE, principal)
         filterChain.doFilter(request, response)
     }
 

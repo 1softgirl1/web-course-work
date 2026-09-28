@@ -2,6 +2,15 @@
 import { Heart, ShieldUser, Activity, ArrowLeft } from "lucide-vue-next"
 import { RouterLink } from "vue-router"
 import LoginForm from "@/components/login/loginForm.vue"
+import { onMounted } from "vue"
+import { useRoute } from "vue-router"
+import { track } from "@/api/telemetry"
+
+const route = useRoute()
+onMounted(() => {
+  const role = route.query.role
+  track("login_page_opened", { metadata: { role_hint: role === "doctor" || role === "patient" ? role : "none" } })
+})
 </script>
 
 <template>

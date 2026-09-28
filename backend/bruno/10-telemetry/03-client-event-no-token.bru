@@ -1,0 +1,26 @@
+meta {
+  name: 03 client event no token
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/telemetry/events
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "eventName": "dashboard_opened"
+  }
+}
+
+tests {
+  test("telemetry endpoint requires authentication", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

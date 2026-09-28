@@ -1,0 +1,31 @@
+meta {
+  name: 00 login doctor for telemetry
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "{{doctorEmail}}",
+    "password": "{{doctorPassword}}"
+  }
+}
+
+script:post-response {
+  bru.setVar("telemetryDoctorToken", res.getBody().accessToken);
+}
+
+tests {
+  test("doctor login for telemetry returns 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

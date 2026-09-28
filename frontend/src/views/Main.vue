@@ -5,6 +5,12 @@ import About from "../components/main/about.vue";
 import FAQ from "../components/main/faq.vue";
 import Footer from "../components/main/footer.vue";
 import Header from "../components/main/header.vue";
+import { onMounted } from "vue";
+import { deviceType, referrerSource, track } from "@/api/telemetry";
+
+onMounted(() => {
+  track("public_page_opened", { metadata: { page: "main", referrer_source: referrerSource(), device_type: deviceType() } })
+})
 
 
 </script>

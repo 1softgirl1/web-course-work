@@ -46,6 +46,11 @@ class SecurityConfig(
                 it.requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
                 it.requestMatchers(HttpMethod.POST, "/api/auth/password/change").authenticated()
                 it.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // Actuator is served only on management.server.port, which is not published outside the docker network.
+                it.requestMatchers("/actuator/**").permitAll()
+                // Public-zone events come without a token; the service rejects anonymous non-public events and rate limits.
+                it.requestMatchers(HttpMethod.POST, "/api/telemetry/events").permitAll()
+                it.requestMatchers(HttpMethod.GET, "/api/telemetry/**").hasRole(UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers(HttpMethod.GET, "/api/doctors/me").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers("/api/doctors/**").hasRole(UserRole.DOCTOR_EXTENDED.name)
                 it.requestMatchers(HttpMethod.POST, "/api/doctor/patients").hasAnyRole(UserRole.DOCTOR.name, UserRole.DOCTOR_EXTENDED.name)

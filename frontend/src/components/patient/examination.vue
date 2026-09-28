@@ -10,6 +10,8 @@ import { FileText, Calendar, Eye } from 'lucide-vue-next'
 import { useExaminationStore, type Examination } from '@/stores/examinationStore'
 import Badge from '@/components/ui/badge.vue'
 import { toHumanErrorMessage } from '@/api/httpClient'
+import { track, trackPageLoadFailed } from '@/api/telemetry'
+import { useRoute } from 'vue-router'
 
 const examinationStore = useExaminationStore()
 const { examinations } = examinationStore
@@ -20,6 +22,7 @@ const selectedIndicatorCode = ref<string | null>(null)
 const selectedIndicatorLabel = ref<string | null>(null)
 const isIndicatorTrendOpen = ref(false)
 const loadError = ref('')
+const route = useRoute()
 
 const parseExamDate = (value: string): Date | null => {
   const [day, month, year] = value.split('.').map(Number)
@@ -56,13 +59,30 @@ const openIndicatorTrend = (payload: { code: string; label: string }) => {
   selectedIndicatorCode.value = payload.code
   selectedIndicatorLabel.value = payload.label
   isIndicatorTrendOpen.value = true
+  track('dynamics_chart_opened', {
+    routeTemplate: route.matched.at(-1)?.path,
+    metadata: { source: 'patient_lk', chart_type: 'indicator_trend', characteristics_selected_count: 1 },
+  })
 }
 
 onMounted(async () => {
   try {
     await examinationStore.loadCurrentPatientExaminations()
+    if (sortedExaminations.value.length > 0) {
+      track('characteristics_table_opened', {
+        routeTemplate: route.matched.at(-1)?.path,
+        metadata: {
+          source: 'patient_lk',
+          examinations_count: sortedExaminations.value.length,
+          characteristics_count: new Set(
+            sortedExaminations.value.flatMap(exam => exam.metrics.map(metric => metric.characteristicCode)),
+          ).size,
+        },
+      })
+    }
   } catch (error) {
     loadError.value = toHumanErrorMessage(error)
+    trackPageLoadFailed('patient_examinations', route.matched.at(-1)?.path, error)
   }
 })
 </script>

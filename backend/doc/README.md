@@ -8,6 +8,8 @@
 - `migration.md` — описание Flyway-миграций и их назначения.
 - `demo-seed.sql` — памятка о переносе демо-данных в local-only Flyway migrations.
 - `demo-scenarios.md` — краткая памятка по демо-сценариям и запуску.
+- `telemetry.md` — телеметрия и аудит: каталог событий, что нельзя писать, Actuator.
+- `telemetry-queries.sql` — SQL-запросы для отчёта пилота по `telemetry_events`.
 
 OpenAPI для backend теперь живет только в runtime SpringDoc и Swagger UI:
 

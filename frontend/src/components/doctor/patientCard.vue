@@ -17,6 +17,7 @@ import { useExaminationStore, type Examination, parseExamDate } from '@/stores/e
 import { useAuthStore } from '@/stores/authStore'
 import PatientCardContent from '@/components/patient/patientCardContent.vue'
 import ExaminationTabe from '@/components/patient/examinationTabe.vue'
+import { track, trackPageLoadFailed } from '@/api/telemetry'
 import IndicatorTrendDialog from '@/components/patient/indicatorTrendDialog.vue'
 
 const patientStore = usePatientStore()
@@ -146,6 +147,29 @@ const openIndicatorTrend = (payload: { code: string; label: string }) => {
   selectedIndicatorCode.value = payload.code
   selectedIndicatorLabel.value = payload.label
   isIndicatorTrendOpen.value = true
+  track('dynamics_chart_opened', {
+    patientId: patientStore.resolvePatientIdByCode(patientCode.value),
+    routeTemplate: route.matched.at(-1)?.path,
+    metadata: { source: 'doctor_card', chart_type: 'indicator_trend', characteristics_selected_count: 1 },
+  })
+}
+
+// Region ids only (no names): the timer lives on the frontend, the commit is recorded by the backend.
+const trackRegionTransfer = (
+  event: 'region_change_requested' | 'region_change_cancelled',
+  extra: Record<string, number> = {},
+) => {
+  const fromRegionId = patientStore.getKnownRegions().find(region => region.name === patientData.value?.region)?.id
+  const toRegionId = Number.parseInt(targetRegionId.value, 10)
+  track(event, {
+    patientId: patientStore.resolvePatientIdByCode(patientCode.value),
+    routeTemplate: route.matched.at(-1)?.path,
+    metadata: {
+      ...(fromRegionId ? { from_region_id: fromRegionId } : {}),
+      ...(Number.isFinite(toRegionId) ? { to_region_id: toRegionId } : {}),
+      ...extra,
+    },
+  })
 }
 
 const clearTransferTimers = () => {
@@ -239,6 +263,7 @@ const confirmRegionTransfer = () => {
   isTransferCountdownOpen.value = true
   countdownSeconds.value = 10
   clearTransferTimers()
+  trackRegionTransfer('region_change_requested')
 
   countdownIntervalId = setInterval(() => {
     countdownSeconds.value = Math.max(countdownSeconds.value - 1, 0)
@@ -251,6 +276,10 @@ const confirmRegionTransfer = () => {
 }
 
 const cancelRegionTransfer = () => {
+  // Only a cancel during the countdown is a cancelled transfer; closing the picker is not.
+  if (isTransferCountdownOpen.value) {
+    trackRegionTransfer('region_change_cancelled', { seconds_left: countdownSeconds.value })
+  }
   resetTransferFlow()
 }
 
@@ -313,8 +342,22 @@ const loadPatientContext = async () => {
     await patientStore.loadPatientCardByCode(patientCode.value)
     await examinationStore.loadByPatientCode(patientCode.value)
     loadError.value = ''
-  } catch {
+    if (patientExaminations.value.length > 0) {
+      track('characteristics_table_opened', {
+        patientId: patientStore.resolvePatientIdByCode(patientCode.value),
+        routeTemplate: route.matched.at(-1)?.path,
+        metadata: {
+          source: 'doctor_card',
+          examinations_count: patientExaminations.value.length,
+          characteristics_count: new Set(
+            patientExaminations.value.flatMap(exam => exam.metrics.map(metric => metric.characteristicCode)),
+          ).size,
+        },
+      })
+    }
+  } catch (error) {
     loadError.value = 'Не удалось загрузить данные пациента.'
+    trackPageLoadFailed('doctor_patient_card', route.matched.at(-1)?.path, error)
   }
 }
 

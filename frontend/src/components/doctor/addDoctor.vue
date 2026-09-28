@@ -1,4 +1,5 @@
 ﻿<script setup lang="ts">
+import { trackFormValidation } from '@/api/telemetry'
 import { computed, onMounted, ref } from 'vue'
 import { Undo2, UserRoundPlus, CheckCircle } from 'lucide-vue-next'
 import Card from '@/components/ui/card.vue'
@@ -85,6 +86,7 @@ const handleSubmit = async () => {
 
   if (!lastName.value.trim() || !firstName.value.trim() || !email.value.trim() || !specialty.value.trim() || !workplace.value.trim() || !regionId.value) {
     formError.value = 'Заполните все поля формы'
+    trackFormValidation('create_doctor', ['required'])
     return
   }
 
@@ -92,12 +94,14 @@ const handleSubmit = async () => {
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailPattern.test(normalizedEmail)) {
     formError.value = 'Введите корректный email'
+    trackFormValidation('create_doctor', ['username'])
     return
   }
 
   const parsedRegionId = Number.parseInt(regionId.value, 10)
   if (!Number.isFinite(parsedRegionId) || parsedRegionId <= 0) {
     formError.value = 'Выберите корректный регион'
+    trackFormValidation('create_doctor', ['regionId'])
     return
   }
 

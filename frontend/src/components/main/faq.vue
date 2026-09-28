@@ -57,6 +57,7 @@ const faqs = ref([
             :key="index"
             :question="faq.question"
             :answer="faq.answer"
+            :index="index"
         />
       </div>
     </div>

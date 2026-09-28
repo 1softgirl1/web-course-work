@@ -37,6 +37,8 @@ import ru.webcourse.backend.repository.ExaminationRepository
 import ru.webcourse.backend.repository.PatientProfileRepository
 import ru.webcourse.backend.repository.RegionRepository
 import ru.webcourse.backend.repository.UserRepository
+import ru.webcourse.backend.telemetry.Telemetry
+import ru.webcourse.backend.telemetry.TelemetryEvent
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.temporal.ChronoUnit
@@ -52,6 +54,7 @@ class PatientService(
     private val passwordEncoder: PasswordEncoder,
     private val credentialsGenerator: PatientCredentialsGenerator,
     private val refreshTokenService: RefreshTokenService,
+    private val telemetry: Telemetry,
 ) {
 
     @Transactional
@@ -96,6 +99,23 @@ class PatientService(
         )
 
         val savedPatient = patientProfileRepository.saveAndFlush(patient)
+        telemetry.record(
+            TelemetryEvent.PATIENT_CREATED,
+            entityType = ENTITY_PATIENT,
+            entityId = savedPatient.id,
+            patientId = savedPatient.id,
+            patientRegionId = region.id,
+            metadata = mapOf("region_id" to region.id, "created_by_role" to actor?.role),
+        )
+        telemetry.record(
+            TelemetryEvent.PATIENT_CREDENTIALS_GENERATED,
+            entityType = ENTITY_PATIENT,
+            entityId = savedPatient.id,
+            patientId = savedPatient.id,
+            patientRegionId = region.id,
+            // Code and temporary password are shown to the doctor once; no email/SMS delivery yet.
+            metadata = mapOf("delivery_method" to "shown_to_doctor"),
+        )
         return savedPatient.toCreatedResponse(generatedPassword)
     }
 
@@ -108,6 +128,7 @@ class PatientService(
         regionId: Long?,
         diagnosis: String?,
     ): PatientListResponse {
+        val startedAt = System.nanoTime()
         val doctor = requireAuthenticatedDoctor(actor)
         val normalizedScope = normalizeListScope(scope)
         val effectiveRegionId = when (normalizedScope) {
@@ -148,12 +169,25 @@ class PatientService(
         val fromIndex = (page * limit).coerceAtMost(sortedPatients.size)
         val toIndex = (fromIndex + limit).coerceAtMost(sortedPatients.size)
 
-        return PatientListResponse(
+        val response = PatientListResponse(
             items = sortedPatients.subList(fromIndex, toIndex).map { it.summary },
             page = page,
             limit = limit,
             total = sortedPatients.size.toLong(),
         )
+        telemetry.record(
+            TelemetryEvent.PATIENT_LIST_LOADED,
+            durationMs = (System.nanoTime() - startedAt) / 1_000_000,
+            metadata = mapOf(
+                "list_type" to normalizedScope,
+                "rows_count" to response.items.size,
+                "total" to response.total,
+                "page" to page,
+                "limit" to limit,
+                "filters_count" to listOfNotNull(regionId.takeIf { normalizedScope == LIST_SCOPE_ALL }, effectiveDiagnosis).size,
+            ),
+        )
+        return response
     }
 
     @Transactional(readOnly = true)
@@ -164,13 +198,27 @@ class PatientService(
         val patient = findPatient(patientId)
         val examinations = examinationRepository.findAllByPatientIdOrderByExamDateAscIdAsc(patientId)
 
-        return when (actor.userRole()) {
+        val card = when (actor.userRole()) {
             UserRole.PATIENT -> buildCardForPatient(patient, examinations, actor)
             UserRole.DOCTOR,
             UserRole.DOCTOR_EXTENDED,
             -> buildCardForDoctor(patient, examinations, actor)
             else -> throw AccessDeniedException("Only doctors and patients can access patient cards")
         }
+        val accessScope = when {
+            actor.userRole() == UserRole.PATIENT -> "self"
+            card.viewMode == PatientCardViewMode.FULL -> "own_region"
+            else -> "all_anonymized"
+        }
+        telemetry.record(
+            TelemetryEvent.PATIENT_CARD_OPENED,
+            entityType = ENTITY_PATIENT,
+            entityId = patient.id,
+            patientId = patient.id,
+            patientRegionId = patient.region.id,
+            metadata = mapOf("access_scope" to accessScope, "examinations_count" to examinations.size),
+        )
+        return card
     }
 
     @Transactional
@@ -181,6 +229,7 @@ class PatientService(
     ): ExaminationResponse {
         val patient = findPatient(patientId)
         requireDoctorCanModifyPatient(patient, actor)
+        val lastExamDateBefore = latestExamDate(patientId)
 
         val duplicateCodes = request.measurements
             .map { it.characteristicCode.trim() }
@@ -230,7 +279,20 @@ class PatientService(
             }
         )
 
-        return examinationRepository.saveAndFlush(examination).toExaminationResponse()
+        val saved = examinationRepository.saveAndFlush(examination)
+        telemetry.record(
+            TelemetryEvent.EXAMINATION_CREATED,
+            entityType = ENTITY_EXAMINATION,
+            entityId = saved.id,
+            patientId = patient.id,
+            patientRegionId = patient.region.id,
+            metadata = mapOf(
+                "characteristics_count" to saved.measurements.size,
+                "has_comment" to (saved.comment != null),
+            ),
+        )
+        recordStatusChange(patient, lastExamDateBefore, latestExamDate(patientId))
+        return saved.toExaminationResponse()
     }
 
     @Transactional
@@ -246,6 +308,7 @@ class PatientService(
 
         val examination = examinationRepository.findByIdAndPatientId(examinationId, patientId)
             ?: throw NotFoundException("Examination with id=$examinationId for patient id=$patientId was not found")
+        val lastExamDateBefore = latestExamDate(patientId)
 
         request.title?.let { examination.title = it.trimNonBlank("title") }
         request.examDate?.let { examination.examDate = it }
@@ -287,7 +350,21 @@ class PatientService(
             }
         }
 
-        return examinationRepository.saveAndFlush(examination).toExaminationResponse()
+        val saved = examinationRepository.saveAndFlush(examination)
+        telemetry.record(
+            TelemetryEvent.EXAMINATION_UPDATED,
+            entityType = ENTITY_EXAMINATION,
+            entityId = saved.id,
+            patientId = patient.id,
+            patientRegionId = patient.region.id,
+            metadata = mapOf(
+                "changed_fields_count" to listOfNotNull(request.title, request.examDate, request.comment).size +
+                    (request.measurements?.size ?: 0),
+                "measurements_count" to (request.measurements?.size ?: 0),
+            ),
+        )
+        recordStatusChange(patient, lastExamDateBefore, latestExamDate(patientId))
+        return saved.toExaminationResponse()
     }
 
     @Transactional(readOnly = true)
@@ -327,32 +404,61 @@ class PatientService(
             refreshTokenService.revokeAllForUser(updatedUser.id)
         }
 
-        val updatedPatient = patientProfileRepository.saveAndFlush(
-            PatientProfileEntity(
-                id = patient.id,
-                user = updatedUser,
-                region = updatedRegion,
-                birthDate = request.birthDate ?: patient.birthDate,
-                sex = request.sex?.name ?: patient.sex,
-                diagnosis = request.diagnosis?.trimNonBlank("diagnosis") ?: patient.diagnosis,
-                operationPlace = request.operationPlace?.trimNonBlank("operationPlace") ?: patient.operationPlace,
-                observationPlace = request.observationPlace?.trimNonBlank("observationPlace") ?: patient.observationPlace,
-                coronaryAnatomy = request.coronaryAnatomy?.trimNonBlank("coronaryAnatomy") ?: patient.coronaryAnatomy,
-                valveName = request.valve?.name?.trimNonBlank("valve.name") ?: patient.valveName,
-                valveSize = request.valve?.size?.trimNonBlank("valve.size") ?: patient.valveSize,
-                valveMaterial = request.valve?.material?.trimNonBlank("valve.material") ?: patient.valveMaterial,
-                operationAnesthesia = request.operationParameters?.anesthesia?.trimNonBlank("operationParameters.anesthesia")
-                    ?: patient.operationAnesthesia,
-                operationDurationMinutes = request.operationParameters?.durationMinutes
-                    ?: patient.operationDurationMinutes,
-                operationDeliverySystem = request.operationParameters?.deliverySystem?.trimNonBlank("operationParameters.deliverySystem")
-                    ?: patient.operationDeliverySystem,
-                medications = request.medications?.trimNonBlank("medications") ?: patient.medications,
-                createdAt = patient.createdAt,
-            )
+        val patientChanges = PatientProfileEntity(
+            id = patient.id,
+            user = updatedUser,
+            region = updatedRegion,
+            birthDate = request.birthDate ?: patient.birthDate,
+            sex = request.sex?.name ?: patient.sex,
+            diagnosis = request.diagnosis?.trimNonBlank("diagnosis") ?: patient.diagnosis,
+            operationPlace = request.operationPlace?.trimNonBlank("operationPlace") ?: patient.operationPlace,
+            observationPlace = request.observationPlace?.trimNonBlank("observationPlace") ?: patient.observationPlace,
+            coronaryAnatomy = request.coronaryAnatomy?.trimNonBlank("coronaryAnatomy") ?: patient.coronaryAnatomy,
+            valveName = request.valve?.name?.trimNonBlank("valve.name") ?: patient.valveName,
+            valveSize = request.valve?.size?.trimNonBlank("valve.size") ?: patient.valveSize,
+            valveMaterial = request.valve?.material?.trimNonBlank("valve.material") ?: patient.valveMaterial,
+            operationAnesthesia = request.operationParameters?.anesthesia?.trimNonBlank("operationParameters.anesthesia")
+                ?: patient.operationAnesthesia,
+            operationDurationMinutes = request.operationParameters?.durationMinutes
+                ?: patient.operationDurationMinutes,
+            operationDeliverySystem = request.operationParameters?.deliverySystem?.trimNonBlank("operationParameters.deliverySystem")
+                ?: patient.operationDeliverySystem,
+            medications = request.medications?.trimNonBlank("medications") ?: patient.medications,
+            createdAt = patient.createdAt,
         )
+        // Diff before saving: merge copies the new state into the managed `patient`, so afterwards old == new.
+        val changedCodes = changedFieldCodes(patient, patientChanges, request)
+        val updatedPatient = patientProfileRepository.saveAndFlush(patientChanges)
 
+        telemetry.record(
+            TelemetryEvent.PATIENT_PROFILE_UPDATED,
+            entityType = ENTITY_PATIENT,
+            entityId = updatedPatient.id,
+            patientId = updatedPatient.id,
+            patientRegionId = updatedRegion.id,
+            metadata = changedCodes.let {
+                mapOf("changed_field_codes" to it.joinToString(","), "changed_fields_count" to it.size)
+            },
+        )
+        if (request.password != null) {
+            telemetry.record(
+                TelemetryEvent.PASSWORD_CHANGED,
+                entityType = "user",
+                entityId = updatedUser.id,
+                patientId = updatedPatient.id,
+                patientRegionId = updatedRegion.id,
+                metadata = mapOf("changed_by" to "doctor", "target_role" to UserRole.PATIENT.name),
+            )
+        }
         if (regionChanged) {
+            telemetry.record(
+                TelemetryEvent.REGION_CHANGE_COMMITTED,
+                entityType = ENTITY_PATIENT,
+                entityId = updatedPatient.id,
+                patientId = updatedPatient.id,
+                patientRegionId = updatedRegion.id,
+                metadata = mapOf("from_region_id" to oldRegion.id, "to_region_id" to updatedRegion.id),
+            )
             logPatientRegionChange(
                 actor = requireNotNull(actor),
                 patient = updatedPatient,
@@ -547,6 +653,48 @@ class PatientService(
         )
     }
 
+    private fun latestExamDate(patientId: Long): LocalDate? =
+        examinationRepository.findLatestExamDatesByPatientIds(listOf(patientId)).firstOrNull()?.lastExamDate
+
+    private fun recordStatusChange(patient: PatientProfileEntity, before: LocalDate?, after: LocalDate?) {
+        val oldStatus = before.toMonitoringStatus()
+        val newStatus = after.toMonitoringStatus()
+        if (oldStatus == newStatus) return
+        telemetry.record(
+            TelemetryEvent.PATIENT_STATUS_UPDATED,
+            entityType = ENTITY_PATIENT,
+            entityId = patient.id,
+            patientId = patient.id,
+            patientRegionId = patient.region.id,
+            metadata = mapOf("old_status" to oldStatus.name, "new_status" to newStatus.name),
+        )
+    }
+
+    // Field codes only: values (dates, diagnosis, medications...) never leave the medical model.
+    private fun changedFieldCodes(
+        old: PatientProfileEntity,
+        new: PatientProfileEntity,
+        request: UpdatePatientRequest,
+    ): List<String> = listOfNotNull(
+        "birthDate".takeIf { old.birthDate != new.birthDate },
+        "sex".takeIf { old.sex != new.sex },
+        "diagnosis".takeIf { old.diagnosis != new.diagnosis },
+        "regionId".takeIf { old.region.id != new.region.id },
+        "operationPlace".takeIf { old.operationPlace != new.operationPlace },
+        "observationPlace".takeIf { old.observationPlace != new.observationPlace },
+        "coronaryAnatomy".takeIf { old.coronaryAnatomy != new.coronaryAnatomy },
+        "valve".takeIf {
+            old.valveName != new.valveName || old.valveSize != new.valveSize || old.valveMaterial != new.valveMaterial
+        },
+        "operationParameters".takeIf {
+            old.operationAnesthesia != new.operationAnesthesia ||
+                old.operationDurationMinutes != new.operationDurationMinutes ||
+                old.operationDeliverySystem != new.operationDeliverySystem
+        },
+        "medications".takeIf { old.medications != new.medications },
+        "password".takeIf { request.password != null },
+    )
+
     private fun String.trimNonBlank(fieldName: String): String =
         trim().takeIf { it.isNotBlank() }
             ?: throw IllegalArgumentException("$fieldName must not be blank")
@@ -601,6 +749,7 @@ class PatientService(
         sex = sexEnum(),
         diagnosis = diagnosis,
         regionId = region.id,
+        regionName = region.name,
         operationPlace = operationPlace,
         observationPlace = observationPlace,
         coronaryAnatomy = coronaryAnatomy,
@@ -702,6 +851,8 @@ class PatientService(
     private companion object {
         private val logger = LoggerFactory.getLogger(PatientService::class.java)
 
+        const val ENTITY_PATIENT = "patient"
+        const val ENTITY_EXAMINATION = "examination"
         const val LIST_SCOPE_OWN = "own"
         const val LIST_SCOPE_ALL = "all"
         const val GREEN_THRESHOLD_DAYS = 91L

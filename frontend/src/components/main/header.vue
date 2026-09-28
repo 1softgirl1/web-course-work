@@ -1,4 +1,5 @@
 <script setup>
+import { track } from "@/api/telemetry"
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Heart, Menu, X, LogIn } from 'lucide-vue-next'
@@ -72,7 +73,7 @@ const handleNavClick = async (sectionId) => {
         </nav>
 
         <div class="hidden items-center gap-3 lg:flex">
-          <router-link to="/login">
+          <router-link to="/login" @click="track('public_login_clicked', { metadata: { placement: 'header' } })">
             <Button size="sm">
               <LogIn class="mr-2 h-4 w-4" />
               Войти
@@ -106,7 +107,7 @@ const handleNavClick = async (sectionId) => {
           </button>
 
           <div class="border-t border-border pt-4">
-            <router-link to="/login" @click="closeMenu">
+            <router-link to="/login" @click="closeMenu(); track('public_login_clicked', { metadata: { placement: 'header_mobile' } })">
               <Button size="sm" class="w-full">
                 <LogIn class="mr-2 h-4 w-4" />
                 Войти

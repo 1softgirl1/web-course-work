@@ -97,9 +97,308 @@ class PatientControllerIntegrationTest {
 
     @BeforeEach
     fun cleanDatabase() {
+        jdbcTemplate.update("delete from telemetry_events")
         patientProfileRepository.deleteAll()
         doctorProfileRepository.deleteAll()
         userRepository.deleteAll()
+    }
+
+    @Test
+    fun loginTelemetryRecordsOutcomeWithoutRawLogin() {
+        val doctor = createDoctor(login = DOCTOR_EMAIL)
+        mockMvc.post("/api/auth/login") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"username": "$DOCTOR_EMAIL", "password": "wrong-password"}"""
+        }.andExpect { status { isUnauthorized() } }
+        login(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+
+        val failed = awaitTelemetry("login_failed").single()
+        assertEquals("invalid_credentials", failed["reason_code"])
+        assertEquals("doctor", failed["login_type"])
+        assertEquals(null, failed["actor_user_id"])
+
+        val success = awaitTelemetry("login_success").single()
+        assertEquals(doctor.user.id, success["actor_user_id"])
+        assertEquals(UserRole.DOCTOR.name, success["actor_role"])
+        assertEquals(1L, success["actor_region_id"])
+        assertTelemetryDoesNotContain(DOCTOR_EMAIL, "wrong-password", DOCTOR_PASSWORD)
+    }
+
+    @Test
+    fun domainTelemetryIsRecordedAfterCommitWithoutClinicalData() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        mockMvc.post("/api/patients/${created.id}/examinations") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateExaminationRequest(examDate = LocalDate.now().toString())
+        }.andExpect { status { isCreated() } }
+        mockMvc.get("/api/patients/${created.id}") { with(doctorBearer(DOCTOR_EMAIL)) }
+            .andExpect { status { isOk() } }
+
+        val patientCreated = awaitTelemetry("patient_created").single()
+        assertEquals(created.id, patientCreated["patient_id"])
+        assertEquals("audit", patientCreated["event_group"])
+        assertEquals("/api/doctor/patients", patientCreated["route_template"])
+        assertNotNull(patientCreated["request_id"])
+
+        val examinationCreated = awaitTelemetry("examination_created").single()
+        assertEquals(2, examinationCreated["characteristics_count"])
+        assertEquals(true, examinationCreated["has_comment"])
+
+        val statusUpdated = awaitTelemetry("patient_status_updated").single()
+        assertEquals("RED", statusUpdated["old_status"])
+        assertEquals("GREEN", statusUpdated["new_status"])
+
+        assertEquals("own_region", awaitTelemetry("patient_card_opened").single()["access_scope"])
+
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"medications": "Aspirin", "regionId": 2}"""
+        }.andExpect { status { isOk() } }
+        val profileUpdated = awaitTelemetry("patient_profile_updated").single()
+        assertEquals("regionId,medications", profileUpdated["changed_field_codes"])
+        val regionCommitted = awaitTelemetry("region_change_committed").single()
+        assertEquals(1, regionCommitted["from_region_id"])
+        assertEquals(2, regionCommitted["to_region_id"])
+        assertTelemetryDoesNotContain(
+            created.patientCode, created.temporaryPassword, "1971-01-15", "Aortic valve stenosis",
+            "Warfarin", "Stable condition", "120.5",
+        )
+    }
+
+    @Test
+    fun rejectedOperationsRecordTechnicalEventsOnly() {
+        createDoctor(login = DOCTOR_EMAIL)
+        createDoctor(login = SECOND_DOCTOR_EMAIL, regionId = 2L)
+        val created = createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        awaitTelemetry("patient_created")
+
+        mockMvc.post("/api/doctor/patients") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validCreateRequest(diagnosis = "   ")
+        }.andExpect { status { isBadRequest() } }
+        mockMvc.patch("/api/patients/${created.id}") {
+            with(doctorBearer(SECOND_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"medications": "Aspirin"}"""
+        }.andExpect { status { isForbidden() } }
+
+        val validation = awaitTelemetry("validation_error").single()
+        assertEquals("diagnosis", validation["field_codes"])
+        val denied = awaitTelemetry("access_denied").single()
+        assertEquals("/api/patients/{id}", denied["route_template"])
+        assertEquals(UserRole.DOCTOR.name, denied["actor_role"])
+        assertEquals(2L, denied["actor_region_id"])
+        assertEquals(1, telemetryRows("patient_created").size)
+        assertEquals(0, telemetryRows("patient_profile_updated").size)
+    }
+
+    @Test
+    fun clientTelemetryEndpointAcceptsOnlyWhitelistedEventsAndKeys() {
+        val doctor = createDoctor(login = DOCTOR_EMAIL)
+
+        mockMvc.post("/api/telemetry/events") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """
+                {
+                  "eventName": "dynamics_chart_opened",
+                  "patientId": 42,
+                  "routeTemplate": "/doctor/patientCard/:code?code=PT-SECRET",
+                  "frontendVersion": "0.0.0",
+                  "metadata": {"source": "doctor_card", "characteristics_selected_count": 1, "diagnosis": "secret", "nested": {"a": 1}}
+                }
+            """.trimIndent()
+        }.andExpect {
+            status { isAccepted() }
+            header { exists("X-Request-Id") }
+        }
+        mockMvc.post("/api/telemetry/events") {
+            with(doctorBearer(DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"eventName": "patient_created"}"""
+        }.andExpect { status { isBadRequest() } }
+        mockMvc.post("/api/telemetry/events") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"eventName": "dashboard_opened"}"""
+        }.andExpect { status { isUnauthorized() } }
+
+        val event = awaitTelemetry("dynamics_chart_opened").single()
+        assertEquals("frontend", event["source"])
+        assertEquals(doctor.user.id, event["actor_user_id"])
+        assertEquals(42L, event["patient_id"])
+        assertEquals("/doctor/patientCard/:code", event["route_template"])
+        assertEquals("doctor_card", event["source_meta"])
+        assertFalse(event.containsKey("diagnosis"))
+        assertFalse(event.containsKey("nested"))
+        assertEquals(0, telemetryRows("patient_created").size)
+        assertTelemetryDoesNotContain("secret", "PT-SECRET")
+    }
+
+    @Test
+    fun sessionTelemetryLinksLoginAndLogoutAndRecordsPasswordChange() {
+        createDoctor(login = DOCTOR_EMAIL)
+        val session = loginSession(DOCTOR_EMAIL, DOCTOR_PASSWORD)
+        mockMvc.post("/api/auth/password/change") {
+            with(bearer(session.accessToken))
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"currentPassword": "$DOCTOR_PASSWORD", "newPassword": "new-doctor-password", "refreshToken": "${session.refreshToken}"}"""
+        }.andExpect { status { isOk() } }
+        val rotatedRefresh = awaitTelemetry("password_changed").single().let {
+            assertEquals("self", it["changed_by"])
+            jdbcTemplate.queryForObject(
+                "select count(*) from refresh_tokens where revoked_at is null", Long::class.java,
+            )
+        }
+        assertEquals(1L, rotatedRefresh)
+        val activeRefresh = loginSession(DOCTOR_EMAIL, "new-doctor-password")
+        mockMvc.post("/api/auth/logout") {
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"refreshToken": "${activeRefresh.refreshToken}"}"""
+        }.andExpect { status { isNoContent() } }
+
+        val logins = awaitTelemetry("login_success")
+        val logout = awaitTelemetry("logout").single()
+        assertEquals(2, logins.size)
+        assertNotNull(logout["session_id_hash"])
+        assertEquals(logins.last()["session_id_hash"], logout["session_id_hash"])
+        assertNotEquals(logins.first()["session_id_hash"], logins.last()["session_id_hash"])
+        assertTrue((logout["session_duration_sec"] as Number).toLong() >= 0)
+    }
+
+    @Test
+    fun publicTelemetryIsAcceptedAnonymouslyAndRateLimited() {
+        mockMvc.post("/api/telemetry/events") {
+            header("X-Real-IP", "10.1.1.1")
+            contentType = MediaType.APPLICATION_JSON
+            content = """{"eventName": "regional_contacts_shown", "patientId": 5, "metadata": {"region_code": "kemerovo", "has_center": false, "lat": 55.3}}"""
+        }.andExpect { status { isAccepted() } }
+        val event = awaitTelemetry("regional_contacts_shown").single()
+        assertEquals(null, event["actor_user_id"])
+        assertEquals(null, event["patient_id"])
+        assertEquals("kemerovo", event["region_code"])
+        assertEquals(false, event["has_center"])
+        assertFalse(event.containsKey("lat"))
+
+        // Keep sending until the limiter answers 429. A minute rollover mid-test can only add one extra window.
+        val limit = ru.webcourse.backend.telemetry.ClientTelemetryService.ANONYMOUS_EVENTS_PER_MINUTE
+        var accepted = 0
+        while (accepted <= 3 * limit) {
+            val status = mockMvc.post("/api/telemetry/events") {
+                header("X-Real-IP", "10.1.1.2")
+                contentType = MediaType.APPLICATION_JSON
+                content = """{"eventName": "public_page_opened"}"""
+            }.andReturn().response.status
+            if (status == 429) break
+            assertEquals(202, status)
+            accepted++
+        }
+        assertTrue(accepted in limit until 2 * limit, "Accepted $accepted anonymous events before 429")
+    }
+
+    @Test
+    fun rejectedTokensAreRecordedButExpiredOnesAreNot() {
+        mockMvc.get("/api/doctors/me").andExpect { status { isUnauthorized() } }
+        mockMvc.get("/api/doctors/me") {
+            header(HttpHeaders.AUTHORIZATION, "Bearer not-a-jwt")
+        }.andExpect { status { isUnauthorized() } }
+
+        val reasons = awaitTelemetry("access_denied", minCount = 2).map { it["reason"] to it["result"] }.toSet()
+        assertEquals(setOf("missing_token" to "unauthorized", "invalid_token" to "unauthorized"), reasons)
+    }
+
+    @Test
+    fun doctorManagementAndCredentialsAreAudited() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+        val doctor = createDoctor(login = DOCTOR_EMAIL)
+        val created = createPatientThroughApi(login = HEAD_DOCTOR_EMAIL, body = validCreateRequest())
+
+        mockMvc.patch("/api/doctors/${doctor.id}") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+            contentType = MediaType.APPLICATION_JSON
+            content = validPatchDoctorRequest(workplace = "New Center", regionId = 2L)
+        }.andExpect { status { isOk() } }
+        mockMvc.post("/api/doctors/${doctor.id}/password-reset") {
+            with(doctorBearer(HEAD_DOCTOR_EMAIL))
+        }.andExpect { status { isOk() } }
+
+        val credentials = awaitTelemetry("patient_credentials_generated").single()
+        assertEquals(created.id, credentials["patient_id"])
+        assertEquals("shown_to_doctor", credentials["delivery_method"])
+        assertEquals("workplace,regionId", awaitTelemetry("doctor_profile_updated").single()["changed_field_codes"])
+        val regionChanged = awaitTelemetry("doctor_region_changed").single()
+        assertEquals(1, regionChanged["from_region_id"])
+        assertEquals(2, regionChanged["to_region_id"])
+        assertEquals("admin_reset", awaitTelemetry("password_changed").single()["changed_by"])
+        assertTelemetryDoesNotContain(created.temporaryPassword, created.patientCode, "New Center")
+    }
+
+    @Test
+    fun telemetryStatisticsAreAvailableOnlyToExtendedDoctor() {
+        createDoctor(login = HEAD_DOCTOR_EMAIL, role = UserRole.DOCTOR_EXTENDED)
+        createDoctor(login = DOCTOR_EMAIL)
+        createPatientThroughApi(login = DOCTOR_EMAIL, body = validCreateRequest())
+        awaitTelemetry("patient_created")
+
+        mockMvc.get("/api/telemetry/summary?days=7") { with(doctorBearer(HEAD_DOCTOR_EMAIL)) }.andExpect {
+            status { isOk() }
+            jsonPath("$.overview.patientsCreated") { value(1) }
+            jsonPath("$.doctorFunnel[0].users") { value(2) }
+            jsonPath("$.regions[0].patients") { value(1) }
+            jsonPath("$.patientFunnel[0].step") { value("Есть доступ") }
+            jsonPath("$.patientStatuses[0].status") { value("RED") }
+        }
+        mockMvc.get("/api/telemetry/events?limit=10&eventName=patient_created") { with(doctorBearer(HEAD_DOCTOR_EMAIL)) }.andExpect {
+            status { isOk() }
+            jsonPath("$[0].eventName") { value("patient_created") }
+        }
+        mockMvc.get("/api/telemetry/summary") { with(doctorBearer(DOCTOR_EMAIL)) }.andExpect { status { isForbidden() } }
+    }
+
+    @Test
+    fun patientListStaysFastWithPilotVolume() {
+        createDoctor(login = DOCTOR_EMAIL)
+        // Pilot target from telemetry.md: 300 patients and 20 doctors.
+        jdbcTemplate.execute(
+            """
+            with doctors as (
+                insert into users (username, password_hash, role, status)
+                select 'perf-doctor-' || g || '@example.com', 'x', 'DOCTOR', 'ACTIVE' from generate_series(1, 19) g
+                returning id
+            )
+            insert into doctor_profiles (user_id, specialization, workplace, last_name, first_name, region_id)
+            select id, 'Cardiologist', 'Center', 'Perf', 'Doctor', 1 + (id % 5) from doctors;
+
+            with patients as (
+                insert into users (username, password_hash, role, status)
+                select 'PT-PERF-' || g, 'x', 'PATIENT', 'ACTIVE' from generate_series(1, 300) g
+                returning id
+            )
+            insert into patient_profiles (user_id, region_id, birth_date, sex, diagnosis, operation_place, observation_place,
+                coronary_anatomy, valve_name, valve_size, valve_material, operation_anesthesia, operation_duration_minutes,
+                operation_delivery_system, medications, created_at)
+            select id, 1 + (id % 10), date '2015-01-01', 'M', 'Diagnosis', 'Place', 'Place', 'Normal', 'Valve', '20', 'Bio',
+                'General', 120, 'Transfemoral', 'None', now()
+            from patients;
+
+            insert into examinations (patient_id, title, exam_date)
+            select p.id, 'Check', current_date - (p.id % 400)::int from patient_profiles p, generate_series(1, 3);
+            """.trimIndent()
+        )
+
+        val startedAt = System.nanoTime()
+        mockMvc.get("/api/doctor/patients?scope=all&page=0&limit=100") { with(doctorBearer(DOCTOR_EMAIL)) }.andExpect {
+            status { isOk() }
+            jsonPath("$.total") { value(300) }
+        }
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+
+        val loaded = awaitTelemetry("patient_list_loaded").single()
+        assertEquals(300, loaded["total"])
+        assertTrue(elapsedMs < 2_000, "Patient list with 300 patients took ${elapsedMs}ms")
     }
 
     @Test
@@ -1032,6 +1331,7 @@ class PatientControllerIntegrationTest {
             jsonPath("$.page") { value(0) }
             jsonPath("$.limit") { value(20) }
             jsonPath("$.items[0].patientCode") { value(patientCode) }
+            jsonPath("$.items[0].regionName") { isString() }
             jsonPath("$.items[0].lastName") { doesNotExist() }
             jsonPath("$.items[0].firstName") { doesNotExist() }
             jsonPath("$.items[0].middleName") { doesNotExist() }
@@ -2174,6 +2474,35 @@ class PatientControllerIntegrationTest {
             .andExpect {
                 status { isUnauthorized() }
             }
+    }
+
+    /** Telemetry is written asynchronously after commit, so poll briefly. */
+    private fun awaitTelemetry(eventName: String, minCount: Int = 1): List<Map<String, Any?>> {
+        repeat(50) {
+            val rows = telemetryRows(eventName)
+            if (rows.size >= minCount) return rows
+            Thread.sleep(100)
+        }
+        error("Telemetry event $eventName was not recorded")
+    }
+
+    // Row columns plus metadata keys flattened into one map ("source" of metadata goes to "source_meta").
+    private fun telemetryRows(eventName: String): List<Map<String, Any?>> =
+        jdbcTemplate.queryForList(
+            "select *, metadata::text as metadata_json from telemetry_events where event_name = ? order by id",
+            eventName,
+        ).map { row ->
+            val metadata = tools.jackson.databind.json.JsonMapper.builder().build()
+                .readValue(row["metadata_json"] as String, Map::class.java)
+                .entries.associate { (key, value) ->
+                    (if (key == "source") "source_meta" else key as String) to value
+                }
+            row + metadata
+        }
+
+    private fun assertTelemetryDoesNotContain(vararg values: String) {
+        val dump = jdbcTemplate.queryForList("select * from telemetry_events").joinToString { it.toString() }
+        values.forEach { assertFalse(dump.contains(it), "Telemetry must not contain '$it'") }
     }
 
     private fun createDoctor(
