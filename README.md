@@ -5,7 +5,7 @@ Backend — Kotlin/Spring Boot и PostgreSQL 17, frontend — Vue. Ниже — 
 ## 1. Скачать и запустить сайт
 
 1. Установите Git и Docker Desktop с Docker Compose v2. На Windows включите Linux containers и запустите Docker Desktop.
-2. На странице этого репозитория на GitHub нажмите **Code → HTTPS**, скопируйте адрес и выполните `git clone <скопированный-адрес>`. Либо скачайте **Code → Download ZIP** и распакуйте.
+2. На странице репозитория GitHub скопируйте **Code → HTTPS** и выберите ветку с нужной версией. Клонируйте именно её: `git clone --branch <имя-ветки> <скопированный-адрес>`; текущая поставка бэкапов находится в `feature/backups`. Либо выберите эту ветку на GitHub и скачайте **Code → Download ZIP**, затем распакуйте.
 3. Откройте PowerShell в корне проекта — там, где лежит `docker-compose.yml`. Все дальнейшие команды выполняются здесь.
 4. Запустите:
 
