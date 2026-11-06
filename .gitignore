@@ -2,3 +2,4 @@
 /*.iml
 /deploy/.env
 /deploy/.env.local
+/.backup-local/

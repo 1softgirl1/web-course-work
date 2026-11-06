@@ -50,6 +50,55 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  # Backup service: nightly encrypted backups (DB + configs) with a restore check, local rotation and an
+  # object-locked S3 copy and a separate NFS copy; health checks with a heartbeat to the notifier; operator UI.
+  # UI: only on 127.0.0.1:8090 of the server - open through an SSH tunnel (port forwarding).
+  backup:
+    container_name: registry-backup
+    # tini as PID 1 reaps the short-lived processes the scripts start (pg_ctl, aws, ...).
+    init: true
+    build:
+      context: ./deploy/backup
+    environment:
+      TZ: ${BACKUP_TZ:-Asia/Novokuznetsk}
+      PGHOST: postgres
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ${DB_NAME}
+      AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT}
+      S3_ENDPOINT: ${BACKUP_S3_ENDPOINT:-https://storage.yandexcloud.net}
+      S3_BUCKET: ${BACKUP_S3_BUCKET}
+      S3_ACCESS_KEY: ${BACKUP_S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${BACKUP_S3_SECRET_KEY}
+      UI_USER: ${BACKUP_UI_USER:-admin}
+      UI_PASSWORD: ${BACKUP_UI_PASSWORD}
+      NOTIFIER_URL: ${BACKUP_NOTIFIER_URL:-}
+      NOTIFIER_TOKEN: ${BACKUP_NOTIFIER_TOKEN:-}
+      BACKEND_HEALTH_URL: http://registry-backend:8081/actuator/health
+      NFS_ENABLED: ${BACKUP_NFS_ENABLED:-true}
+    networks:
+      - app-network
+    ports:
+      - '127.0.0.1:${BACKUP_UI_PORT:-8090}:8090'
+    volumes:
+      - type: volume
+        source: backups
+        target: /backups
+      # Mount the existing NFS root, not a subdirectory that Docker could create on the local disk.
+      # network-storage additionally checks the filesystem type before any remote operation.
+      - type: bind
+        source: ${BACKUP_NFS_PATH:-/opt1}
+        target: /backup-storage
+        bind:
+          create_host_path: false
+      # Configs that are not in git (or edited on the server) go into every backup, read-only.
+      - ./compose.yaml:/config/compose.yaml:ro
+      - ./prod:/config/prod:ro
+      - ./internal:/config/internal:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 #  pgadmin:
 #    image: dpage/pgadmin4
 #    container_name: registry-pgadmin
@@ -104,6 +153,8 @@ networks:
 volumes:
   postgres-data:
     name: ${COMMON_NAME}_registry-postgres-data
+  backups:
+    name: ${COMMON_NAME}_registry-backups
   pgadmin-data:
     name: ${COMMON_NAME}_registry-pgadmin-data
   web-data:
