@@ -1,0 +1,18 @@
+# Runs on a server OUTSIDE the customer's network, so it can report when that network is down.
+# Put it behind the VPS reverse proxy (HTTPS) at NOTIFIER_URL; the port is bound to localhost only.
+services:
+  notifier:
+    container_name: registry-notifier
+    build: .
+    environment:
+      NOTIFIER_TOKEN: ${NOTIFIER_TOKEN:?shared secret with the backup service}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?}
+      EXPECTED_SOURCES: ${EXPECTED_SOURCES:-registry}
+      SILENCE_MINUTES: ${SILENCE_MINUTES:-5}
+      FAIL_THRESHOLD: ${FAIL_THRESHOLD:-2}
+      PROBE_URLS: ${PROBE_URLS:-https://registry.kemcardio.ru/}
+    ports:
+      - '127.0.0.1:${NOTIFIER_PORT:-8085}:8080'
+    restart: unless-stopped
+    mem_limit: 32m
